@@ -6,7 +6,9 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronRight,
+  Circle,
   ClipboardList,
+  Crown,
   FileText,
   Flame,
   Medal,
@@ -15,6 +17,7 @@ import {
 import { lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 
+import { Avatar } from "../../components/Avatar";
 import { CircularProgress } from "../../components/CircularProgress";
 import { GradientActionCard } from "../../components/GradientActionCard";
 import { LessonList } from "../../components/LessonList";
@@ -33,6 +36,7 @@ import type {
   Paginated,
   Streak,
   StudentDashboard,
+  StudentLeaderboardEntry,
   TestAttempt,
   TestSummary,
   XPTransaction,
@@ -98,6 +102,8 @@ interface ChecklistEntry {
 }
 
 function TaskChecklistCard({ entries }: { entries: ChecklistEntry[] }) {
+  const totalXp = entries.reduce((sum, entry) => sum + entry.maxXp, 0);
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-3 flex items-center gap-2">
@@ -107,30 +113,63 @@ function TaskChecklistCard({ entries }: { entries: ChecklistEntry[] }) {
       {entries.length === 0 ? (
         <EmptyState title="Hozircha yangi vazifa yo'q" />
       ) : (
-        <ul className="space-y-2">
-          {entries.map((entry) => (
-            <li key={entry.key}>
-              <Link
-                to={entry.to}
-                className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-3 py-2.5 transition-colors hover:border-brand-200 hover:bg-brand-50/40 dark:border-slate-800 dark:hover:border-brand-500/30 dark:hover:bg-brand-500/5"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                    <entry.icon size={15} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{entry.title}</p>
-                    <p className="truncate text-xs text-slate-500 dark:text-slate-400">{entry.subtitle}</p>
+        <>
+          <ul className="space-y-2">
+            {entries.map((entry) => (
+              <li key={entry.key}>
+                <Link
+                  to={entry.to}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-3 py-2.5 transition-colors hover:border-brand-200 hover:bg-brand-50/40 dark:border-slate-800 dark:hover:border-brand-500/30 dark:hover:bg-brand-500/5"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Circle size={16} className="shrink-0 text-slate-300 dark:text-slate-600" />
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                      <entry.icon size={15} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{entry.title}</p>
+                      <p className="truncate text-xs text-slate-500 dark:text-slate-400">{entry.subtitle}</p>
+                    </div>
                   </div>
-                </div>
-                <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-                  +{entry.maxXp} XP
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+                  <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                    +{entry.maxXp} XP
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+            {entries.length} ta vazifa qoldi — bajarib, jami{" "}
+            <span className="font-semibold text-brand-600 dark:text-brand-400">{totalXp} XP</span> to'plashingiz mumkin.
+          </p>
+        </>
       )}
+    </div>
+  );
+}
+
+function TopStudentCard({ entry }: { entry: StudentLeaderboardEntry }) {
+  return (
+    <div className="rounded-2xl border border-amber-200/60 bg-gradient-to-br from-amber-50 via-white to-white p-5 dark:border-amber-500/20 dark:from-amber-500/10 dark:via-slate-900 dark:to-slate-900">
+      <div className="mb-3 flex items-center gap-2">
+        <Crown size={16} className="text-amber-500" />
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Reyting yetakchisi</h2>
+      </div>
+      <div className="flex items-center gap-3">
+        <Avatar name={entry.name} size={44} />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-50">{entry.name}</p>
+          <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+            {entry.school_class_name ?? "Sinfsiz"} · {entry.total_xp} XP
+          </p>
+        </div>
+      </div>
+      <Link
+        to="/student/leaderboard"
+        className="mt-4 flex items-center justify-center gap-1 rounded-xl border border-amber-200 py-2 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-50 dark:border-amber-500/30 dark:text-amber-300 dark:hover:bg-amber-500/10"
+      >
+        To'liq reytingni ko'rish <ChevronRight className="h-3.5 w-3.5" />
+      </Link>
     </div>
   );
 }
@@ -169,6 +208,10 @@ export function StudentDashboardPage() {
   const { data: activities } = useQuery({
     queryKey: ["activities", "student"],
     queryFn: async () => (await api.get<Paginated<ActivitySummary>>("/activities/")).data,
+  });
+  const { data: topStudents } = useQuery({
+    queryKey: ["leaderboard", "students"],
+    queryFn: async () => (await api.get<StudentLeaderboardEntry[]>("/leaderboard/students/")).data,
   });
 
   const attemptedTestIds = new Set((attempts?.results ?? []).map((a) => a.test));
@@ -348,6 +391,8 @@ export function StudentDashboardPage() {
         </div>
 
         <div className="space-y-6">
+          {topStudents && topStudents.length > 0 && <TopStudentCard entry={topStudents[0]} />}
+
           <TaskChecklistCard entries={checklistEntries} />
 
           {totalTestCount > 0 && (
