@@ -118,8 +118,9 @@ function AddQuestionForm({
         { text: "", is_correct: false },
       ]);
       onDone();
-    } catch {
-      setError("Saqlashda xatolik.");
+    } catch (err) {
+      const detail = (err as { response?: { data?: Record<string, string[]> } })?.response?.data;
+      setError(detail ? Object.values(detail).flat().join(" ") : "Saqlashda xatolik.");
     } finally {
       setPending(false);
     }
@@ -203,11 +204,24 @@ function TestManager({ test }: { test: TestSummary }) {
       </div>
 
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Savollar ({questions?.length ?? 0})</h3>
+        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          Savollar ({questions?.length ?? 0}
+          {test.max_questions != null && ` / ${test.max_questions}`})
+        </h3>
+        {test.max_questions != null && (
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Bu fan shu sinfda haftasiga kamdan-kam o'tiladi — test uchun ko'pi bilan {test.max_questions} ta savol
+            belgilangan.
+          </p>
+        )}
         {questions?.map((question) => (
           <QuestionRow key={question.id} question={question} onChanged={refetch} />
         ))}
-        {showAddQuestion ? (
+        {test.max_questions != null && (questions?.length ?? 0) >= test.max_questions ? (
+          <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+            Savollar shablon chegarasiga yetdi ({test.max_questions} ta).
+          </p>
+        ) : showAddQuestion ? (
           <AddQuestionForm
             testId={test.id}
             nextOrder={(questions?.length ?? 0) + 1}

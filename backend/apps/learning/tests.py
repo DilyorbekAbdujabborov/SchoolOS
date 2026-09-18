@@ -8,6 +8,7 @@ from apps.common.testing import (
     make_student,
     make_subject,
     make_teacher,
+    make_timetable_slot,
 )
 from apps.gamification.models import XPTransaction
 
@@ -200,6 +201,64 @@ class TestSubmitAPITests(APITestCase):
         self.client.force_authenticate(self.teacher_user)
         teacher_response = self.client.get("/api/tests/")
         self.assertEqual(teacher_response.data["count"], 1)
+
+
+class QuestionCapAPITests(APITestCase):
+    """A subject that meets ≤2x/week in a class gets a standard 10-question cap."""
+
+    def setUp(self):
+        self.subject = make_subject()
+        self.teacher_user, self.teacher = make_teacher()
+        self.school_class = make_school_class()
+
+    def _add_question(self, test):
+        return self.client.post(
+            "/api/questions/", {"test": test.id, "text": "Savol?", "order": 1}, format="json"
+        )
+
+    def test_capped_at_ten_when_subject_meets_twice_a_week(self):
+        make_timetable_slot(
+            school_class=self.school_class, subject=self.subject, teacher=self.teacher, period_number=1
+        )
+        make_timetable_slot(
+            school_class=self.school_class, subject=self.subject, teacher=self.teacher, period_number=2
+        )
+        test = Test.objects.create(
+            title="Ona tili", subject=self.subject, school_class=self.school_class, teacher=self.teacher
+        )
+        for order in range(1, 11):
+            Question.objects.create(test=test, text=f"Savol {order}", order=order)
+
+        self.client.force_authenticate(self.teacher_user)
+        response = self._add_question(test)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(test.questions.count(), 10)
+
+    def test_no_cap_when_subject_meets_more_than_twice_a_week(self):
+        for period in (1, 2, 3):
+            make_timetable_slot(
+                school_class=self.school_class, subject=self.subject, teacher=self.teacher, period_number=period
+            )
+        test = Test.objects.create(
+            title="Matematika", subject=self.subject, school_class=self.school_class, teacher=self.teacher
+        )
+        for order in range(1, 11):
+            Question.objects.create(test=test, text=f"Savol {order}", order=order)
+
+        self.client.force_authenticate(self.teacher_user)
+        response = self._add_question(test)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_no_cap_when_no_timetable_slots_exist_yet(self):
+        test = Test.objects.create(
+            title="Tarix", subject=self.subject, school_class=self.school_class, teacher=self.teacher
+        )
+        for order in range(1, 11):
+            Question.objects.create(test=test, text=f"Savol {order}", order=order)
+
+        self.client.force_authenticate(self.teacher_user)
+        response = self._add_question(test)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
 
 class GradeSubmissionTests(TestCase):

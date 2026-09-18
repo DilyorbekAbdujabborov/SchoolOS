@@ -231,6 +231,8 @@ export interface TestSummary {
   max_xp: number;
   is_published: boolean;
   question_count: number;
+  /** Cap on question count for subjects that meet rarely (≤2x/week) in this class — null = no cap. */
+  max_questions: number | null;
   created_at: string;
 }
 

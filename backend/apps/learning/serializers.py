@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.academics.models import TimetableSlot
+
 from .models import (
     Activity,
     ActivityResult,
@@ -9,6 +11,11 @@ from .models import (
     Test,
     TestAttempt,
 )
+
+# A subject that only meets this many times a week (or fewer) in a class gets a
+# capped, standard-size test instead of an open-ended one — see `QuestionWriteSerializer`.
+LOW_FREQUENCY_WEEKLY_LESSON_THRESHOLD = 2
+LOW_FREQUENCY_QUESTION_CAP = 10
 
 
 class OptionSerializer(serializers.ModelSerializer):
@@ -53,11 +60,24 @@ class QuestionWriteSerializer(serializers.ModelSerializer):
 
     def validate_test(self, value):
         user = self.context["request"].user
-        if user.is_director:
-            return value
-        profile = getattr(user, "teacher_profile", None)
-        if not profile or value.teacher_id != profile.pk:
-            raise serializers.ValidationError("You do not own this test.")
+        if not user.is_director:
+            profile = getattr(user, "teacher_profile", None)
+            if not profile or value.teacher_id != profile.pk:
+                raise serializers.ValidationError("You do not own this test.")
+
+        # Only a new question can trip the cap — editing an existing one doesn't add to the count.
+        if self.instance is None:
+            weekly_lessons = TimetableSlot.objects.filter(
+                school_class=value.school_class, subject=value.subject
+            ).count()
+            if (
+                0 < weekly_lessons <= LOW_FREQUENCY_WEEKLY_LESSON_THRESHOLD
+                and value.questions.count() >= LOW_FREQUENCY_QUESTION_CAP
+            ):
+                raise serializers.ValidationError(
+                    f"Bu fan shu sinfda haftasiga {weekly_lessons} marta o'tiladi — "
+                    f"test uchun ko'pi bilan {LOW_FREQUENCY_QUESTION_CAP} ta savol qo'shish mumkin."
+                )
         return value
 
 
@@ -66,6 +86,7 @@ class TestListSerializer(serializers.ModelSerializer):
     school_class_name = serializers.CharField(source="school_class.name", read_only=True)
     teacher_name = serializers.SerializerMethodField()
     question_count = serializers.IntegerField(source="questions.count", read_only=True)
+    max_questions = serializers.SerializerMethodField()
 
     class Meta:
         model = Test
@@ -81,11 +102,21 @@ class TestListSerializer(serializers.ModelSerializer):
             "max_xp",
             "is_published",
             "question_count",
+            "max_questions",
             "created_at",
         )
 
     def get_teacher_name(self, obj) -> str:
         return str(obj.teacher)
+
+    def get_max_questions(self, obj) -> int | None:
+        """None = no cap. Otherwise the low-weekly-frequency cap (see `QuestionWriteSerializer`)."""
+        weekly_lessons = TimetableSlot.objects.filter(
+            school_class_id=obj.school_class_id, subject_id=obj.subject_id
+        ).count()
+        if 0 < weekly_lessons <= LOW_FREQUENCY_WEEKLY_LESSON_THRESHOLD:
+            return LOW_FREQUENCY_QUESTION_CAP
+        return None
 
 
 class TestDetailSerializer(TestListSerializer):
