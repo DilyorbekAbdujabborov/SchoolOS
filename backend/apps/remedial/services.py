@@ -1,10 +1,9 @@
 import json
 import logging
 
-import requests
-from django.conf import settings
 from django.utils import timezone
 
+from apps.common.gemini import call_gemini
 from apps.gamification.models import XPTransaction
 from apps.gamification.services import award_xp
 
@@ -14,8 +13,6 @@ logger = logging.getLogger(__name__)
 
 REMEDIAL_QUESTION_COUNT = 6
 MAX_REMEDIAL_XP = 20
-
-_GEMINI_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 
 def maybe_start_remedial_session(attempt) -> RemedialSession | None:
@@ -31,44 +28,6 @@ def maybe_start_remedial_session(attempt) -> RemedialSession | None:
         defaults={"student": attempt.student, "subject": attempt.test.subject},
     )
     return session
-
-
-def _call_gemini(*, prompt: str, json_mode: bool = False) -> str | None:
-    """Plain synchronous call to the Gemini `generateContent` API. Never
-    raises — logs and returns None on any failure, the same "fail quiet"
-    contract as `apps.telegram_bot.services.send_telegram_message`.
-    """
-    api_key = settings.GEMINI_API_KEY
-    if not api_key:
-        logger.warning("GEMINI_API_KEY is not set — cannot call Gemini.")
-        return None
-
-    generation_config = {"temperature": 0.7}
-    if json_mode:
-        generation_config["responseMimeType"] = "application/json"
-
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": generation_config,
-    }
-    url = _GEMINI_URL_TEMPLATE.format(model=settings.GEMINI_MODEL)
-
-    try:
-        response = requests.post(
-            url,
-            params={"key": api_key},
-            headers={"Content-Type": "application/json"},
-            json=payload,
-            timeout=30,
-        )
-        response.raise_for_status()
-        return response.json()["candidates"][0]["content"]["parts"][0]["text"]
-    except requests.RequestException:
-        logger.warning("Gemini request failed.")
-        return None
-    except (KeyError, IndexError, ValueError):
-        logger.warning("Unexpected Gemini response shape.")
-        return None
 
 
 def generate_explanation(session: RemedialSession) -> str | None:
@@ -91,7 +50,7 @@ def generate_explanation(session: RemedialSession) -> str | None:
         "ohangda yozing. Faqat tushuntirish matnini yoz, boshqa hech narsa qo'shma."
     )
 
-    content = _call_gemini(prompt=prompt)
+    content = call_gemini(prompt=prompt)
     if content is None:
         return None
 
@@ -119,7 +78,7 @@ def generate_game_questions(session: RemedialSession) -> list[dict] | None:
         "Hammasi o'zbek tilida bo'lsin."
     )
 
-    content = _call_gemini(prompt=prompt, json_mode=True)
+    content = call_gemini(prompt=prompt, json_mode=True)
     if content is None:
         return None
 
