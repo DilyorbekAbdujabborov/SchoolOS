@@ -8,6 +8,7 @@ from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.common.permissions import IsStudent
+from apps.remedial.services import maybe_start_remedial_session
 
 from . import services
 from .models import Activity, ActivitySubmission, Option, Question, Test, TestAttempt
@@ -124,7 +125,11 @@ class TestViewSet(viewsets.ModelViewSet):
         except ValueError as exc:
             raise ValidationError(str(exc)) from exc
 
-        return Response(TestAttemptResultSerializer(attempt).data)
+        remedial_session = maybe_start_remedial_session(attempt)
+
+        data = TestAttemptResultSerializer(attempt).data
+        data["remedial_session_id"] = remedial_session.id if remedial_session else None
+        return Response(data)
 
 
 class QuestionViewSet(viewsets.ModelViewSet):

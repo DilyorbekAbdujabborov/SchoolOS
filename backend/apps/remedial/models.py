@@ -1,0 +1,47 @@
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+from apps.common.models import TimeStampedModel
+
+LOW_SCORE_THRESHOLD = 50.0
+
+
+class RemedialSession(TimeStampedModel):
+    """Triggered automatically when a student scores below `LOW_SCORE_THRESHOLD`
+    on a `Test` — an AI-tutor explanation of the topic, followed by a short
+    AI-generated "tug of war" practice game on the same material. The game's
+    questions are ephemeral (AI-generated per session), so they're kept as a
+    JSON snapshot rather than normalized rows in the permanent question bank.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", _("Pending")
+        EXPLAINED = "EXPLAINED", _("Explained")
+        COMPLETED = "COMPLETED", _("Completed")
+
+    student = models.ForeignKey(
+        "users.StudentProfile", verbose_name=_("student"), related_name="remedial_sessions",
+        on_delete=models.CASCADE,
+    )
+    attempt = models.ForeignKey(
+        "learning.TestAttempt", verbose_name=_("test attempt"), related_name="remedial_sessions",
+        on_delete=models.CASCADE,
+    )
+    subject = models.ForeignKey(
+        "academics.Subject", verbose_name=_("subject"), related_name="+", on_delete=models.CASCADE
+    )
+    status = models.CharField(_("status"), max_length=20, choices=Status.choices, default=Status.PENDING)
+    explanation = models.TextField(_("AI explanation"), blank=True)
+    # [{"text": str, "options": [str, ...], "correct_index": int}, ...] — see services.generate_game_questions.
+    questions = models.JSONField(_("game questions"), default=list, blank=True)
+    score_percent = models.FloatField(_("game score (%)"), null=True, blank=True)
+    xp_awarded = models.PositiveSmallIntegerField(_("XP awarded"), null=True, blank=True)
+    completed_at = models.DateTimeField(_("completed at"), null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("remedial session")
+        verbose_name_plural = _("remedial sessions")
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"{self.student} — {self.subject} ({self.status})"

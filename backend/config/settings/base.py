@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "apps.gamification",
     "apps.tasks",
     "apps.duels",
+    "apps.remedial",
 ]
 
 MIDDLEWARE = [
@@ -170,6 +171,10 @@ CORS_ALLOW_CREDENTIALS = True
 # ---------- Telegram bot ----------
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
 TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME", default="")
+
+# ---------- OpenAI (apps.remedial — AI tutor + practice game) ----------
+OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
+OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini")
 
 # ---------- Cache ----------
 CACHES = {

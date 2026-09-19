@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, PartyPopper } from "lucide-react";
+import { ChevronLeft, PartyPopper, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
@@ -209,6 +209,24 @@ function TestResult({
         <p className="text-4xl font-bold tabular-nums text-emerald-700 dark:text-emerald-400">{animatedScore}%</p>
         <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">+{animatedXp} XP qo'lga kiritdingiz!</p>
       </div>
+
+      {finished.remedial_session_id && (
+        <div className="animate-pop-in rounded-2xl border border-violet-200 bg-violet-50 p-5 text-left dark:border-violet-500/30 dark:bg-violet-500/10">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 shrink-0 text-violet-600 dark:text-violet-400" />
+            <p className="font-semibold text-violet-700 dark:text-violet-300">Bu mavzuni birga mustahkamlaymizmi?</p>
+          </div>
+          <p className="mt-1 text-sm text-violet-700/80 dark:text-violet-300/80">
+            Natijangiz past bo'ldi — AI ustoz mavzuni tushuntirib beradi, keyin arqon tortish o'yinida mashq qilasiz.
+          </p>
+          <Link
+            to={`/student/remedial/${finished.remedial_session_id}`}
+            className="mt-3 inline-flex items-center gap-1 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+          >
+            Mashq qilishni boshlash
+          </Link>
+        </div>
+      )}
 
       {leveledUp && (
         <div className="animate-pop-in rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-500/30 dark:bg-brand-500/10">

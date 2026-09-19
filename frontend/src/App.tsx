@@ -49,6 +49,7 @@ import { StudentDuelsPage } from "./pages/student/DuelsPage";
 import { StudentLeaderboardPage } from "./pages/student/LeaderboardPage";
 import { StudentLessonsPage } from "./pages/student/LessonsPage";
 import { StudentProfilePage } from "./pages/student/ProfilePage";
+import { StudentRemedialPage } from "./pages/student/RemedialPage";
 import { StudentStreakPage } from "./pages/student/StreakPage";
 import { StudentTestTakingPage } from "./pages/student/TestTakingPage";
 import { StudentTestsPage } from "./pages/student/TestsPage";
@@ -187,6 +188,7 @@ export default function App() {
         <Route path="attendance" element={<StudentAttendancePage />} />
         <Route path="tests" element={<StudentTestsPage />} />
         <Route path="tests/:id" element={<StudentTestTakingPage />} />
+        <Route path="remedial/:id" element={<StudentRemedialPage />} />
         <Route path="activities" element={<StudentActivitiesPage />} />
         <Route path="duels" element={<StudentDuelsPage />} />
         <Route path="duels/:id" element={<StudentDuelTakingPage />} />

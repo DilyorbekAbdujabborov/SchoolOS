@@ -258,6 +258,9 @@ export interface TestAttempt {
   submitted_at: string | null;
   score_percent: number | null;
   xp_awarded: number | null;
+  /** Present only on the `submit` response — set when the score was low enough
+   * to auto-open an AI-assisted practice session (see `RemedialSession`). */
+  remedial_session_id?: number | null;
 }
 
 // ---------- Learning: activities ----------
@@ -445,4 +448,29 @@ export interface DuelRatingInfo {
   win_rate: number;
   student_name?: string;
   school_class_name?: string | null;
+}
+
+// ---------- Remedial (AI tutor + practice game after a low test score) ----------
+
+export type RemedialStatus = "PENDING" | "EXPLAINED" | "COMPLETED";
+
+export interface RemedialSession {
+  id: number;
+  attempt: number;
+  subject: number;
+  subject_name: string;
+  test_title: string;
+  status: RemedialStatus;
+  explanation: string;
+  question_count: number;
+  score_percent: number | null;
+  xp_awarded: number | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+/** Answer-free, same principle as `TestQuestion` — no `correct_index` until after submit. */
+export interface RemedialGameQuestion {
+  text: string;
+  options: string[];
 }

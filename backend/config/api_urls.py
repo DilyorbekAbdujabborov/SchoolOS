@@ -22,4 +22,5 @@ urlpatterns = [
     path("", include("apps.gamification.urls")),
     path("", include("apps.tasks.urls")),
     path("", include("apps.duels.urls")),
+    path("", include("apps.remedial.urls")),
 ]
