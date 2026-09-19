@@ -16,7 +16,11 @@ from apps.users.models import StudentProfile
 from . import services
 from .filters import AttendanceFilter
 from .models import Attendance
-from .serializers import AttendanceSerializer, BulkMarkAttendanceSerializer
+from .serializers import (
+    AttendanceRosterSerializer,
+    AttendanceSerializer,
+    BulkMarkAttendanceSerializer,
+)
 
 
 class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
@@ -99,6 +103,11 @@ class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
             student_ids = day_records.filter(status=status).values_list("student_id", flat=True).distinct()
             return StudentProfile.objects.filter(id__in=student_ids).select_related("user")
 
+        # Only staff (teacher/director) see a parent's phone number here — a
+        # student viewing their own class's summary must not see classmates'.
+        is_staff_viewer = request.user.is_director or request.user.is_teacher
+        roster_serializer = AttendanceRosterSerializer if is_staff_viewer else StudentRosterSerializer
+
         return Response(
             {
                 "class_id": school_class.id,
@@ -109,10 +118,10 @@ class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
                 "late": counts[Attendance.Status.LATE],
                 "absent": counts[Attendance.Status.ABSENT],
                 "excused": counts[Attendance.Status.EXCUSED],
-                "absent_students": StudentRosterSerializer(
+                "absent_students": roster_serializer(
                     _students_with_status(Attendance.Status.ABSENT), many=True
                 ).data,
-                "late_students": StudentRosterSerializer(
+                "late_students": roster_serializer(
                     _students_with_status(Attendance.Status.LATE), many=True
                 ).data,
             }

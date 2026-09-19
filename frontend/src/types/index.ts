@@ -132,6 +132,13 @@ export interface TimetableSlot {
   room: string;
 }
 
+/** Same shape as `RosterStudent`, plus a parent phone number — only present
+ * when the viewer is a teacher/director, never for a student viewing their
+ * own class (see `AttendanceRosterSerializer` vs `StudentRosterSerializer`). */
+export interface AttendanceRosterStudent extends RosterStudent {
+  parent_phone_number?: string;
+}
+
 export interface ClassAttendanceSummary {
   class_id: number;
   class_name: string;
@@ -141,8 +148,8 @@ export interface ClassAttendanceSummary {
   late: number;
   absent: number;
   excused: number;
-  absent_students: RosterStudent[];
-  late_students: RosterStudent[];
+  absent_students: AttendanceRosterStudent[];
+  late_students: AttendanceRosterStudent[];
 }
 
 export type AttendanceStatus = "PRESENT" | "LATE" | "ABSENT" | "EXCUSED";

@@ -1,12 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
+import { Phone, X } from "lucide-react";
 import { useState } from "react";
 
+import { Badge } from "../../components/Badge";
 import { Field, Input, Select } from "../../components/form";
 import { StatCard } from "../../components/StatCard";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
 import { api } from "../../lib/api";
-import type { AttendanceRecord, ClassAttendanceSummary, Paginated, SchoolClass } from "../../types";
+import type {
+  AttendanceRecord,
+  AttendanceRosterStudent,
+  AttendanceStatus,
+  ClassAttendanceSummary,
+  Paginated,
+  SchoolClass,
+} from "../../types";
 
 const STATUS_LABEL: Record<string, string> = {
   PRESENT: "Keldi",
@@ -15,13 +24,50 @@ const STATUS_LABEL: Record<string, string> = {
   EXCUSED: "Sababli",
 };
 
+const STATUS_TONE: Record<AttendanceStatus, "emerald" | "amber" | "red" | "slate"> = {
+  PRESENT: "emerald",
+  LATE: "amber",
+  ABSENT: "red",
+  EXCUSED: "slate",
+};
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
+}
+
+type RosterFilter = "LATE" | "ABSENT" | null;
+
+function StudentRosterList({ students }: { students: AttendanceRosterStudent[] }) {
+  if (students.length === 0) {
+    return <p className="px-5 py-4 text-sm text-slate-400 dark:text-slate-500">Ro'yxat bo'sh.</p>;
+  }
+  return (
+    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+      {students.map((student) => (
+        <div key={student.id} className="flex items-center justify-between gap-3 px-5 py-3">
+          <span className="font-medium text-slate-800 dark:text-slate-100">{student.full_name}</span>
+          {student.parent_phone_number ? (
+            <a
+              href={`tel:${student.parent_phone_number}`}
+              className="flex items-center gap-1.5 text-sm text-brand-600 hover:underline dark:text-brand-400"
+            >
+              <Phone className="h-3.5 w-3.5" /> {student.parent_phone_number}
+            </a>
+          ) : (
+            <span className="text-sm text-slate-400 dark:text-slate-500">
+              Ota-ona raqami kiritilmagan
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function AttendancePage() {
   const [selectedClass, setSelectedClass] = useState("");
   const [date, setDate] = useState(todayIso());
+  const [rosterFilter, setRosterFilter] = useState<RosterFilter>(null);
 
   const { data: classes } = useQuery({
     queryKey: ["classes"],
@@ -57,7 +103,10 @@ export function AttendancePage() {
         <Field label="Sinf">
           <Select
             value={selectedClass}
-            onChange={(e) => setSelectedClass(e.target.value)}
+            onChange={(e) => {
+              setSelectedClass(e.target.value);
+              setRosterFilter(null);
+            }}
             className="min-w-[160px]"
           >
             <option value="">Barcha sinflar</option>
@@ -72,7 +121,10 @@ export function AttendancePage() {
           <Input
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => {
+              setDate(e.target.value);
+              setRosterFilter(null);
+            }}
             className="min-w-[160px]"
           />
         </Field>
@@ -81,13 +133,46 @@ export function AttendancePage() {
       {selectedClass && summaryQuery.isLoading && <LoadingState />}
       {selectedClass && summaryQuery.isError && <ErrorState />}
       {selectedClass && summaryQuery.data && (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-          <StatCard label="Jami o'quvchi" value={summaryQuery.data.total_students} />
-          <StatCard label="Keldi" value={summaryQuery.data.present} />
-          <StatCard label="Kechikdi" value={summaryQuery.data.late} />
-          <StatCard label="Kelmadi" value={summaryQuery.data.absent} />
-          <StatCard label="Sababli" value={summaryQuery.data.excused} />
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+            <StatCard label="Jami o'quvchi" value={summaryQuery.data.total_students} />
+            <StatCard label="Keldi" value={summaryQuery.data.present} />
+            <StatCard
+              label="Kechikdi"
+              value={summaryQuery.data.late}
+              onClick={() => setRosterFilter(rosterFilter === "LATE" ? null : "LATE")}
+            />
+            <StatCard
+              label="Kelmadi"
+              value={summaryQuery.data.absent}
+              onClick={() => setRosterFilter(rosterFilter === "ABSENT" ? null : "ABSENT")}
+            />
+            <StatCard label="Sababli" value={summaryQuery.data.excused} />
+          </div>
+
+          {rosterFilter && (
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-slate-800">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  {rosterFilter === "LATE" ? "Kechikkanlar" : "Kelmaganlar"}
+                </h3>
+                <button
+                  onClick={() => setRosterFilter(null)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <StudentRosterList
+                students={
+                  rosterFilter === "LATE"
+                    ? summaryQuery.data.late_students
+                    : summaryQuery.data.absent_students
+                }
+              />
+            </div>
+          )}
+        </>
       )}
 
       <div>
@@ -115,8 +200,10 @@ export function AttendancePage() {
                   <Td className="text-slate-700 dark:text-slate-200">{record.student_name}</Td>
                   <Td className="text-slate-700 dark:text-slate-200">{record.school_class_name}</Td>
                   <Td className="text-slate-700 dark:text-slate-200">{record.subject_name}</Td>
-                  <Td className="text-slate-700 dark:text-slate-200">
-                    {STATUS_LABEL[record.status] ?? record.status}
+                  <Td>
+                    <Badge tone={STATUS_TONE[record.status]}>
+                      {STATUS_LABEL[record.status] ?? record.status}
+                    </Badge>
                   </Td>
                 </Tr>
               ))}

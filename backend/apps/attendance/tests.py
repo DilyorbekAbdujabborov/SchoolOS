@@ -302,3 +302,30 @@ class ClassSummaryAPITests(APITestCase):
         self.assertEqual([s["id"] for s in response.data["absent_students"]], [self.student_b.id])
         self.assertEqual([s["id"] for s in response.data["late_students"]], [self.student_c.id])
         self.assertIn("full_name", response.data["absent_students"][0])
+
+    def test_teacher_sees_parent_phone_number_in_roster(self):
+        self.student_b.parent_phone_number = "+998901234567"
+        self.student_b.save()
+
+        self.client.force_authenticate(self.teacher_user)
+        response = self._get()
+
+        self.assertEqual(response.data["absent_students"][0]["parent_phone_number"], "+998901234567")
+
+    def test_director_sees_parent_phone_number_in_roster(self):
+        self.student_b.parent_phone_number = "+998901234567"
+        self.student_b.save()
+
+        self.client.force_authenticate(make_director())
+        response = self._get()
+
+        self.assertEqual(response.data["absent_students"][0]["parent_phone_number"], "+998901234567")
+
+    def test_student_does_not_see_parent_phone_number_in_roster(self):
+        self.student_b.parent_phone_number = "+998901234567"
+        self.student_b.save()
+
+        self.client.force_authenticate(self.student_user)
+        response = self._get()
+
+        self.assertNotIn("parent_phone_number", response.data["absent_students"][0])

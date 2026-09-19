@@ -17,14 +17,17 @@ interface StatCardProps {
   hint?: string;
   /** When set, the whole card becomes a link — for stats that lead somewhere. */
   to?: string;
+  /** When set instead of `to`, the card becomes a button — for stats that
+   * drill down in place (e.g. expanding a list) rather than navigating. */
+  onClick?: () => void;
   icon?: LucideIcon;
   tone?: StatCardTone;
 }
 
-export function StatCard({ label, value, hint, to, icon: Icon, tone = "brand" }: StatCardProps) {
+export function StatCard({ label, value, hint, to, onClick, icon: Icon, tone = "brand" }: StatCardProps) {
   const className =
-    "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900" +
-    (to
+    "rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm dark:border-slate-800 dark:bg-slate-900" +
+    (to || onClick
       ? " transition-colors hover:border-brand-200 hover:bg-brand-50/40 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/5"
       : "");
 
@@ -48,6 +51,14 @@ export function StatCard({ label, value, hint, to, icon: Icon, tone = "brand" }:
       <Link to={to} className={className}>
         {content}
       </Link>
+    );
+  }
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={`w-full ${className}`}>
+        {content}
+      </button>
     );
   }
 

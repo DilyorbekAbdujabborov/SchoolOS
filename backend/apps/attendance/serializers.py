@@ -38,6 +38,22 @@ class AttendanceSerializer(serializers.ModelSerializer):
         return str(obj.marked_by) if obj.marked_by else None
 
 
+class AttendanceRosterSerializer(serializers.ModelSerializer):
+    """Absent/late roster entries for `class-summary` — includes the parent's
+    phone number, unlike `StudentRosterSerializer`, since this is only ever
+    shown to the class's own teachers/director, never to classmates."""
+
+    full_name = serializers.SerializerMethodField()
+    email = serializers.EmailField(source="user.email")
+
+    class Meta:
+        model = StudentProfile
+        fields = ("id", "full_name", "email", "parent_phone_number")
+
+    def get_full_name(self, obj) -> str:
+        return obj.user.get_full_name() or obj.user.username
+
+
 class AttendanceRecordInputSerializer(serializers.Serializer):
     student = serializers.PrimaryKeyRelatedField(queryset=StudentProfile.objects.all())
     status = serializers.ChoiceField(choices=Attendance.Status.choices)
