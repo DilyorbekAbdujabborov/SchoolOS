@@ -8,6 +8,7 @@ from .models import SchoolClass
 class SchoolClassSerializer(serializers.ModelSerializer):
     class_teacher_name = serializers.SerializerMethodField()
     students_count = serializers.SerializerMethodField()
+    is_my_homeroom = serializers.SerializerMethodField()
 
     class Meta:
         model = SchoolClass
@@ -18,6 +19,7 @@ class SchoolClassSerializer(serializers.ModelSerializer):
             "class_teacher_name",
             "students_count",
             "total_xp",
+            "is_my_homeroom",
         )
         read_only_fields = ("total_xp",)
 
@@ -26,6 +28,16 @@ class SchoolClassSerializer(serializers.ModelSerializer):
 
     def get_students_count(self, obj) -> int:
         return obj.students.count()
+
+    def get_is_my_homeroom(self, obj) -> bool:
+        """True when the requesting teacher leads this class — lets the frontend
+        pull a teacher's own homeroom class out from the ones they just teach in.
+        """
+        request = self.context.get("request")
+        if request is None:
+            return False
+        profile = getattr(request.user, "teacher_profile", None)
+        return bool(profile and obj.class_teacher_id == profile.pk)
 
 
 class StudentRosterSerializer(serializers.ModelSerializer):

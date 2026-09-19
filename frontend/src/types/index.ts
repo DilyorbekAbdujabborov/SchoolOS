@@ -94,6 +94,8 @@ export interface SchoolClass {
   class_teacher_name: string | null;
   students_count: number;
   total_xp: number;
+  /** True when the requesting teacher leads this class (vs. just teaching a lesson in it). */
+  is_my_homeroom: boolean;
 }
 
 export interface Subject {
@@ -139,6 +141,8 @@ export interface ClassAttendanceSummary {
   late: number;
   absent: number;
   excused: number;
+  absent_students: RosterStudent[];
+  late_students: RosterStudent[];
 }
 
 export type AttendanceStatus = "PRESENT" | "LATE" | "ABSENT" | "EXCUSED";

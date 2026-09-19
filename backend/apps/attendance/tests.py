@@ -183,6 +183,10 @@ class ClassSummaryAPITests(APITestCase):
         Attendance.objects.create(
             lesson=self.lesson, student=self.student_b, status=Attendance.Status.ABSENT
         )
+        _, self.student_c = make_student(self.school_class)
+        Attendance.objects.create(
+            lesson=self.lesson, student=self.student_c, status=Attendance.Status.LATE
+        )
 
     def _get(self):
         return self.client.get(
@@ -196,7 +200,7 @@ class ClassSummaryAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["present"], 1)
         self.assertEqual(response.data["absent"], 1)
-        self.assertEqual(response.data["late"], 0)
+        self.assertEqual(response.data["late"], 1)
 
     def test_unrelated_teacher_forbidden(self):
         self.client.force_authenticate(self.other_teacher_user)
@@ -207,3 +211,11 @@ class ClassSummaryAPITests(APITestCase):
         self.client.force_authenticate(self.student_user)
         response = self._get()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_absent_and_late_students_are_named(self):
+        self.client.force_authenticate(self.teacher_user)
+        response = self._get()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([s["id"] for s in response.data["absent_students"]], [self.student_b.id])
+        self.assertEqual([s["id"] for s in response.data["late_students"]], [self.student_c.id])
+        self.assertIn("full_name", response.data["absent_students"][0])

@@ -10,6 +10,8 @@ from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.schools.models import SchoolClass
+from apps.schools.serializers import StudentRosterSerializer
+from apps.users.models import StudentProfile
 
 from . import services
 from .filters import AttendanceFilter
@@ -79,9 +81,14 @@ class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
         if target_date is None:
             raise ValidationError({"date": "Use YYYY-MM-DD format."})
 
-        counts = services.count_by_status(
-            Attendance.objects.filter(lesson__school_class=school_class, lesson__date=target_date)
+        day_records = Attendance.objects.filter(
+            lesson__school_class=school_class, lesson__date=target_date
         )
+        counts = services.count_by_status(day_records)
+
+        def _students_with_status(status: str):
+            student_ids = day_records.filter(status=status).values_list("student_id", flat=True).distinct()
+            return StudentProfile.objects.filter(id__in=student_ids).select_related("user")
 
         return Response(
             {
@@ -93,6 +100,12 @@ class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
                 "late": counts[Attendance.Status.LATE],
                 "absent": counts[Attendance.Status.ABSENT],
                 "excused": counts[Attendance.Status.EXCUSED],
+                "absent_students": StudentRosterSerializer(
+                    _students_with_status(Attendance.Status.ABSENT), many=True
+                ).data,
+                "late_students": StudentRosterSerializer(
+                    _students_with_status(Attendance.Status.LATE), many=True
+                ).data,
             }
         )
 
