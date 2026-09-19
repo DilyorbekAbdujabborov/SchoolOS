@@ -9,6 +9,7 @@ import {
   FileText,
   Flame,
   GraduationCap,
+  HelpCircle,
   LayoutDashboard,
   School,
   Send,
@@ -21,6 +22,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { LoadingState } from "./components/states";
 import { useAuth } from "./lib/auth";
+import { GuidePage } from "./pages/GuidePage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { DirectorAchievementsPage } from "./pages/director/AchievementsPage";
@@ -75,6 +77,7 @@ const DIRECTOR_NAV = [
   { to: "/director/notifications", label: "Bildirishnomalar", icon: Bell },
   { to: "/director/profile", label: "Profil", icon: UserCircle },
   { to: "/director/settings", label: "Sozlamalar", icon: Settings },
+  { to: "/director/guide", label: "Qo'llanma", icon: HelpCircle },
 ];
 
 const TEACHER_NAV = [
@@ -88,6 +91,7 @@ const TEACHER_NAV = [
   { to: "/teacher/xp", label: "XP", icon: Trophy },
   { to: "/teacher/notifications", label: "Bildirishnomalar", icon: Bell },
   { to: "/teacher/profile", label: "Profil", icon: UserCircle },
+  { to: "/teacher/guide", label: "Qo'llanma", icon: HelpCircle },
 ];
 
 const STUDENT_NAV = [
@@ -103,6 +107,7 @@ const STUDENT_NAV = [
   { to: "/student/streak", label: "Seriya", icon: Flame },
   { to: "/student/notifications", label: "Bildirishnomalar", icon: Bell },
   { to: "/student/profile", label: "Profil", icon: UserCircle },
+  { to: "/student/guide", label: "Qo'llanma", icon: HelpCircle },
 ];
 
 function HomeRedirect() {
@@ -140,6 +145,7 @@ export default function App() {
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="profile" element={<DirectorProfilePage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="guide" element={<GuidePage />} />
       </Route>
 
       <Route
@@ -160,6 +166,7 @@ export default function App() {
         <Route path="xp" element={<TeacherXpPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="profile" element={<TeacherProfilePage />} />
+        <Route path="guide" element={<GuidePage />} />
       </Route>
 
       <Route
@@ -183,6 +190,7 @@ export default function App() {
         <Route path="streak" element={<StudentStreakPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="profile" element={<StudentProfilePage />} />
+        <Route path="guide" element={<GuidePage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
