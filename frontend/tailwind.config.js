@@ -5,22 +5,40 @@ export default {
   theme: {
     extend: {
       colors: {
-        // A crafted indigo-violet, chosen over a flat default blue so the brand
-        // reads distinct and a little more "premium edtech" — pairs cleanly with
-        // the amber/violet/emerald gamification accents already used across the app,
-        // and keeps AA-legible weight in both color schemes (600/700 for light-mode
-        // text/buttons on white, 400/300 for dark-mode text on near-black).
+        // Matched to edu.sanbax.uz's own palette (sampled from its live computed
+        // styles: primary button/active-nav #6f57cf, its CTA gradient
+        // #8b5cf6→#6c3ce0, and the light-mode active-nav tint #ece8fb/#5b46b8).
         brand: {
-          50: "#eef2ff",
-          100: "#e0e7ff",
-          200: "#c7d2fe",
-          300: "#a5b4fc",
-          400: "#818cf8",
-          500: "#6366f1",
-          600: "#4f46e5",
-          700: "#4338ca",
-          800: "#3730a3",
-          900: "#312e81",
+          50: "#f3f1fc",
+          100: "#ece8fb",
+          200: "#d9d2f7",
+          300: "#bcaeef",
+          400: "#a38ee6",
+          500: "#8b5cf6",
+          600: "#6f57cf",
+          700: "#5b46b8",
+          800: "#4a3894",
+          900: "#392a70",
+        },
+        // Sanbax's neutral surface — a violet-tinted near-black/near-white, not
+        // Tailwind's default blue-gray slate. Overriding `slate` itself (rather
+        // than adding a new family) reskins every existing bg-slate-*/text-slate-*/
+        // border-slate-* usage across the app in one place. Dark-mode stops
+        // (900/950) are sampled from sanbax's real card/page backgrounds
+        // (#1c1a23/#17161d); light-mode stops (50) from its page background
+        // (#f5f6fa); 100–800 are interpolated to keep a smooth, coherent ramp.
+        slate: {
+          50: "#f5f6fa",
+          100: "#ececf3",
+          200: "#dedce8",
+          300: "#c3c0d1",
+          400: "#9a98a6",
+          500: "#82869a",
+          600: "#6b6879",
+          700: "#4a4757",
+          800: "#2e2b36",
+          900: "#1c1a23",
+          950: "#17161d",
         },
       },
       keyframes: {
