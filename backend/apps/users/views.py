@@ -11,7 +11,7 @@ from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.common.permissions import IsDirector, IsDirectorOrReadOnly
+from apps.common.permissions import IsDirector, IsDirectorOrReadOnly, IsStudent
 
 from . import services
 from .models import StudentProfile, TeacherProfile
@@ -19,6 +19,7 @@ from .serializers import (
     AvatarSerializer,
     ChangePasswordSerializer,
     MeSerializer,
+    ParentContactSerializer,
     StudentSerializer,
     TeacherSerializer,
     UserSerializer,
@@ -147,3 +148,20 @@ class AvatarView(APIView):
         if request.user.avatar:
             request.user.avatar.delete(save=True)
         return Response(MeSerializer(request.user, context={"request": request}).data)
+
+
+class ParentContactView(APIView):
+    """Lets a student view/update their own parent's phone number."""
+
+    permission_classes: ClassVar[list[type[BasePermission]]] = [IsStudent]
+
+    def get(self, request):
+        return Response(ParentContactSerializer(request.user.student_profile).data)
+
+    def patch(self, request):
+        serializer = ParentContactSerializer(
+            request.user.student_profile, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)

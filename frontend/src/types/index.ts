@@ -197,6 +197,20 @@ export interface TelegramLinkCode {
   bot_username: string;
 }
 
+/** Same shape as `TelegramLinkCode` — a student generates this and shares it
+ * with a parent, who types it into the bot to link their own Telegram chat. */
+export type ParentLinkCode = TelegramLinkCode;
+
+export interface ParentTelegramAccountItem {
+  id: number;
+  telegram_username: string;
+  created_at: string;
+}
+
+export interface ParentContact {
+  parent_phone_number: string;
+}
+
 // ---------- Learning: tests ----------
 
 export interface TestOption {

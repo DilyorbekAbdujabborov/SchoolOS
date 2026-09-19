@@ -1,7 +1,8 @@
-from datetime import time
+from datetime import time, timedelta
 
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -16,7 +17,7 @@ from apps.common.testing import (
 from apps.notifications.models import Notification
 
 from .models import Attendance
-from .services import can_mark_attendance, mark_lesson_attendance
+from .services import can_mark_attendance, is_attendance_window_open, mark_lesson_attendance
 
 
 class AttendanceUniqueConstraintTests(TestCase):
@@ -141,7 +142,10 @@ class BulkMarkAttendanceAPITests(APITestCase):
         self.school_class = make_school_class()
         self.student_user, self.student = make_student(self.school_class)
         self.lesson = make_lesson(
-            school_class=self.school_class, subject=self.subject, teacher=self.teacher
+            school_class=self.school_class,
+            subject=self.subject,
+            teacher=self.teacher,
+            lesson_date=timezone.localdate() - timedelta(days=1),
         )
 
     def _payload(self, status_value=Attendance.Status.PRESENT):
@@ -164,6 +168,85 @@ class BulkMarkAttendanceAPITests(APITestCase):
     def test_anonymous_unauthorized(self):
         response = self.client.post("/api/attendance/bulk-mark/", self._payload(), format="json")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class AttendanceWindowTests(TestCase):
+    """A lesson's attendance can't be marked until it's been running a while, so
+    a teacher can't mark students absent before they've had a chance to walk in."""
+
+    def setUp(self):
+        self.subject = make_subject()
+        self.teacher_user, self.teacher = make_teacher()
+        self.director = make_director()
+        self.school_class = make_school_class()
+
+    def _lesson(self, minutes_ago):
+        start = timezone.localtime() - timedelta(minutes=minutes_ago)
+        return make_lesson(
+            school_class=self.school_class,
+            subject=self.subject,
+            teacher=self.teacher,
+            lesson_date=start.date(),
+            start_time=start.time(),
+            end_time=(start + timedelta(minutes=45)).time(),
+        )
+
+    def test_closed_within_grace_period(self):
+        lesson = self._lesson(minutes_ago=5)
+        self.assertFalse(is_attendance_window_open(self.teacher_user, lesson))
+
+    def test_open_after_grace_period(self):
+        lesson = self._lesson(minutes_ago=11)
+        self.assertTrue(is_attendance_window_open(self.teacher_user, lesson))
+
+    def test_director_bypasses_grace_period(self):
+        lesson = self._lesson(minutes_ago=0)
+        self.assertTrue(is_attendance_window_open(self.director, lesson))
+
+
+class BulkMarkAttendanceWindowAPITests(APITestCase):
+    def setUp(self):
+        self.subject = make_subject()
+        self.teacher_user, self.teacher = make_teacher()
+        self.director = make_director()
+        self.school_class = make_school_class()
+        _, self.student = make_student(self.school_class)
+
+    def _lesson(self, minutes_ago):
+        start = timezone.localtime() - timedelta(minutes=minutes_ago)
+        return make_lesson(
+            school_class=self.school_class,
+            subject=self.subject,
+            teacher=self.teacher,
+            lesson_date=start.date(),
+            start_time=start.time(),
+            end_time=(start + timedelta(minutes=45)).time(),
+        )
+
+    def _payload(self, lesson):
+        return {
+            "lesson": lesson.id,
+            "records": [{"student": self.student.id, "status": Attendance.Status.PRESENT}],
+        }
+
+    def test_teacher_blocked_within_grace_period(self):
+        lesson = self._lesson(minutes_ago=5)
+        self.client.force_authenticate(self.teacher_user)
+        response = self.client.post("/api/attendance/bulk-mark/", self._payload(lesson), format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Attendance.objects.filter(lesson=lesson).count(), 0)
+
+    def test_teacher_allowed_after_grace_period(self):
+        lesson = self._lesson(minutes_ago=11)
+        self.client.force_authenticate(self.teacher_user)
+        response = self.client.post("/api/attendance/bulk-mark/", self._payload(lesson), format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_director_bypasses_grace_period(self):
+        lesson = self._lesson(minutes_ago=0)
+        self.client.force_authenticate(self.director)
+        response = self.client.post("/api/attendance/bulk-mark/", self._payload(lesson), format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
 class ClassSummaryAPITests(APITestCase):

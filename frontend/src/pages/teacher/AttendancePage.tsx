@@ -1,11 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Clock3, FileText, type LucideIcon, XCircle } from "lucide-react";
-import { useState } from "react";
+import { CheckCircle2, Clock3, FileText, Hourglass, type LucideIcon, XCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Field, Input, PrimaryButton } from "../../components/form";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
 import type { AttendanceRecord, AttendanceStatus, Lesson, Paginated, RosterStudent } from "../../types";
+
+const ATTENDANCE_GRACE_MINUTES = 10;
+
+function windowOpensAt(lesson: Lesson) {
+  return new Date(`${lesson.date}T${lesson.start_time}`).getTime() + ATTENDANCE_GRACE_MINUTES * 60_000;
+}
+
+/** Re-renders once a minute so the "N daqiqa qoldi" countdown stays live without a manual refresh. */
+function useNow() {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
 
 const STATUS_OPTIONS: { value: AttendanceStatus; label: string; icon: LucideIcon }[] = [
   { value: "PRESENT", label: "Keldi", icon: CheckCircle2 },
@@ -29,6 +45,9 @@ function AttendanceForm({ lesson, onDone }: { lesson: Lesson; onDone: () => void
   const queryClient = useQueryClient();
   const [statuses, setStatuses] = useState<Record<number, AttendanceStatus> | null>(null);
   const [saved, setSaved] = useState(false);
+  const now = useNow();
+  const opensAt = windowOpensAt(lesson);
+  const windowOpen = now >= opensAt;
 
   const { data: roster, isLoading: rosterLoading } = useQuery({
     queryKey: ["classes", lesson.school_class, "students"],
@@ -74,6 +93,17 @@ function AttendanceForm({ lesson, onDone }: { lesson: Lesson; onDone: () => void
 
   if (roster.length === 0) {
     return <EmptyState title="Bu sinfda hali o'quvchi yo'q" />;
+  }
+
+  if (!windowOpen) {
+    const minutesLeft = Math.max(1, Math.ceil((opensAt - now) / 60_000));
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-400">
+        <Hourglass className="h-4 w-4 shrink-0" />
+        Davomatni dars boshlangandan {ATTENDANCE_GRACE_MINUTES} daqiqa o'tgach belgilash mumkin —
+        yana {minutesLeft} daqiqa kuting.
+      </div>
+    );
   }
 
   return (

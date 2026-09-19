@@ -54,6 +54,15 @@ class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
 
         if not services.can_mark_attendance(request.user, lesson):
             raise PermissionDenied("You may not mark attendance for this lesson.")
+        if not services.is_attendance_window_open(request.user, lesson):
+            raise ValidationError(
+                {
+                    "lesson": (
+                        f"Davomatni dars boshlanganidan {services.ATTENDANCE_GRACE_MINUTES} "
+                        "daqiqa o'tgach belgilash mumkin."
+                    )
+                }
+            )
 
         attendances = services.mark_lesson_attendance(
             lesson=lesson,

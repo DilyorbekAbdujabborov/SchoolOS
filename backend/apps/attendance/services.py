@@ -1,11 +1,16 @@
+from datetime import datetime, timedelta
+
 from django.db import transaction
 from django.db.models import Count, QuerySet
+from django.utils import timezone
 
 from apps.academics.models import Lesson
 from apps.notifications.models import Notification
 from apps.notifications.services import notify
 
 from .models import Attendance
+
+ATTENDANCE_GRACE_MINUTES = 10
 
 
 def count_by_status(queryset: QuerySet) -> dict[str, int]:
@@ -39,6 +44,22 @@ def can_mark_attendance(user, lesson: Lesson) -> bool:
     return profile.pk == lesson.teacher_id or profile.pk == lesson.school_class.class_teacher_id
 
 
+def attendance_window_opens_at(lesson: Lesson):
+    """A lesson's attendance may only be marked once it's been running a while,
+    so a teacher can't mark students absent before they've had a chance to walk in."""
+    naive_start = datetime.combine(lesson.date, lesson.start_time)
+    aware_start = timezone.make_aware(naive_start) if timezone.is_naive(naive_start) else naive_start
+    return aware_start + timedelta(minutes=ATTENDANCE_GRACE_MINUTES)
+
+
+def is_attendance_window_open(user, lesson: Lesson) -> bool:
+    """Directors may backfill/correct attendance at any time; teachers must wait
+    out the grace period so early marking doesn't unfairly mark late arrivals absent."""
+    if user.is_director:
+        return True
+    return timezone.now() >= attendance_window_opens_at(lesson)
+
+
 @transaction.atomic
 def mark_lesson_attendance(*, lesson: Lesson, records: list[dict], marked_by) -> list[Attendance]:
     """Upsert attendance for a lesson, then notify the class teacher if relevant.
@@ -55,6 +76,7 @@ def mark_lesson_attendance(*, lesson: Lesson, records: list[dict], marked_by) ->
         attendances.append(attendance)
 
     _notify_class_teacher_if_needed(lesson, marked_by)
+    _notify_parents_if_needed(lesson, attendances)
     return attendances
 
 
@@ -87,3 +109,19 @@ def _notify_class_teacher_if_needed(lesson: Lesson, marked_by) -> None:
         body=body,
         category=Notification.Category.ATTENDANCE,
     )
+
+
+def _notify_parents_if_needed(lesson: Lesson, attendances: list[Attendance]) -> None:
+    """Pushes an ABSENT/LATE alert straight to a student's linked parent chats —
+    the case parents actually want to know about in real time."""
+    from apps.telegram_bot.services import notify_parents
+
+    for attendance in attendances:
+        if attendance.status not in (Attendance.Status.ABSENT, Attendance.Status.LATE):
+            continue
+        text = (
+            f"{STATUS_ICON[attendance.status]} Farzandingiz {lesson.subject.name} darsiga "
+            f"{STATUS_LABEL_UZ[attendance.status]} ({lesson.date:%d.%m.%Y}, "
+            f"{lesson.start_time:%H:%M})."
+        )
+        notify_parents(attendance.student, text)

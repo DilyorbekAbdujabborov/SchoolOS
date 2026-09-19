@@ -6,7 +6,7 @@ import requests
 from django.conf import settings
 from django.utils import timezone
 
-from .models import TelegramAccount, TelegramLinkCode
+from .models import ParentLinkCode, ParentTelegramAccount, TelegramAccount, TelegramLinkCode
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,15 @@ def generate_link_code(user) -> TelegramLinkCode:
     code = f"{secrets.randbelow(1_000_000):06d}"
     return TelegramLinkCode.objects.create(
         user=user, code=code, expires_at=timezone.now() + LINK_CODE_TTL
+    )
+
+
+def generate_parent_link_code(student) -> ParentLinkCode:
+    """One active code per student at a time — the student shares it with a parent."""
+    ParentLinkCode.objects.filter(student=student, used_at__isnull=True).delete()
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    return ParentLinkCode.objects.create(
+        student=student, code=code, expires_at=timezone.now() + LINK_CODE_TTL
     )
 
 
@@ -44,3 +53,13 @@ def notify_telegram(user, text: str) -> bool:
     if account is None:
         return False
     return send_telegram_message(account.telegram_id, text)
+
+
+def notify_parents(student, text: str) -> None:
+    """Best-effort push to every parent chat linked to `student`, if any.
+
+    Parents have no in-app notification inbox — Telegram is their only channel —
+    so unlike `notify()` this never raises and has nothing to fall back to.
+    """
+    for account in ParentTelegramAccount.objects.filter(student=student):
+        send_telegram_message(account.telegram_id, text)

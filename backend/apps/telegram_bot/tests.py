@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from asgiref.sync import async_to_sync
 from django.test import TestCase
@@ -6,6 +7,8 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from apps.attendance.models import Attendance
+from apps.attendance.services import mark_lesson_attendance
 from apps.common.testing import (
     make_lesson,
     make_school_class,
@@ -22,9 +25,11 @@ from .management.commands.runbot import (
     class_xp_text,
     my_achievements_text,
     my_xp_text,
+    parent_attendance_text,
+    parent_progress_text,
 )
-from .models import TelegramAccount, TelegramLinkCode
-from .services import generate_link_code
+from .models import ParentLinkCode, ParentTelegramAccount, TelegramAccount, TelegramLinkCode
+from .services import generate_link_code, generate_parent_link_code, notify_parents
 
 
 class LinkCodeServiceTests(TestCase):
@@ -163,3 +168,184 @@ class BotGamificationTextTests(TestCase):
         self.assertIn(f"{taught_class.name}: 90 XP", text)
         self.assertIn(f"{led_class.name}: 40 XP", text)
         self.assertLess(text.index(taught_class.name), text.index(led_class.name))
+
+
+class ParentLinkCodeServiceTests(TestCase):
+    def setUp(self):
+        self.school_class = make_school_class()
+        _, self.student = make_student(self.school_class)
+
+    def test_generate_parent_link_code_creates_a_valid_code(self):
+        link_code = generate_parent_link_code(self.student)
+        self.assertTrue(link_code.is_valid())
+        self.assertEqual(link_code.student, self.student)
+
+    def test_requesting_a_new_code_invalidates_the_previous_one(self):
+        first = generate_parent_link_code(self.student)
+        generate_parent_link_code(self.student)
+        self.assertFalse(ParentLinkCode.objects.filter(pk=first.pk).exists())
+
+    def test_used_code_is_not_valid(self):
+        link_code = generate_parent_link_code(self.student)
+        link_code.used_at = timezone.now()
+        link_code.save(update_fields=["used_at"])
+        self.assertFalse(link_code.is_valid())
+
+    def test_expired_code_is_not_valid(self):
+        link_code = generate_parent_link_code(self.student)
+        link_code.expires_at = timezone.now() - timedelta(seconds=1)
+        link_code.save(update_fields=["expires_at"])
+        self.assertFalse(link_code.is_valid())
+
+
+class ParentLinkCodeAPITests(APITestCase):
+    def setUp(self):
+        self.school_class = make_school_class()
+        self.student_user, self.student = make_student(self.school_class)
+        self.teacher_user, _ = make_teacher()
+
+    def test_student_can_request_a_parent_link_code(self):
+        self.client.force_authenticate(self.student_user)
+        response = self.client.post("/api/telegram/parent-link-code/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("code", response.data)
+
+    def test_teacher_cannot_request_a_parent_link_code(self):
+        self.client.force_authenticate(self.teacher_user)
+        response = self.client.post("/api/telegram/parent-link-code/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonymous_cannot_request_a_parent_link_code(self):
+        response = self.client.post("/api/telegram/parent-link-code/")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class ParentTelegramAccountsAPITests(APITestCase):
+    def setUp(self):
+        self.school_class = make_school_class()
+        self.student_user, self.student = make_student(self.school_class)
+
+    def test_lists_only_own_linked_parent_accounts(self):
+        ParentTelegramAccount.objects.create(
+            student=self.student, telegram_id=111, telegram_username="ota1"
+        )
+        other_student_user, other_student = make_student(self.school_class)
+        ParentTelegramAccount.objects.create(student=other_student, telegram_id=222)
+
+        self.client.force_authenticate(self.student_user)
+        response = self.client.get("/api/telegram/parent-accounts/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["telegram_username"], "ota1")
+
+    def test_student_can_unlink_own_parent_account(self):
+        account = ParentTelegramAccount.objects.create(student=self.student, telegram_id=111)
+        self.client.force_authenticate(self.student_user)
+        response = self.client.delete(f"/api/telegram/parent-accounts/{account.id}/")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(ParentTelegramAccount.objects.filter(pk=account.pk).exists())
+
+    def test_student_cannot_unlink_another_students_parent_account(self):
+        other_student_user, other_student = make_student(self.school_class)
+        account = ParentTelegramAccount.objects.create(student=other_student, telegram_id=111)
+        self.client.force_authenticate(self.student_user)
+        response = self.client.delete(f"/api/telegram/parent-accounts/{account.id}/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(ParentTelegramAccount.objects.filter(pk=account.pk).exists())
+
+
+class NotifyParentsServiceTests(TestCase):
+    def setUp(self):
+        self.school_class = make_school_class()
+        _, self.student = make_student(self.school_class)
+
+    @patch("apps.telegram_bot.services.send_telegram_message")
+    def test_pushes_to_every_linked_parent_account(self, mock_send):
+        ParentTelegramAccount.objects.create(student=self.student, telegram_id=111)
+        ParentTelegramAccount.objects.create(student=self.student, telegram_id=222)
+
+        notify_parents(self.student, "Salom")
+
+        self.assertEqual(mock_send.call_count, 2)
+        sent_chat_ids = {call.args[0] for call in mock_send.call_args_list}
+        self.assertEqual(sent_chat_ids, {111, 222})
+
+    @patch("apps.telegram_bot.services.send_telegram_message")
+    def test_does_nothing_when_no_parent_is_linked(self, mock_send):
+        notify_parents(self.student, "Salom")
+        mock_send.assert_not_called()
+
+
+class AttendanceParentNotificationTests(TestCase):
+    def setUp(self):
+        self.subject = make_subject()
+        self.teacher_user, self.teacher = make_teacher()
+        self.school_class = make_school_class()
+        _, self.student = make_student(self.school_class)
+        self.lesson = make_lesson(
+            school_class=self.school_class, subject=self.subject, teacher=self.teacher
+        )
+        ParentTelegramAccount.objects.create(student=self.student, telegram_id=111)
+
+    @patch("apps.telegram_bot.services.send_telegram_message")
+    def test_absent_notifies_linked_parent(self, mock_send):
+        mark_lesson_attendance(
+            lesson=self.lesson,
+            records=[{"student": self.student, "status": Attendance.Status.ABSENT}],
+            marked_by=self.teacher_user,
+        )
+        mock_send.assert_called_once()
+        self.assertEqual(mock_send.call_args.args[0], 111)
+        self.assertIn("kelmadi", mock_send.call_args.args[1])
+
+    @patch("apps.telegram_bot.services.send_telegram_message")
+    def test_late_notifies_linked_parent(self, mock_send):
+        mark_lesson_attendance(
+            lesson=self.lesson,
+            records=[{"student": self.student, "status": Attendance.Status.LATE}],
+            marked_by=self.teacher_user,
+        )
+        mock_send.assert_called_once()
+        self.assertIn("kechikdi", mock_send.call_args.args[1])
+
+    @patch("apps.telegram_bot.services.send_telegram_message")
+    def test_present_does_not_notify_parent(self, mock_send):
+        mark_lesson_attendance(
+            lesson=self.lesson,
+            records=[{"student": self.student, "status": Attendance.Status.PRESENT}],
+            marked_by=self.teacher_user,
+        )
+        mock_send.assert_not_called()
+
+
+class ParentBotTextTests(TestCase):
+    def setUp(self):
+        self.subject = make_subject()
+        self.teacher_user, self.teacher = make_teacher()
+        self.school_class = make_school_class()
+        self.student_user, self.student = make_student(self.school_class)
+
+    def test_parent_attendance_text_reports_counts_for_each_child(self):
+        lesson = make_lesson(
+            school_class=self.school_class, subject=self.subject, teacher=self.teacher
+        )
+        mark_lesson_attendance(
+            lesson=lesson,
+            records=[{"student": self.student, "status": Attendance.Status.ABSENT}],
+            marked_by=self.teacher_user,
+        )
+
+        text = async_to_sync(parent_attendance_text)([self.student])
+
+        self.assertIn("❌ Kelmadi: 1", text)
+
+    def test_parent_progress_text_reports_xp_for_each_child(self):
+        award_xp(
+            student=self.student, amount=25, source=XPTransaction.Source.TEST,
+            related_object=None, reason="x",
+        )
+
+        text = async_to_sync(parent_progress_text)([self.student])
+
+        self.assertIn("25", text)

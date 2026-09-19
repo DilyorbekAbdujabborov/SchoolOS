@@ -65,6 +65,16 @@ class ChangePasswordSerializer(serializers.Serializer):
         return value
 
 
+class ParentContactSerializer(serializers.ModelSerializer):
+    """Lets a student self-report a parent's phone number — used only to help
+    the parent find/confirm the right child when linking Telegram; the actual
+    link still goes through a one-time code, never this number directly."""
+
+    class Meta:
+        model = StudentProfile
+        fields = ("parent_phone_number",)
+
+
 MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024
 
 

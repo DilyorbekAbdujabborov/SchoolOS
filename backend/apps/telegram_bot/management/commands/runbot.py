@@ -4,7 +4,7 @@ from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
-from django.db.models import Q, Sum
+from django.db.models import Avg, Count, Q, Sum
 from django.utils import timezone
 from telegram import ReplyKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
@@ -15,7 +15,12 @@ from apps.attendance.services import count_by_status
 from apps.gamification.models import Streak, StudentAchievement, XPTransaction
 from apps.learning.models import Test, TestAttempt
 from apps.schools.models import SchoolClass
-from apps.telegram_bot.models import TelegramAccount, TelegramLinkCode
+from apps.telegram_bot.models import (
+    ParentLinkCode,
+    ParentTelegramAccount,
+    TelegramAccount,
+    TelegramLinkCode,
+)
 from apps.users.models import StudentProfile, TeacherProfile
 
 User = get_user_model()
@@ -32,6 +37,8 @@ TESTS_BUTTON = "🧪 Mavjud testlar"
 XP_BUTTON = "🏆 Mening XP'im"
 ACHIEVEMENTS_BUTTON = "🎖 Yutuqlarim"
 CLASS_XP_BUTTON = "📈 Sinflar XP statistikasi"
+PARENT_ATTENDANCE_BUTTON = "📊 Farzandim davomati"
+PARENT_PROGRESS_BUTTON = "📈 Farzandim o'zlashtirishi"
 
 STUDENT_MENU = ReplyKeyboardMarkup(
     [
@@ -45,6 +52,9 @@ TEACHER_MENU = ReplyKeyboardMarkup(
     [[LESSONS_BUTTON, CLASSES_BUTTON], [CLASS_XP_BUTTON]], resize_keyboard=True
 )
 DIRECTOR_MENU = ReplyKeyboardMarkup([[STATS_BUTTON]], resize_keyboard=True)
+PARENT_MENU = ReplyKeyboardMarkup(
+    [[PARENT_ATTENDANCE_BUTTON, PARENT_PROGRESS_BUTTON]], resize_keyboard=True
+)
 
 
 def menu_for(user) -> ReplyKeyboardMarkup:
@@ -62,6 +72,17 @@ async def get_linked_user(telegram_id: int):
         .afirst()
     )
     return account.user if account else None
+
+
+async def get_linked_parent_students(telegram_id: int) -> list:
+    """Every child this chat is linked to as a parent — usually one, but a
+    parent may link more than one child, each with its own code."""
+    return [
+        account.student
+        async for account in ParentTelegramAccount.objects.select_related("student__user").filter(
+            telegram_id=telegram_id
+        )
+    ]
 
 
 async def today_lessons_text(user) -> str:
@@ -227,73 +248,147 @@ async def class_xp_text(user) -> str:
     return "\n".join(lines)
 
 
+async def parent_attendance_text(students: list) -> str:
+    lines = ["📊 Farzandingizning davomati:"]
+    for student in students:
+        name = student.user.get_full_name() or student.user.username
+        counts = await acount_by_status(Attendance.objects.filter(student=student))
+        lines.append(
+            f"\n👤 {name}:\n"
+            f"✅ Keldi: {counts[Attendance.Status.PRESENT]}\n"
+            f"🕐 Kechikdi: {counts[Attendance.Status.LATE]}\n"
+            f"❌ Kelmadi: {counts[Attendance.Status.ABSENT]}\n"
+            f"📄 Sababli: {counts[Attendance.Status.EXCUSED]}"
+        )
+    return "\n".join(lines)
+
+
+async def parent_progress_text(students: list) -> str:
+    lines = ["📈 Farzandingizning o'zlashtirishi:"]
+    for student in students:
+        name = student.user.get_full_name() or student.user.username
+        stats = await TestAttempt.objects.filter(
+            student=student, status=TestAttempt.Status.SUBMITTED
+        ).aaggregate(avg_score=Avg("score_percent"), count=Count("id"))
+        avg_score = stats["avg_score"] or 0
+        lines.append(
+            f"\n👤 {name}:\n"
+            f"⭐ Jami XP: {student.total_xp}\n"
+            f"🧪 Topshirilgan testlar: {stats['count']}\n"
+            f"📊 O'rtacha natija: {avg_score:.0f}%"
+        )
+    return "\n".join(lines)
+
+
 async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     telegram_id = update.effective_chat.id
 
     if context.args:
         code = context.args[0]
+
         link_code = await TelegramLinkCode.objects.select_related("user").filter(code=code).afirst()
-        if link_code is None or not link_code.is_valid():
-            await update.message.reply_text("❌ Kod noto'g'ri yoki muddati o'tgan.")
+        if link_code is not None and link_code.is_valid():
+            await TelegramAccount.objects.filter(telegram_id=telegram_id).adelete()
+            await TelegramAccount.objects.aupdate_or_create(
+                user=link_code.user,
+                defaults={
+                    "telegram_id": telegram_id,
+                    "telegram_username": update.effective_user.username or "",
+                },
+            )
+            link_code.used_at = timezone.now()
+            await link_code.asave(update_fields=["used_at"])
+
+            name = link_code.user.get_full_name() or link_code.user.username
+            await update.message.reply_text(
+                f"✅ Hisobingiz bog'landi: {name}", reply_markup=menu_for(link_code.user)
+            )
             return
 
-        await TelegramAccount.objects.filter(telegram_id=telegram_id).adelete()
-        await TelegramAccount.objects.aupdate_or_create(
-            user=link_code.user,
-            defaults={
-                "telegram_id": telegram_id,
-                "telegram_username": update.effective_user.username or "",
-            },
+        parent_code = (
+            await ParentLinkCode.objects.select_related("student__user").filter(code=code).afirst()
         )
-        link_code.used_at = timezone.now()
-        await link_code.asave(update_fields=["used_at"])
+        if parent_code is not None and parent_code.is_valid():
+            # Not a delete-then-create like the account link above — a parent
+            # may link several children over time, one code per child.
+            await ParentTelegramAccount.objects.aupdate_or_create(
+                student=parent_code.student,
+                telegram_id=telegram_id,
+                defaults={"telegram_username": update.effective_user.username or ""},
+            )
+            parent_code.used_at = timezone.now()
+            await parent_code.asave(update_fields=["used_at"])
 
-        name = link_code.user.get_full_name() or link_code.user.username
-        await update.message.reply_text(
-            f"✅ Hisobingiz bog'landi: {name}", reply_markup=menu_for(link_code.user)
-        )
+            child_name = (
+                parent_code.student.user.get_full_name() or parent_code.student.user.username
+            )
+            await update.message.reply_text(
+                f"✅ {child_name} farzandingizning hisobiga bog'landingiz. "
+                "Endi uning davomati va o'zlashtirishi haqida shu yerdan xabar olasiz.",
+                reply_markup=PARENT_MENU,
+            )
+            return
+
+        await update.message.reply_text("❌ Kod noto'g'ri yoki muddati o'tgan.")
         return
 
     user = await get_linked_user(telegram_id)
     if user:
         name = user.get_full_name() or user.username
         await update.message.reply_text(f"Salom, {name}! 👋", reply_markup=menu_for(user))
-    else:
-        await update.message.reply_text(
-            "👋 SchoolOS botiga xush kelibsiz!\n\n"
-            "Hisobingizni bog'lash uchun avval veb-saytda profilingizdan kod oling, "
-            "so'ng shu yerga /start <kod> deb yuboring."
-        )
+        return
+
+    children = await get_linked_parent_students(telegram_id)
+    if children:
+        await update.message.reply_text("👋 Xush kelibsiz!", reply_markup=PARENT_MENU)
+        return
+
+    await update.message.reply_text(
+        "👋 SchoolOS botiga xush kelibsiz!\n\n"
+        "Hisobingizni bog'lash uchun avval veb-saytda profilingizdan kod oling, "
+        "so'ng shu yerga /start <kod> deb yuboring."
+    )
 
 
 async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     telegram_id = update.effective_chat.id
+    text = update.message.text
+
     user = await get_linked_user(telegram_id)
-    if user is None:
-        await update.message.reply_text("Avval hisobingizni bog'lang: /start <kod>")
+    if user is not None:
+        if text == LESSONS_BUTTON:
+            reply = await today_lessons_text(user)
+        elif text == ATTENDANCE_BUTTON:
+            reply = await attendance_summary_text(user)
+        elif text == CLASSES_BUTTON:
+            reply = await my_classes_text(user)
+        elif text == STATS_BUTTON:
+            reply = await director_stats_text()
+        elif text == TESTS_BUTTON:
+            reply = await available_tests_text(user)
+        elif text == XP_BUTTON:
+            reply = await my_xp_text(user)
+        elif text == ACHIEVEMENTS_BUTTON:
+            reply = await my_achievements_text(user)
+        elif text == CLASS_XP_BUTTON:
+            reply = await class_xp_text(user)
+        else:
+            reply = "Iltimos, quyidagi menyudan tanlang."
+        await update.message.reply_text(reply, reply_markup=menu_for(user))
         return
 
-    text = update.message.text
-    if text == LESSONS_BUTTON:
-        reply = await today_lessons_text(user)
-    elif text == ATTENDANCE_BUTTON:
-        reply = await attendance_summary_text(user)
-    elif text == CLASSES_BUTTON:
-        reply = await my_classes_text(user)
-    elif text == STATS_BUTTON:
-        reply = await director_stats_text()
-    elif text == TESTS_BUTTON:
-        reply = await available_tests_text(user)
-    elif text == XP_BUTTON:
-        reply = await my_xp_text(user)
-    elif text == ACHIEVEMENTS_BUTTON:
-        reply = await my_achievements_text(user)
-    elif text == CLASS_XP_BUTTON:
-        reply = await class_xp_text(user)
-    else:
-        reply = "Iltimos, quyidagi menyudan tanlang."
+    children = await get_linked_parent_students(telegram_id)
+    if children:
+        if text == PARENT_ATTENDANCE_BUTTON:
+            reply = await parent_attendance_text(children)
+        elif text == PARENT_PROGRESS_BUTTON:
+            reply = await parent_progress_text(children)
+        else:
+            reply = "Iltimos, quyidagi menyudan tanlang."
+        await update.message.reply_text(reply, reply_markup=PARENT_MENU)
+        return
 
-    await update.message.reply_text(reply, reply_markup=menu_for(user))
+    await update.message.reply_text("Avval hisobingizni bog'lang: /start <kod>")
 
 
 class Command(BaseCommand):

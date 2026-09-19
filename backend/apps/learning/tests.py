@@ -107,6 +107,21 @@ class GradeAttemptTests(TestCase):
                 attempt=attempt, answers=[{"question": self.q1, "selected_option": self.o1_correct}]
             )
 
+    @patch("apps.telegram_bot.services.send_telegram_message")
+    def test_notifies_linked_parent_of_the_result(self, mock_send):
+        from apps.telegram_bot.models import ParentTelegramAccount
+
+        ParentTelegramAccount.objects.create(student=self.student, telegram_id=111)
+
+        grade_attempt(
+            attempt=self._attempt(),
+            answers=[{"question": self.q1, "selected_option": self.o1_correct}],
+        )
+
+        mock_send.assert_called_once()
+        self.assertEqual(mock_send.call_args.args[0], 111)
+        self.assertIn("Python asoslari", mock_send.call_args.args[1])
+
 
 class TestSubmitAPITests(APITestCase):
     def setUp(self):

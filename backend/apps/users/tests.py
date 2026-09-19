@@ -226,6 +226,39 @@ class AvatarAPITests(APITestCase):
         self.assertIsNone(response.data["avatar_url"])
 
 
+class ParentContactAPITests(APITestCase):
+    def test_student_can_set_their_parent_phone_number(self):
+        student_user, profile = make_student()
+        self.client.force_authenticate(student_user)
+
+        response = self.client.patch(
+            "/api/auth/parent-contact/", {"parent_phone_number": "+998901234567"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        profile.refresh_from_db()
+        self.assertEqual(profile.parent_phone_number, "+998901234567")
+
+    def test_student_can_read_their_own_parent_phone_number(self):
+        student_user, profile = make_student()
+        profile.parent_phone_number = "+998901234567"
+        profile.save()
+
+        self.client.force_authenticate(student_user)
+        response = self.client.get("/api/auth/parent-contact/")
+
+        self.assertEqual(response.data["parent_phone_number"], "+998901234567")
+
+    def test_non_student_cannot_access(self):
+        self.client.force_authenticate(make_director())
+        response = self.client.get("/api/auth/parent-contact/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonymous_cannot_access(self):
+        response = self.client.get("/api/auth/parent-contact/")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
 class StudentSerializerTests(APITestCase):
     def test_student_detail_exposes_read_only_total_xp(self):
         director = make_director()

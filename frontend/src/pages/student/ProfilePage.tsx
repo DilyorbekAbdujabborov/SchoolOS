@@ -1,5 +1,6 @@
 import { AvatarUploader } from "../../components/AvatarUploader";
 import { ChangePasswordForm } from "../../components/ChangePasswordForm";
+import { ParentTelegramConnect } from "../../components/ParentTelegramConnect";
 import { TelegramConnect } from "../../components/TelegramConnect";
 import { useAuth } from "../../lib/auth";
 
@@ -28,6 +29,13 @@ export function StudentProfilePage() {
       <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
         <h2 className="mb-3 font-semibold text-slate-900 dark:text-slate-50">Telegram</h2>
         <TelegramConnect />
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="mb-3 font-semibold text-slate-900 dark:text-slate-50">
+          Ota-onani Telegramga ulash
+        </h2>
+        <ParentTelegramConnect />
       </div>
     </div>
   );

@@ -76,6 +76,14 @@ def grade_attempt(*, attempt: TestAttempt, answers: list[dict]) -> TestAttempt:
         category=Notification.Category.TEST_RESULT,
     )
 
+    from apps.telegram_bot.services import notify_parents
+
+    notify_parents(
+        attempt.student,
+        f"📊 Farzandingiz \"{attempt.test.title}\" testini topshirdi: "
+        f"{score_percent:.0f}% ({xp_awarded} XP).",
+    )
+
     return attempt
 
 
