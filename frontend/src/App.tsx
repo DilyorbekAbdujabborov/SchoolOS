@@ -8,6 +8,7 @@ import {
   ClipboardList,
   FileText,
   Flame,
+  Gamepad2,
   GraduationCap,
   HelpCircle,
   LayoutDashboard,
@@ -46,6 +47,8 @@ import { StudentClassPage } from "./pages/student/ClassPage";
 import { StudentDashboardPage } from "./pages/student/DashboardPage";
 import { StudentDuelTakingPage } from "./pages/student/DuelTakingPage";
 import { StudentDuelsPage } from "./pages/student/DuelsPage";
+import { StudentGamePlayPage } from "./pages/student/GamePlayPage";
+import { StudentGamesPage } from "./pages/student/GamesPage";
 import { StudentLeaderboardPage } from "./pages/student/LeaderboardPage";
 import { StudentLessonsPage } from "./pages/student/LessonsPage";
 import { StudentProfilePage } from "./pages/student/ProfilePage";
@@ -106,6 +109,7 @@ const STUDENT_NAV = [
   { to: "/student/tests", label: "Testlar", icon: FileText },
   { to: "/student/activities", label: "Topshiriqlar", icon: ClipboardList },
   { to: "/student/duels", label: "Duellar", icon: Swords },
+  { to: "/student/games", label: "O'yinlar", icon: Gamepad2 },
   { to: "/student/xp", label: "Mening XP", icon: Trophy },
   { to: "/student/leaderboard", label: "Reyting", icon: BarChart3 },
   { to: "/student/achievements", label: "Yutuqlar", icon: Award },
@@ -192,6 +196,8 @@ export default function App() {
         <Route path="activities" element={<StudentActivitiesPage />} />
         <Route path="duels" element={<StudentDuelsPage />} />
         <Route path="duels/:id" element={<StudentDuelTakingPage />} />
+        <Route path="games" element={<StudentGamesPage />} />
+        <Route path="games/:id" element={<StudentGamePlayPage />} />
         <Route path="xp" element={<StudentXpPage />} />
         <Route path="leaderboard" element={<StudentLeaderboardPage />} />
         <Route path="achievements" element={<StudentAchievementsPage />} />

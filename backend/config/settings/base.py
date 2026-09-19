@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "apps.tasks",
     "apps.duels",
     "apps.remedial",
+    "apps.games",
 ]
 
 MIDDLEWARE = [

@@ -474,3 +474,28 @@ export interface RemedialGameQuestion {
   text: string;
   options: string[];
 }
+
+// ---------- Games (self-serve "O'yinlar" section) ----------
+
+export type GameType = "TUG_OF_WAR" | "QUIZ";
+export type GameStatus = "ACTIVE" | "COMPLETED";
+
+export interface GameSession {
+  id: number;
+  subject: number;
+  subject_name: string;
+  game_type: GameType;
+  game_type_display: string;
+  status: GameStatus;
+  question_count: number;
+  score_percent: number | null;
+  xp_awarded: number | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+/** Answer-free, same shape as `RemedialGameQuestion`. */
+export interface GameQuestion {
+  text: string;
+  options: string[];
+}

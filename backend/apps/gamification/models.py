@@ -19,6 +19,7 @@ class XPTransaction(TimeStampedModel):
         ACTIVITY = "ACTIVITY", _("Activity")
         DUEL = "DUEL", _("Duel")
         REMEDIAL_GAME = "REMEDIAL_GAME", _("Remedial game")
+        GAME = "GAME", _("Practice game")
 
     student = models.ForeignKey(
         "users.StudentProfile",
