@@ -45,32 +45,30 @@ export function AvatarUploader() {
   }
 
   return (
-    <div className="flex items-center gap-4">
-      <Avatar name={displayName || "?"} src={user?.avatar_url} size={64} />
-      <div className="space-y-2">
-        <div className="flex flex-wrap gap-2">
-          <SecondaryButton
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={upload.isPending}
-          >
-            {upload.isPending ? "Yuklanmoqda..." : "Rasm yuklash"}
+    <div className="flex flex-col items-center gap-3 text-center">
+      <Avatar name={displayName || "?"} src={user?.avatar_url} size={96} />
+      <div className="flex flex-wrap justify-center gap-2">
+        <SecondaryButton
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={upload.isPending}
+        >
+          {upload.isPending ? "Yuklanmoqda..." : "Rasm yuklash"}
+        </SecondaryButton>
+        {user?.avatar_url && (
+          <SecondaryButton type="button" onClick={() => remove.mutate()} disabled={remove.isPending}>
+            O'chirish
           </SecondaryButton>
-          {user?.avatar_url && (
-            <SecondaryButton type="button" onClick={() => remove.mutate()} disabled={remove.isPending}>
-              O'chirish
-            </SecondaryButton>
-          )}
-        </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="hidden"
-        />
-        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+        )}
       </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );
 }
