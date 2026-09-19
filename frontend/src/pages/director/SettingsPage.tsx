@@ -54,7 +54,7 @@ export function SettingsPage() {
   });
 
   return (
-    <div className="max-w-md space-y-6">
+    <div className="mx-auto max-w-md space-y-6">
       <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Sozlamalar</h1>
 
       {isLoading && <LoadingState />}

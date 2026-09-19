@@ -7,7 +7,7 @@ export function DirectorProfilePage() {
   const { user } = useAuth();
 
   return (
-    <div className="max-w-md space-y-6">
+    <div className="mx-auto max-w-md space-y-6">
       <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Profil</h1>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">

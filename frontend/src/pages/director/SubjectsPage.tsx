@@ -32,7 +32,7 @@ export function SubjectsPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-md space-y-6">
       <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Fanlar</h1>
 
       <form
@@ -40,7 +40,7 @@ export function SubjectsPage() {
           e.preventDefault();
           createSubject.mutate();
         }}
-        className="flex max-w-md gap-2"
+        className="flex gap-2"
       >
         <Input
           placeholder="Fan nomi, masalan: Matematika"
@@ -59,7 +59,7 @@ export function SubjectsPage() {
       {data && data.results.length === 0 && <EmptyState title="Hali fan yo'q" />}
 
       {data && data.results.length > 0 && (
-        <ul className="max-w-md divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
+        <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
           {data.results.map((subject) => (
             <li key={subject.id} className="flex items-center justify-between px-4 py-3">
               <span className="text-slate-800 dark:text-slate-100">{subject.name}</span>
