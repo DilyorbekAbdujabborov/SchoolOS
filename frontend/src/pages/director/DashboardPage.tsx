@@ -10,6 +10,7 @@ import {
   Clock,
   FileText,
   GraduationCap,
+  LineChart,
   Medal,
   School,
   Settings,
@@ -17,12 +18,17 @@ import {
   UserX,
   Users,
 } from "lucide-react";
+import { lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 
 import { StatCard } from "../../components/StatCard";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
-import type { ClassLeaderboardEntry, DirectorDashboard } from "../../types";
+import type { ClassGrowthSeries, ClassLeaderboardEntry, DirectorDashboard } from "../../types";
+
+const ClassGrowthChart = lazy(() =>
+  import("../../components/charts/ClassGrowthChart").then((m) => ({ default: m.ClassGrowthChart })),
+);
 
 const MEDAL_TONE: Record<number, string> = {
   1: "text-amber-500",
@@ -46,8 +52,12 @@ export function DirectorDashboardPage() {
     queryKey: ["leaderboard", "classes", "preview"],
     queryFn: async () => (await api.get<ClassLeaderboardEntry[]>("/leaderboard/classes/")).data,
   });
+  const { data: classGrowth } = useQuery({
+    queryKey: ["leaderboard", "classes", "growth"],
+    queryFn: async () => (await api.get<ClassGrowthSeries[]>("/leaderboard/classes/growth/")).data,
+  });
 
-  const topClasses = (classLeaderboard ?? []).slice(0, 3);
+  const allClasses = classLeaderboard ?? [];
 
   return (
     <div className="space-y-8">
@@ -96,20 +106,38 @@ export function DirectorDashboardPage() {
           </section>
 
           <section>
+            <div className="mb-3 flex items-center gap-2">
+              <LineChart size={16} className="text-brand-600 dark:text-brand-400" />
+              <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                Sinflarning XP o'sishi (so'nggi 14 kun)
+              </h2>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              {classGrowth ? (
+                <Suspense fallback={<LoadingState label="Yuklanmoqda..." />}>
+                  <ClassGrowthChart series={classGrowth} />
+                </Suspense>
+              ) : (
+                <LoadingState label="Yuklanmoqda..." />
+              )}
+            </div>
+          </section>
+
+          <section>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Sinflar reytingi</h2>
               <Link
                 to="/director/rankings"
                 className="inline-flex items-center gap-0.5 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
               >
-                Hammasi <ChevronRight className="h-3.5 w-3.5" />
+                Batafsil <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-            {topClasses.length === 0 ? (
+            {allClasses.length === 0 ? (
               <EmptyState title="Hali XP ma'lumoti yo'q" />
             ) : (
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-                {topClasses.map((entry) => (
+                {allClasses.map((entry) => (
                   <div
                     key={entry.rank}
                     className="flex items-center justify-between border-b border-slate-100 px-5 py-3 last:border-0 dark:border-slate-800"

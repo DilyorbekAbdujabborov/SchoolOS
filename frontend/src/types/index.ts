@@ -336,6 +336,17 @@ export interface ClassLeaderboardEntry {
   total_xp: number;
 }
 
+export interface ClassGrowthPoint {
+  date: string;
+  total_xp: number;
+}
+
+export interface ClassGrowthSeries {
+  class_id: number;
+  class_name: string;
+  points: ClassGrowthPoint[];
+}
+
 export interface Achievement {
   id: number;
   name: string;

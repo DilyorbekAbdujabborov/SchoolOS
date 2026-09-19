@@ -293,3 +293,49 @@ class MyRankAPITests(APITestCase):
         self.client.force_authenticate(teacher_user)
         response = self.client.get("/api/leaderboard/me/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class ClassGrowthAPITests(APITestCase):
+    def setUp(self):
+        self.school_class = make_school_class(name="9-Growth")
+        _, self.student = make_student(self.school_class)
+
+    def _backdate_last_transaction(self, days_ago: int):
+        transaction = XPTransaction.objects.filter(student=self.student).latest("id")
+        XPTransaction.objects.filter(pk=transaction.pk).update(
+            created_at=timezone.now() - timedelta(days=days_ago)
+        )
+
+    def test_series_ends_at_current_total_and_covers_requested_days(self):
+        award_xp(
+            student=self.student, amount=30, source=XPTransaction.Source.TEST,
+            related_object=None, reason="Eski",
+        )
+        self._backdate_last_transaction(days_ago=5)
+        award_xp(
+            student=self.student, amount=20, source=XPTransaction.Source.TEST,
+            related_object=None, reason="Bugungi",
+        )
+        self.school_class.refresh_from_db()
+
+        self.client.force_authenticate(make_director())
+        response = self.client.get("/api/leaderboard/classes/growth/", {"days": 7})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        series = next(row for row in response.data if row["class_id"] == self.school_class.id)
+        self.assertEqual(len(series["points"]), 7)
+        self.assertEqual(series["points"][-1]["total_xp"], self.school_class.total_xp)
+        # 5 days ago should already reflect the +30, but not yet the +20 awarded today.
+        self.assertEqual(series["points"][-6]["total_xp"], 30)
+
+    def test_defaults_to_fourteen_days(self):
+        self.client.force_authenticate(make_director())
+        response = self.client.get("/api/leaderboard/classes/growth/")
+        series = response.data[0]
+        self.assertEqual(len(series["points"]), 14)
+
+    def test_only_director_can_access(self):
+        student_user = self.student.user
+        self.client.force_authenticate(student_user)
+        response = self.client.get("/api/leaderboard/classes/growth/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

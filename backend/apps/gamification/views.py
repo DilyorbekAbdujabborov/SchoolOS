@@ -1,6 +1,8 @@
+from datetime import timedelta
 from typing import ClassVar
 
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import generics, viewsets
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
@@ -84,6 +86,55 @@ class ClassLeaderboardView(generics.ListAPIView):
             for index, school_class in enumerate(self.get_queryset(), start=1)
         ]
         return Response(self.get_serializer(ranked, many=True).data)
+
+
+class ClassGrowthView(APIView):
+    """Every class's cumulative XP over the last N days — the director
+    dashboard's "growth" chart. Each class's series ends exactly at its real,
+    current `total_xp` (today's point = actual total; earlier points are
+    reconstructed backward from that day's XP transactions), so the chart
+    stays self-consistent with the rest of the app rather than drifting from
+    whatever the ledger happens to contain.
+    """
+
+    permission_classes: ClassVar[list[type[BasePermission]]] = [IsDirector]
+    MAX_DAYS = 60
+    DEFAULT_DAYS = 14
+
+    def get(self, request):
+        try:
+            days = min(int(request.query_params.get("days", self.DEFAULT_DAYS)), self.MAX_DAYS)
+        except ValueError:
+            days = self.DEFAULT_DAYS
+        days = max(days, 1)
+
+        since = timezone.localdate() - timedelta(days=days - 1)
+        date_range = [since + timedelta(days=i) for i in range(days)]
+
+        classes = list(SchoolClass.objects.order_by("name"))
+        daily_deltas = {c.id: dict.fromkeys(date_range, 0) for c in classes}
+
+        transactions = XPTransaction.objects.filter(
+            created_at__date__gte=since, student__school_class__isnull=False
+        ).values_list("student__school_class_id", "created_at", "amount")
+        for class_id, created_at, amount in transactions:
+            bucket = daily_deltas.get(class_id)
+            if bucket is not None:
+                bucket[timezone.localtime(created_at).date()] += amount
+
+        result = []
+        for school_class in classes:
+            deltas = daily_deltas[school_class.id]
+            cumulative = school_class.total_xp - sum(deltas.values())
+            points = []
+            for day in date_range:
+                cumulative += deltas[day]
+                points.append({"date": day.isoformat(), "total_xp": cumulative})
+            result.append(
+                {"class_id": school_class.id, "class_name": school_class.name, "points": points}
+            )
+
+        return Response(result)
 
 
 class AchievementListView(generics.ListAPIView):
