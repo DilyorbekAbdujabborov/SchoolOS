@@ -401,3 +401,48 @@ export interface TeacherTaskAssignment {
   completed_at: string | null;
   created_at: string;
 }
+
+// ---------- Duels ----------
+
+export type DuelStatus = "ACTIVE" | "COMPLETED";
+export type DuelResult = "CHALLENGER" | "OPPONENT" | "DRAW" | null;
+export type DuelRole = "challenger" | "opponent" | null;
+
+/** Always framed from "my" side — `my_role`/`my_score_percent` etc. are
+ * relative to whoever is asking, never the raw challenger/opponent fields. */
+export interface DuelListItem {
+  id: number;
+  challenger: number;
+  challenger_name: string;
+  opponent: number;
+  opponent_name: string;
+  status: DuelStatus;
+  result: DuelResult;
+  my_role: DuelRole;
+  my_score_percent: number | null;
+  opponent_score_percent: number | null;
+  i_won: boolean | null;
+  i_have_submitted: boolean;
+  opponent_has_submitted: boolean;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface DuelQuestionItem {
+  id: number;
+  order: number;
+  text: string;
+  options: TestOption[];
+}
+
+export interface DuelRatingInfo {
+  rating: number;
+  tier: string;
+  wins: number;
+  losses: number;
+  draws: number;
+  total: number;
+  win_rate: number;
+  student_name?: string;
+  school_class_name?: string | null;
+}

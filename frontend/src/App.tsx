@@ -14,6 +14,7 @@ import {
   School,
   Send,
   Settings,
+  Swords,
   Trophy,
   UserCircle,
   Users,
@@ -43,6 +44,8 @@ import { StudentAchievementsPage } from "./pages/student/AchievementsPage";
 import { StudentAttendancePage } from "./pages/student/AttendancePage";
 import { StudentClassPage } from "./pages/student/ClassPage";
 import { StudentDashboardPage } from "./pages/student/DashboardPage";
+import { StudentDuelTakingPage } from "./pages/student/DuelTakingPage";
+import { StudentDuelsPage } from "./pages/student/DuelsPage";
 import { StudentLeaderboardPage } from "./pages/student/LeaderboardPage";
 import { StudentLessonsPage } from "./pages/student/LessonsPage";
 import { StudentProfilePage } from "./pages/student/ProfilePage";
@@ -101,6 +104,7 @@ const STUDENT_NAV = [
   { to: "/student/attendance", label: "Davomatim", icon: ClipboardCheck },
   { to: "/student/tests", label: "Testlar", icon: FileText },
   { to: "/student/activities", label: "Topshiriqlar", icon: ClipboardList },
+  { to: "/student/duels", label: "Duellar", icon: Swords },
   { to: "/student/xp", label: "Mening XP", icon: Trophy },
   { to: "/student/leaderboard", label: "Reyting", icon: BarChart3 },
   { to: "/student/achievements", label: "Yutuqlar", icon: Award },
@@ -184,6 +188,8 @@ export default function App() {
         <Route path="tests" element={<StudentTestsPage />} />
         <Route path="tests/:id" element={<StudentTestTakingPage />} />
         <Route path="activities" element={<StudentActivitiesPage />} />
+        <Route path="duels" element={<StudentDuelsPage />} />
+        <Route path="duels/:id" element={<StudentDuelTakingPage />} />
         <Route path="xp" element={<StudentXpPage />} />
         <Route path="leaderboard" element={<StudentLeaderboardPage />} />
         <Route path="achievements" element={<StudentAchievementsPage />} />

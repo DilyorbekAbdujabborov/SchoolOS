@@ -17,6 +17,7 @@ class XPTransaction(TimeStampedModel):
     class Source(models.TextChoices):
         TEST = "TEST", _("Test")
         ACTIVITY = "ACTIVITY", _("Activity")
+        DUEL = "DUEL", _("Duel")
 
     student = models.ForeignKey(
         "users.StudentProfile",

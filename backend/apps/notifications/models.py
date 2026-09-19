@@ -18,6 +18,8 @@ class Notification(TimeStampedModel):
         STREAK = "STREAK", _("Streak")
         LESSON_REMINDER = "LESSON_REMINDER", _("Lesson reminder")
         TASK_ASSIGNED = "TASK_ASSIGNED", _("Task assigned")
+        DUEL_INVITE = "DUEL_INVITE", _("Duel invite")
+        DUEL_RESULT = "DUEL_RESULT", _("Duel result")
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL,
