@@ -174,7 +174,7 @@ TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME", default="")
 
 # ---------- Google Gemini (apps.remedial — AI tutor + practice game) ----------
 GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
-GEMINI_MODEL = env("GEMINI_MODEL", default="gemini-2.0-flash")
+GEMINI_MODEL = env("GEMINI_MODEL", default="gemini-3.6-flash")
 
 # ---------- Cache ----------
 CACHES = {

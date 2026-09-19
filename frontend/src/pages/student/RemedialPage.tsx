@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { PrimaryButton } from "../../components/form";
-import { ErrorState, LoadingState } from "../../components/states";
+import { LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
 import type { RemedialGameQuestion, RemedialSession } from "../../types";
 
@@ -38,8 +38,9 @@ export function StudentRemedialPage() {
 
   const explainMutation = useMutation({
     mutationFn: async () => (await api.post<RemedialSession>(`/remedial-sessions/${id}/explain/`)).data,
-    onSuccess: () => {
+    onSuccess: (result) => {
       setError(null);
+      queryClient.setQueryData(["remedial", id], result);
       setPhase("explained");
     },
     onError: () => setError("AI hozircha javob bera olmadi. Birozdan so'ng qayta urinib ko'ring."),
@@ -60,6 +61,10 @@ export function StudentRemedialPage() {
     queryKey: ["remedial", id, "game"],
     queryFn: async () => (await api.get<RemedialGameQuestion[]>(`/remedial-sessions/${id}/game/`)).data,
     enabled: phase === "playing",
+    // AI generation can legitimately fail (provider overloaded) — fail fast with a
+    // retry button instead of silently retrying (which can otherwise get stuck
+    // paused if the browser's online/offline detection blips mid-retry).
+    retry: false,
   });
 
   const submitMutation = useMutation({
@@ -142,7 +147,16 @@ export function StudentRemedialPage() {
           <RopeTrack position={50} />
 
           {gameQuery.isLoading && <LoadingState label="O'yin tayyorlanmoqda..." />}
-          {gameQuery.isError && <ErrorState />}
+          {gameQuery.isError && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-center dark:border-red-500/30 dark:bg-red-500/10">
+              <p className="text-sm text-red-700 dark:text-red-300">
+                AI hozircha javob bera olmadi. Birozdan so'ng qayta urinib ko'ring.
+              </p>
+              <PrimaryButton className="mt-3" onClick={() => gameQuery.refetch()}>
+                Qayta urinish
+              </PrimaryButton>
+            </div>
+          )}
           {gameQuery.data?.[questionIndex] && (
             <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
               <p className="font-medium text-slate-900 dark:text-slate-50">
