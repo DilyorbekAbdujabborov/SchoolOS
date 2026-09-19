@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 REMEDIAL_QUESTION_COUNT = 6
 MAX_REMEDIAL_XP = 20
 
-_OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
+_GEMINI_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 
 def maybe_start_remedial_session(attempt) -> RemedialSession | None:
@@ -33,34 +33,41 @@ def maybe_start_remedial_session(attempt) -> RemedialSession | None:
     return session
 
 
-def _call_openai(*, messages: list[dict], json_mode: bool = False) -> str | None:
-    """Plain synchronous call to the Chat Completions API. Never raises — logs
-    and returns None on any failure, the same "fail quiet" contract as
-    `apps.telegram_bot.services.send_telegram_message`.
+def _call_gemini(*, prompt: str, json_mode: bool = False) -> str | None:
+    """Plain synchronous call to the Gemini `generateContent` API. Never
+    raises — logs and returns None on any failure, the same "fail quiet"
+    contract as `apps.telegram_bot.services.send_telegram_message`.
     """
-    api_key = settings.OPENAI_API_KEY
+    api_key = settings.GEMINI_API_KEY
     if not api_key:
-        logger.warning("OPENAI_API_KEY is not set — cannot call OpenAI.")
+        logger.warning("GEMINI_API_KEY is not set — cannot call Gemini.")
         return None
 
-    payload = {"model": settings.OPENAI_MODEL, "messages": messages, "temperature": 0.7}
+    generation_config = {"temperature": 0.7}
     if json_mode:
-        payload["response_format"] = {"type": "json_object"}
+        generation_config["responseMimeType"] = "application/json"
+
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": generation_config,
+    }
+    url = _GEMINI_URL_TEMPLATE.format(model=settings.GEMINI_MODEL)
 
     try:
         response = requests.post(
-            _OPENAI_CHAT_URL,
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            url,
+            params={"key": api_key},
+            headers={"Content-Type": "application/json"},
             json=payload,
             timeout=30,
         )
         response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"]
+        return response.json()["candidates"][0]["content"]["parts"][0]["text"]
     except requests.RequestException:
-        logger.warning("OpenAI request failed.")
+        logger.warning("Gemini request failed.")
         return None
     except (KeyError, IndexError, ValueError):
-        logger.warning("Unexpected OpenAI response shape.")
+        logger.warning("Unexpected Gemini response shape.")
         return None
 
 
@@ -84,7 +91,7 @@ def generate_explanation(session: RemedialSession) -> str | None:
         "ohangda yozing. Faqat tushuntirish matnini yoz, boshqa hech narsa qo'shma."
     )
 
-    content = _call_openai(messages=[{"role": "user", "content": prompt}])
+    content = _call_gemini(prompt=prompt)
     if content is None:
         return None
 
@@ -112,7 +119,7 @@ def generate_game_questions(session: RemedialSession) -> list[dict] | None:
         "Hammasi o'zbek tilida bo'lsin."
     )
 
-    content = _call_openai(messages=[{"role": "user", "content": prompt}], json_mode=True)
+    content = _call_gemini(prompt=prompt, json_mode=True)
     if content is None:
         return None
 
@@ -121,7 +128,7 @@ def generate_game_questions(session: RemedialSession) -> list[dict] | None:
         if not isinstance(questions, list) or not questions:
             raise ValueError
     except (json.JSONDecodeError, KeyError, TypeError, ValueError):
-        logger.warning("Could not parse OpenAI question JSON for remedial session %s", session.pk)
+        logger.warning("Could not parse Gemini question JSON for remedial session %s", session.pk)
         return None
 
     session.questions = questions

@@ -172,9 +172,9 @@ CORS_ALLOW_CREDENTIALS = True
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
 TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME", default="")
 
-# ---------- OpenAI (apps.remedial — AI tutor + practice game) ----------
-OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
-OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini")
+# ---------- Google Gemini (apps.remedial — AI tutor + practice game) ----------
+GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
+GEMINI_MODEL = env("GEMINI_MODEL", default="gemini-2.0-flash")
 
 # ---------- Cache ----------
 CACHES = {

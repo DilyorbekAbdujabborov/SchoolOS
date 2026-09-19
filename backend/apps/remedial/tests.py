@@ -19,10 +19,10 @@ from .services import (
 )
 
 
-def _openai_response(content: str) -> Mock:
+def _gemini_response(content: str) -> Mock:
     response = Mock()
     response.raise_for_status = Mock()
-    response.json.return_value = {"choices": [{"message": {"content": content}}]}
+    response.json.return_value = {"candidates": [{"content": {"parts": [{"text": content}]}}]}
     return response
 
 
@@ -92,32 +92,32 @@ class AIServiceTests(TestCase):
         self.attempt = grade_attempt(attempt=attempt, answers=wrong_answers)
         self.session = maybe_start_remedial_session(self.attempt)
 
-    @patch("apps.remedial.services.settings.OPENAI_API_KEY", "test-key")
+    @patch("apps.remedial.services.settings.GEMINI_API_KEY", "test-key")
     @patch("apps.remedial.services.requests.post")
     def test_generate_explanation_success(self, mock_post):
-        mock_post.return_value = _openai_response("Bu mavzuni tushunish uchun...")
+        mock_post.return_value = _gemini_response("Bu mavzuni tushunish uchun...")
         explanation = generate_explanation(self.session)
         self.assertEqual(explanation, "Bu mavzuni tushunish uchun...")
         self.session.refresh_from_db()
         self.assertEqual(self.session.status, RemedialSession.Status.EXPLAINED)
 
-    @patch("apps.remedial.services.settings.OPENAI_API_KEY", "")
+    @patch("apps.remedial.services.settings.GEMINI_API_KEY", "")
     def test_generate_explanation_without_api_key_fails_quietly(self):
         self.assertIsNone(generate_explanation(self.session))
         self.session.refresh_from_db()
         self.assertEqual(self.session.explanation, "")
 
-    @patch("apps.remedial.services.settings.OPENAI_API_KEY", "test-key")
+    @patch("apps.remedial.services.settings.GEMINI_API_KEY", "test-key")
     @patch("apps.remedial.services.requests.post")
     def test_generate_explanation_is_cached(self, mock_post):
-        mock_post.return_value = _openai_response("Birinchi tushuntirish")
+        mock_post.return_value = _gemini_response("Birinchi tushuntirish")
         generate_explanation(self.session)
-        mock_post.return_value = _openai_response("Ikkinchi tushuntirish")
+        mock_post.return_value = _gemini_response("Ikkinchi tushuntirish")
         second_call = generate_explanation(self.session)
         self.assertEqual(second_call, "Birinchi tushuntirish")
         mock_post.assert_called_once()
 
-    @patch("apps.remedial.services.settings.OPENAI_API_KEY", "test-key")
+    @patch("apps.remedial.services.settings.GEMINI_API_KEY", "test-key")
     @patch("apps.remedial.services.requests.post")
     def test_generate_game_questions_success(self, mock_post):
         self.session.explanation = "Tushuntirish"
@@ -127,18 +127,18 @@ class AIServiceTests(TestCase):
                 {"text": f"Savol {i}", "options": ["a", "b", "c", "d"], "correct_index": 1} for i in range(6)
             ]
         }
-        mock_post.return_value = _openai_response(json.dumps(payload))
+        mock_post.return_value = _gemini_response(json.dumps(payload))
         questions = generate_game_questions(self.session)
         self.assertEqual(len(questions), 6)
         self.session.refresh_from_db()
         self.assertEqual(len(self.session.questions), 6)
 
-    @patch("apps.remedial.services.settings.OPENAI_API_KEY", "test-key")
+    @patch("apps.remedial.services.settings.GEMINI_API_KEY", "test-key")
     @patch("apps.remedial.services.requests.post")
     def test_generate_game_questions_malformed_json_fails_quietly(self, mock_post):
         self.session.explanation = "Tushuntirish"
         self.session.save()
-        mock_post.return_value = _openai_response("this is not json")
+        mock_post.return_value = _gemini_response("this is not json")
         self.assertIsNone(generate_game_questions(self.session))
 
 
@@ -223,13 +223,13 @@ class RemedialAPITests(APITestCase):
         response = self._submit(correct_count=4)
         self.assertIsNone(response.data["remedial_session_id"])
 
-    @patch("apps.remedial.services.settings.OPENAI_API_KEY", "test-key")
+    @patch("apps.remedial.services.settings.GEMINI_API_KEY", "test-key")
     @patch("apps.remedial.services.requests.post")
     def test_full_flow_via_api(self, mock_post):
         submit_response = self._submit(correct_count=0)
         session_id = submit_response.data["remedial_session_id"]
 
-        mock_post.return_value = _openai_response("Qisqa tushuntirish.")
+        mock_post.return_value = _gemini_response("Qisqa tushuntirish.")
         explain_response = self.client.post(f"/api/remedial-sessions/{session_id}/explain/")
         self.assertEqual(explain_response.status_code, status.HTTP_200_OK)
 
@@ -238,7 +238,7 @@ class RemedialAPITests(APITestCase):
                 {"text": f"Savol {i}", "options": ["a", "b", "c", "d"], "correct_index": 0} for i in range(6)
             ]
         }
-        mock_post.return_value = _openai_response(json.dumps(payload))
+        mock_post.return_value = _gemini_response(json.dumps(payload))
         game_response = self.client.get(f"/api/remedial-sessions/{session_id}/game/")
         self.assertEqual(game_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(game_response.data), 6)
