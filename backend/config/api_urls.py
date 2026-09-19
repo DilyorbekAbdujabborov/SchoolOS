@@ -20,4 +20,5 @@ urlpatterns = [
     path("", include("apps.telegram_bot.urls")),
     path("", include("apps.learning.urls")),
     path("", include("apps.gamification.urls")),
+    path("", include("apps.tasks.urls")),
 ]

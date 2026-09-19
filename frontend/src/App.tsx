@@ -11,6 +11,7 @@ import {
   GraduationCap,
   LayoutDashboard,
   School,
+  Send,
   Settings,
   Trophy,
   UserCircle,
@@ -32,6 +33,7 @@ import { DirectorRankingsPage } from "./pages/director/RankingsPage";
 import { SettingsPage } from "./pages/director/SettingsPage";
 import { StudentsPage } from "./pages/director/StudentsPage";
 import { SubjectsPage } from "./pages/director/SubjectsPage";
+import { DirectorTasksPage } from "./pages/director/TasksPage";
 import { TeachersPage } from "./pages/director/TeachersPage";
 import { TimetablePage } from "./pages/director/TimetablePage";
 import { StudentActivitiesPage } from "./pages/student/ActivitiesPage";
@@ -52,6 +54,7 @@ import { TeacherClassesPage } from "./pages/teacher/ClassesPage";
 import { TeacherDashboardPage } from "./pages/teacher/DashboardPage";
 import { TeacherLessonsPage } from "./pages/teacher/LessonsPage";
 import { TeacherProfilePage } from "./pages/teacher/ProfilePage";
+import { TeacherTasksPage } from "./pages/teacher/TasksPage";
 import { TeacherTestsPage } from "./pages/teacher/TestsPage";
 import { TeacherXpPage } from "./pages/teacher/XpPage";
 import { DashboardLayout } from "./routes/DashboardLayout";
@@ -66,8 +69,7 @@ const DIRECTOR_NAV = [
   { to: "/director/lessons", label: "Darslar", icon: ClipboardList },
   { to: "/director/timetable", label: "Dars jadvali", icon: CalendarDays },
   { to: "/director/attendance", label: "Davomat", icon: ClipboardCheck },
-  { to: "/director/tests", label: "Testlar", icon: FileText },
-  { to: "/director/activities", label: "Topshiriqlar", icon: ClipboardList },
+  { to: "/director/tasks", label: "Vazifa berish", icon: Send },
   { to: "/director/rankings", label: "XP va reyting", icon: Trophy },
   { to: "/director/achievements", label: "Yutuqlar", icon: Award },
   { to: "/director/notifications", label: "Bildirishnomalar", icon: Bell },
@@ -82,6 +84,7 @@ const TEACHER_NAV = [
   { to: "/teacher/attendance", label: "Davomat", icon: ClipboardCheck },
   { to: "/teacher/tests", label: "Testlar", icon: FileText },
   { to: "/teacher/activities", label: "Topshiriqlar", icon: ClipboardList },
+  { to: "/teacher/tasks", label: "Vazifalarim", icon: Send },
   { to: "/teacher/xp", label: "XP", icon: Trophy },
   { to: "/teacher/notifications", label: "Bildirishnomalar", icon: Bell },
   { to: "/teacher/profile", label: "Profil", icon: UserCircle },
@@ -131,8 +134,7 @@ export default function App() {
         <Route path="lessons" element={<LessonsPage />} />
         <Route path="timetable" element={<TimetablePage />} />
         <Route path="attendance" element={<AttendancePage />} />
-        <Route path="tests" element={<TeacherTestsPage />} />
-        <Route path="activities" element={<TeacherActivitiesPage />} />
+        <Route path="tasks" element={<DirectorTasksPage />} />
         <Route path="rankings" element={<DirectorRankingsPage />} />
         <Route path="achievements" element={<DirectorAchievementsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
@@ -154,6 +156,7 @@ export default function App() {
         <Route path="attendance" element={<TeacherAttendancePage />} />
         <Route path="tests" element={<TeacherTestsPage />} />
         <Route path="activities" element={<TeacherActivitiesPage />} />
+        <Route path="tasks" element={<TeacherTasksPage />} />
         <Route path="xp" element={<TeacherXpPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="profile" element={<TeacherProfilePage />} />

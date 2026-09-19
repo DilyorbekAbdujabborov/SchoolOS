@@ -81,8 +81,8 @@ export function DirectorDashboardPage() {
           <section>
             <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">O'quv faolligi</h2>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <StatCard label="Jami testlar" value={data.total_tests} to="/director/tests" icon={FileText} tone="brand" />
-              <StatCard label="Jami topshiriqlar" value={data.total_activities} to="/director/activities" icon={ClipboardList} tone="violet" />
+              <StatCard label="Jami testlar" value={data.total_tests} icon={FileText} tone="brand" />
+              <StatCard label="Jami topshiriqlar" value={data.total_activities} icon={ClipboardList} tone="violet" />
               <StatCard label="Berilgan XP" value={data.total_xp_awarded} to="/director/rankings" icon={Trophy} tone="amber" />
               <StatCard
                 label="Yetakchi sinf"

@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "apps.telegram_bot",
     "apps.learning",
     "apps.gamification",
+    "apps.tasks",
 ]
 
 MIDDLEWARE = [

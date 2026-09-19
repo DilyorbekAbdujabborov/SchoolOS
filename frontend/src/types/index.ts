@@ -366,3 +366,34 @@ export interface MyRank {
   class_rank: number | null;
   total_classes: number;
 }
+
+// ---------- Director -> teacher tasks ----------
+
+export type TeacherTaskCategory = "ADMINISTRATIVE" | "REPORT" | "MEETING" | "OTHER";
+
+/** Director's view of a task they sent — how many teachers got it, how many are done. */
+export interface TeacherTaskSummary {
+  id: number;
+  title: string;
+  description: string;
+  category: TeacherTaskCategory;
+  category_display: string;
+  is_broadcast: boolean;
+  assignee_count: number;
+  done_count: number;
+  created_at: string;
+}
+
+/** A teacher's own copy of an assigned task. */
+export interface TeacherTaskAssignment {
+  id: number;
+  task: number;
+  title: string;
+  description: string;
+  category: TeacherTaskCategory;
+  category_display: string;
+  created_by_name: string;
+  is_done: boolean;
+  completed_at: string | null;
+  created_at: string;
+}
