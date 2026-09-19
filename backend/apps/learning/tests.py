@@ -1,3 +1,6 @@
+import json
+from unittest.mock import Mock, patch
+
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -405,3 +408,92 @@ class ActivityAPITests(APITestCase):
         self.client.force_authenticate(other_student_user)
         response = self.client.get(f"/api/activity-submissions/{submission.id}/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+def _gemini_response(content: str) -> Mock:
+    response = Mock()
+    response.raise_for_status = Mock()
+    response.json.return_value = {"candidates": [{"content": {"parts": [{"text": content}]}}]}
+    return response
+
+
+class AITestGenerationAPITests(APITestCase):
+    def setUp(self):
+        self.subject = make_subject()
+        self.teacher_user, self.teacher = make_teacher()
+        self.school_class = make_school_class()
+        self.student_user, self.student = make_student(self.school_class)
+        self.payload = {
+            "title": "Kasrlar",
+            "subject": self.subject.id,
+            "school_class": self.school_class.id,
+            "topic": "Oddiy kasrlar",
+            "question_count": 5,
+        }
+        self.ai_payload = json.dumps(
+            {
+                "questions": [
+                    {"text": f"Savol {i}", "options": ["a", "b", "c", "d"], "correct_index": i % 4}
+                    for i in range(5)
+                ]
+            }
+        )
+
+    @patch("apps.common.gemini.settings.GEMINI_API_KEY", "test-key")
+    @patch("apps.common.gemini.requests.post")
+    def test_teacher_can_generate_a_test(self, mock_post):
+        mock_post.return_value = _gemini_response(self.ai_payload)
+        self.client.force_authenticate(self.teacher_user)
+        response = self.client.post("/api/tests/generate/", self.payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["title"], "Kasrlar")
+        self.assertFalse(response.data["is_published"])
+        self.assertEqual(len(response.data["questions"]), 5)
+
+        test = Test.objects.get(id=response.data["id"])
+        self.assertEqual(test.teacher, self.teacher)
+        self.assertEqual(test.questions.count(), 5)
+        first_question = test.questions.order_by("order").first()
+        self.assertEqual(first_question.options.count(), 4)
+        self.assertEqual(first_question.options.get(is_correct=True).text, "a")
+
+    @patch("apps.common.gemini.settings.GEMINI_API_KEY", "")
+    def test_generation_fails_gracefully_without_an_api_key(self, *_):
+        self.client.force_authenticate(self.teacher_user)
+        response = self.client.post("/api/tests/generate/", self.payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Test.objects.exists())
+
+    @patch("apps.common.gemini.settings.GEMINI_API_KEY", "test-key")
+    @patch("apps.common.gemini.requests.post")
+    def test_question_count_is_capped_for_a_low_frequency_subject(self, mock_post):
+        make_timetable_slot(
+            school_class=self.school_class, subject=self.subject, teacher=self.teacher, period_number=1
+        )
+        make_timetable_slot(
+            school_class=self.school_class, subject=self.subject, teacher=self.teacher, period_number=2
+        )
+        big_payload = json.dumps(
+            {
+                "questions": [
+                    {"text": f"Savol {i}", "options": ["a", "b", "c", "d"], "correct_index": 0}
+                    for i in range(20)
+                ]
+            }
+        )
+        mock_post.return_value = _gemini_response(big_payload)
+
+        self.client.force_authenticate(self.teacher_user)
+        response = self.client.post(
+            "/api/tests/generate/", {**self.payload, "question_count": 20}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        test = Test.objects.get(id=response.data["id"])
+        self.assertEqual(test.questions.count(), 10)
+
+    def test_student_cannot_generate_a_test(self):
+        self.client.force_authenticate(self.student_user)
+        response = self.client.post("/api/tests/generate/", self.payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

@@ -6,6 +6,13 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.common.models import TimeStampedModel
 
+# A subject that only meets this many times a week (or fewer) in a class gets a
+# capped, standard-size test instead of an open-ended one — enforced for manual
+# question creation in `QuestionWriteSerializer.validate_test`, and for
+# AI-generated tests in `services.generate_test_with_ai`.
+LOW_FREQUENCY_WEEKLY_LESSON_THRESHOLD = 2
+LOW_FREQUENCY_QUESTION_CAP = 10
+
 
 class Test(TimeStampedModel):
     """A teacher-authored quiz for one class. The teacher sets `max_xp`; the

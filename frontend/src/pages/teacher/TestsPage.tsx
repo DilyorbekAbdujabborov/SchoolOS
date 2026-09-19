@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "../../components/Badge";
@@ -33,6 +33,24 @@ const EMPTY_TEST_FORM: TestFormState = {
   subject: "",
   school_class: "",
   time_limit_minutes: "",
+  max_xp: "100",
+};
+
+interface AITestFormState {
+  title: string;
+  subject: string;
+  school_class: string;
+  topic: string;
+  question_count: string;
+  max_xp: string;
+}
+
+const EMPTY_AI_FORM: AITestFormState = {
+  title: "",
+  subject: "",
+  school_class: "",
+  topic: "",
+  question_count: "10",
   max_xp: "100",
 };
 
@@ -281,6 +299,9 @@ export function TeacherTestsPage() {
   const [isModalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<TestFormState>(EMPTY_TEST_FORM);
   const [error, setError] = useState<string | null>(null);
+  const [isAIModalOpen, setAIModalOpen] = useState(false);
+  const [aiForm, setAIForm] = useState<AITestFormState>(EMPTY_AI_FORM);
+  const [aiError, setAIError] = useState<string | null>(null);
 
   const { data: classes } = useQuery({
     queryKey: ["classes"],
@@ -315,11 +336,41 @@ export function TeacherTestsPage() {
     onError: () => setError("Saqlashda xatolik."),
   });
 
+  const generateTest = useMutation({
+    mutationFn: async (payload: AITestFormState) =>
+      (
+        await api.post<TestSummary>("/tests/generate/", {
+          title: payload.title,
+          subject: Number(payload.subject),
+          school_class: Number(payload.school_class),
+          topic: payload.topic,
+          question_count: Number(payload.question_count),
+          max_xp: Number(payload.max_xp),
+        })
+      ).data,
+    onSuccess: (test) => {
+      queryClient.invalidateQueries({ queryKey: ["tests", "teacher"] });
+      setAIModalOpen(false);
+      setAIForm(EMPTY_AI_FORM);
+      setAIError(null);
+      setExpandedId(test.id);
+    },
+    onError: (err: unknown) => {
+      const detail = (err as { response?: { data?: Record<string, string[] | string> } })?.response?.data;
+      setAIError(detail ? Object.values(detail).flat().join(" ") : "AI bilan yaratishda xatolik.");
+    },
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Testlar</h1>
-        <PrimaryButton onClick={() => setModalOpen(true)}>+ Test yaratish</PrimaryButton>
+        <div className="flex gap-2">
+          <SecondaryButton onClick={() => setAIModalOpen(true)} className="inline-flex items-center gap-1.5">
+            <Sparkles size={15} /> AI bilan yaratish
+          </SecondaryButton>
+          <PrimaryButton onClick={() => setModalOpen(true)}>+ Test yaratish</PrimaryButton>
+        </div>
       </div>
 
       {isLoading && <LoadingState />}
@@ -425,6 +476,99 @@ export function TeacherTestsPage() {
               </SecondaryButton>
               <PrimaryButton type="submit" disabled={createTest.isPending}>
                 {createTest.isPending ? "Saqlanmoqda..." : "Yaratish"}
+              </PrimaryButton>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {isAIModalOpen && (
+        <Modal title="AI bilan test yaratish" onClose={() => setAIModalOpen(false)}>
+          <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+            Mavzuni yozing — AI shu mavzudan savollarni tuzib beradi. Yaratilgach, e'lon qilishdan oldin
+            ko'rib chiqib, kerak bo'lsa tahrirlashingiz mumkin.
+          </p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setAIError(null);
+              generateTest.mutate(aiForm);
+            }}
+            className="space-y-4"
+          >
+            <Field label="Test nomi">
+              <Input
+                required
+                value={aiForm.title}
+                onChange={(e) => setAIForm({ ...aiForm, title: e.target.value })}
+              />
+            </Field>
+            <Field label="Mavzu">
+              <Input
+                required
+                placeholder="Masalan: Kvadrat tenglamalar"
+                value={aiForm.topic}
+                onChange={(e) => setAIForm({ ...aiForm, topic: e.target.value })}
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Fan">
+                <Select
+                  required
+                  value={aiForm.subject}
+                  onChange={(e) => setAIForm({ ...aiForm, subject: e.target.value })}
+                >
+                  <option value="">— tanlang —</option>
+                  {subjects?.results.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Sinf">
+                <Select
+                  required
+                  value={aiForm.school_class}
+                  onChange={(e) => setAIForm({ ...aiForm, school_class: e.target.value })}
+                >
+                  <option value="">— tanlang —</option>
+                  {classes?.results.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Savollar soni">
+                <Input
+                  type="number"
+                  min={3}
+                  max={20}
+                  required
+                  value={aiForm.question_count}
+                  onChange={(e) => setAIForm({ ...aiForm, question_count: e.target.value })}
+                />
+              </Field>
+              <Field label="Maksimal XP">
+                <Input
+                  type="number"
+                  min={1}
+                  required
+                  value={aiForm.max_xp}
+                  onChange={(e) => setAIForm({ ...aiForm, max_xp: e.target.value })}
+                />
+              </Field>
+            </div>
+            {aiError && <p className="text-sm text-red-600 dark:text-red-400">{aiError}</p>}
+            <div className="flex justify-end gap-2 pt-2">
+              <SecondaryButton type="button" onClick={() => setAIModalOpen(false)}>
+                Bekor qilish
+              </SecondaryButton>
+              <PrimaryButton type="submit" disabled={generateTest.isPending}>
+                {generateTest.isPending ? "Yaratilmoqda..." : "AI bilan yaratish"}
               </PrimaryButton>
             </div>
           </form>

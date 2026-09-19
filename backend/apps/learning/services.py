@@ -1,12 +1,26 @@
+import json
+
 from django.db import transaction
 from django.utils import timezone
 
+from apps.academics.models import TimetableSlot
+from apps.common.gemini import call_gemini
 from apps.gamification.models import XPTransaction
 from apps.gamification.services import award_xp
 from apps.notifications.models import Notification
 from apps.notifications.services import notify
 
-from .models import ActivityResult, ActivitySubmission, TestAnswer, TestAttempt
+from .models import (
+    LOW_FREQUENCY_QUESTION_CAP,
+    LOW_FREQUENCY_WEEKLY_LESSON_THRESHOLD,
+    ActivityResult,
+    ActivitySubmission,
+    Option,
+    Question,
+    Test,
+    TestAnswer,
+    TestAttempt,
+)
 
 
 @transaction.atomic
@@ -127,3 +141,72 @@ def notify_class_of_new_activity(activity) -> None:
             body=f"{activity.subject.name}: \"{activity.title}\" — endi bajarishingiz mumkin.",
             category=Notification.Category.ACTIVITY_PUBLISHED,
         )
+
+
+@transaction.atomic
+def generate_test_with_ai(
+    *,
+    teacher,
+    title: str,
+    subject,
+    school_class,
+    topic: str,
+    question_count: int,
+    max_xp: int,
+    time_limit_minutes: int | None,
+) -> Test:
+    """Drafts a full multiple-choice test from a one-line topic — saves a
+    teacher from typing out every question by hand. The result is a normal,
+    fully-editable `Test` (draft, unpublished) with real `Question`/`Option`
+    rows, exactly as if the teacher had typed it in themselves; nothing about
+    it is AI-flavored once it's saved.
+
+    Respects the same low-weekly-frequency question cap as manual creation
+    (see `LOW_FREQUENCY_QUESTION_CAP`) — a subject that barely meets doesn't
+    get a 20-question AI test just because generating them is easy.
+    """
+    weekly_lessons = TimetableSlot.objects.filter(school_class=school_class, subject=subject).count()
+    if 0 < weekly_lessons <= LOW_FREQUENCY_WEEKLY_LESSON_THRESHOLD:
+        question_count = min(question_count, LOW_FREQUENCY_QUESTION_CAP)
+
+    prompt = (
+        f'"{subject.name}" fani, "{topic}" mavzusi bo\'yicha {school_class.name} sinfi uchun {question_count} ta '
+        "test savoli tuzib ber. Har savolda aniq 4 ta variant va faqat bitta to'g'ri javob bo'lsin, savollar "
+        "turli qiyinlik darajasida (ba'zilari oson, ba'zilari qiyinroq) bo'lsin.\n\n"
+        "Faqat quyidagi JSON formatida javob ber, boshqa hech narsa yozma:\n"
+        '{"questions": [{"text": "...", "options": ["...", "...", "...", "..."], "correct_index": 0}]}\n'
+        "Hammasi o'zbek tilida bo'lsin."
+    )
+
+    content = call_gemini(prompt=prompt, json_mode=True)
+    if content is None:
+        raise ValueError("AI hozircha javob bera olmadi. Birozdan so'ng qayta urinib ko'ring.")
+
+    try:
+        questions = json.loads(content)["questions"]
+        if not isinstance(questions, list) or not questions:
+            raise ValueError
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        raise ValueError("AI natijasini o'qib bo'lmadi. Qayta urinib ko'ring.") from exc
+
+    # The prompt already asks for `question_count`, but never trust the AI to
+    # actually respect that — enforce the cap in code, not just in English (well, Uzbek).
+    questions = questions[:question_count]
+
+    test = Test.objects.create(
+        title=title,
+        subject=subject,
+        school_class=school_class,
+        teacher=teacher,
+        max_xp=max_xp,
+        time_limit_minutes=time_limit_minutes,
+    )
+    for order, question_data in enumerate(questions, start=1):
+        question = Question.objects.create(test=test, text=question_data["text"], order=order)
+        correct_index = question_data.get("correct_index", 0)
+        Option.objects.bulk_create(
+            Option(question=question, text=option_text, is_correct=(index == correct_index))
+            for index, option_text in enumerate(question_data["options"])
+        )
+
+    return test

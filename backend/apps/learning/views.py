@@ -7,7 +7,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.common.permissions import IsStudent
+from apps.common.permissions import IsStudent, IsTeacher
 from apps.remedial.services import maybe_start_remedial_session
 
 from . import services
@@ -30,6 +30,7 @@ from .serializers import (
     QuestionWriteSerializer,
     TestAttemptResultSerializer,
     TestDetailSerializer,
+    TestGenerateSerializer,
     TestListSerializer,
     TestSubmitSerializer,
     TestWriteSerializer,
@@ -76,6 +77,32 @@ class TestViewSet(viewsets.ModelViewSet):
             serializer.save(teacher=user.teacher_profile)
         else:
             serializer.save()
+
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated, IsTeacher])
+    def generate(self, request):
+        """Drafts a full test from a one-line topic via AI — saves the teacher
+        from typing out every question by hand. Always unpublished; the
+        teacher reviews/edits before publishing, same as a manually-built test.
+        """
+        serializer = TestGenerateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        try:
+            test = services.generate_test_with_ai(
+                teacher=request.user.teacher_profile,
+                title=data["title"],
+                subject=data["subject"],
+                school_class=data["school_class"],
+                topic=data["topic"],
+                question_count=data["question_count"],
+                max_xp=data["max_xp"],
+                time_limit_minutes=data.get("time_limit_minutes"),
+            )
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+
+        return Response(TestDetailSerializer(test).data, status=201)
 
     @action(detail=True, methods=["post"])
     def publish(self, request, pk=None):

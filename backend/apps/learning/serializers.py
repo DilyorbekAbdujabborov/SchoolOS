@@ -1,8 +1,11 @@
 from rest_framework import serializers
 
-from apps.academics.models import TimetableSlot
+from apps.academics.models import Subject, TimetableSlot
+from apps.schools.models import SchoolClass
 
 from .models import (
+    LOW_FREQUENCY_QUESTION_CAP,
+    LOW_FREQUENCY_WEEKLY_LESSON_THRESHOLD,
     Activity,
     ActivityResult,
     ActivitySubmission,
@@ -11,11 +14,6 @@ from .models import (
     Test,
     TestAttempt,
 )
-
-# A subject that only meets this many times a week (or fewer) in a class gets a
-# capped, standard-size test instead of an open-ended one — see `QuestionWriteSerializer`.
-LOW_FREQUENCY_WEEKLY_LESSON_THRESHOLD = 2
-LOW_FREQUENCY_QUESTION_CAP = 10
 
 
 class OptionSerializer(serializers.ModelSerializer):
@@ -145,6 +143,18 @@ class TestWriteSerializer(serializers.ModelSerializer):
             "time_limit_minutes",
             "max_xp",
         )
+
+
+class TestGenerateSerializer(serializers.Serializer):
+    """Input for `TestViewSet.generate` — an AI-drafted test from a topic."""
+
+    title = serializers.CharField(max_length=255)
+    subject = serializers.PrimaryKeyRelatedField(queryset=Subject.objects.all())
+    school_class = serializers.PrimaryKeyRelatedField(queryset=SchoolClass.objects.all())
+    topic = serializers.CharField(max_length=255)
+    question_count = serializers.IntegerField(min_value=3, max_value=20, default=10)
+    max_xp = serializers.IntegerField(min_value=1, default=100)
+    time_limit_minutes = serializers.IntegerField(min_value=1, required=False, allow_null=True)
 
 
 class TestAttemptResultSerializer(serializers.ModelSerializer):
