@@ -102,6 +102,7 @@ class AIServiceTests(TestCase):
         self.assertEqual(self.session.status, RemedialSession.Status.EXPLAINED)
 
     @patch("apps.common.gemini.settings.GEMINI_API_KEY", "")
+    @patch("apps.common.gemini.settings.GROQ_API_KEY", "")
     def test_generate_explanation_without_api_key_fails_quietly(self):
         self.assertIsNone(generate_explanation(self.session))
         self.session.refresh_from_db()

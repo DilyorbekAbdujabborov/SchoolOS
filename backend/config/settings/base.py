@@ -173,9 +173,14 @@ CORS_ALLOW_CREDENTIALS = True
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
 TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME", default="")
 
-# ---------- Google Gemini (apps.remedial — AI tutor + practice game) ----------
+# ---------- AI completions (apps.common.gemini) ----------
+# Gemini is the primary provider; Groq is an automatic fallback used whenever
+# Gemini doesn't return a usable completion (quota/rate-limit exhaustion,
+# network failure, or no Gemini key configured at all) — see call_gemini().
 GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
 GEMINI_MODEL = env("GEMINI_MODEL", default="gemini-3.6-flash")
+GROQ_API_KEY = env("GROQ_API_KEY", default="")
+GROQ_MODEL = env("GROQ_MODEL", default="openai/gpt-oss-120b")
 
 # ---------- Cache ----------
 CACHES = {
