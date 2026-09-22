@@ -69,7 +69,17 @@ class AchievementSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Achievement
-        fields = ("id", "name", "description", "icon", "unlocked", "unlocked_at")
+        fields = (
+            "id",
+            "name",
+            "description",
+            "icon",
+            "condition_type",
+            "condition_value",
+            "xp_reward",
+            "unlocked",
+            "unlocked_at",
+        )
 
     def get_unlocked(self, obj) -> bool:
         return obj.id in self.context.get("unlocked", {})
@@ -98,5 +108,6 @@ class AchievementManageSerializer(serializers.ModelSerializer):
             "icon",
             "condition_type",
             "condition_value",
+            "xp_reward",
             "is_active",
         )

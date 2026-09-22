@@ -26,6 +26,12 @@ def _has_perfect_score(student, _value) -> bool:
     ).exists()
 
 
+def _has_test_count(student, value) -> bool:
+    from apps.learning.models import TestAttempt
+
+    return TestAttempt.objects.filter(student=student, status=TestAttempt.Status.SUBMITTED).count() >= value
+
+
 def _meets_xp_threshold(student, value) -> bool:
     return student.total_xp >= value
 
@@ -37,6 +43,7 @@ def _meets_streak_length(student, value) -> bool:
 
 CONDITION_CHECKS = {
     Achievement.ConditionType.FIRST_TEST: _has_first_test,
+    Achievement.ConditionType.TEST_COUNT: _has_test_count,
     Achievement.ConditionType.PERFECT_SCORE: _has_perfect_score,
     Achievement.ConditionType.XP_THRESHOLD: _meets_xp_threshold,
     Achievement.ConditionType.STREAK_LENGTH: _meets_streak_length,
@@ -105,26 +112,50 @@ def record_streak_activity(student) -> Streak:
 
 
 def check_achievements(student) -> list[StudentAchievement]:
-    """Unlocks any achievement whose condition the student now satisfies."""
-    already_unlocked_ids = set(
-        StudentAchievement.objects.filter(student=student).values_list("achievement_id", flat=True)
-    )
+    """Unlocks any achievement whose condition the student now satisfies, and
+    grants its one-time XP reward if it has one. `award_xp` itself calls back
+    into this function, so the "already unlocked" set is re-read from the DB
+    before every single unlock (not just once per call) — otherwise an
+    achievement newly unlocked by a nested call (triggered by an earlier
+    achievement's own XP reward pushing the student past another threshold)
+    would still be sitting in this call's stale candidate list, and creating
+    it a second time here would violate the unique-per-student constraint
+    and roll back the whole transaction.
+    """
     newly_unlocked = []
 
-    for achievement in Achievement.objects.filter(is_active=True).exclude(id__in=already_unlocked_ids):
-        check = CONDITION_CHECKS.get(achievement.condition_type)
-        if check is None or not check(student, achievement.condition_value):
-            continue
+    while True:
+        already_unlocked_ids = set(
+            StudentAchievement.objects.filter(student=student).values_list("achievement_id", flat=True)
+        )
+        candidate = None
+        for achievement in Achievement.objects.filter(is_active=True).exclude(id__in=already_unlocked_ids):
+            check = CONDITION_CHECKS.get(achievement.condition_type)
+            if check and check(student, achievement.condition_value):
+                candidate = achievement
+                break
+
+        if candidate is None:
+            break
 
         student_achievement = StudentAchievement.objects.create(
-            student=student, achievement=achievement
+            student=student, achievement=candidate
         )
         newly_unlocked.append(student_achievement)
         notify(
             recipient=student.user,
-            title=f"Yutuq ochildi: {achievement.name}",
-            body=achievement.description,
+            title=f"Yutuq ochildi: {candidate.name}",
+            body=candidate.description,
             category=Notification.Category.ACHIEVEMENT_UNLOCKED,
         )
+
+        if candidate.xp_reward > 0:
+            award_xp(
+                student=student,
+                amount=candidate.xp_reward,
+                source=XPTransaction.Source.ACHIEVEMENT,
+                related_object=student_achievement,
+                reason=f"Yutuq: {candidate.name}",
+            )
 
     return newly_unlocked

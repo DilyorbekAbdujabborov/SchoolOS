@@ -20,6 +20,7 @@ class XPTransaction(TimeStampedModel):
         DUEL = "DUEL", _("Duel")
         REMEDIAL_GAME = "REMEDIAL_GAME", _("Remedial game")
         GAME = "GAME", _("Practice game")
+        ACHIEVEMENT = "ACHIEVEMENT", _("Achievement unlocked")
 
     student = models.ForeignKey(
         "users.StudentProfile",
@@ -57,6 +58,7 @@ class Achievement(TimeStampedModel):
 
     class ConditionType(models.TextChoices):
         FIRST_TEST = "FIRST_TEST", _("Complete your first test")
+        TEST_COUNT = "TEST_COUNT", _("Complete N tests")
         PERFECT_SCORE = "PERFECT_SCORE", _("Score 100% on a test")
         XP_THRESHOLD = "XP_THRESHOLD", _("Reach a total XP threshold")
         STREAK_LENGTH = "STREAK_LENGTH", _("Reach a streak length")
@@ -71,6 +73,11 @@ class Achievement(TimeStampedModel):
         _("condition value"),
         default=0,
         help_text=_("Meaning depends on condition_type, e.g. an XP or streak-day threshold."),
+    )
+    xp_reward = models.PositiveIntegerField(
+        _("XP reward"),
+        default=0,
+        help_text=_("Awarded once, the moment a student unlocks this achievement."),
     )
     is_active = models.BooleanField(_("active"), default=True)
 

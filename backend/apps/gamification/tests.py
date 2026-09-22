@@ -134,6 +134,65 @@ class CheckAchievementsTests(TestCase):
             ).exists()
         )
 
+    def test_unlocking_awards_its_configured_xp_once(self):
+        Achievement.objects.create(
+            name="Rewarded", description="d", condition_type=Achievement.ConditionType.XP_THRESHOLD,
+            condition_value=100, xp_reward=50,
+        )
+        self.student.total_xp = 100
+        self.student.save(update_fields=["total_xp"])
+
+        check_achievements(self.student)
+
+        self.assertEqual(self.student.total_xp, 150)
+        self.assertTrue(
+            XPTransaction.objects.filter(
+                student=self.student, source=XPTransaction.Source.ACHIEVEMENT, amount=50
+            ).exists()
+        )
+
+        # A second pass shouldn't re-grant it — already unlocked.
+        check_achievements(self.student)
+        self.assertEqual(self.student.total_xp, 150)
+
+    def test_zero_xp_reward_grants_no_transaction(self):
+        Achievement.objects.create(
+            name="No Reward", description="d", condition_type=Achievement.ConditionType.XP_THRESHOLD,
+            condition_value=0,
+        )
+        check_achievements(self.student)
+        self.assertFalse(
+            XPTransaction.objects.filter(student=self.student, source=XPTransaction.Source.ACHIEVEMENT).exists()
+        )
+
+    def test_a_rewarded_unlock_that_pushes_past_a_second_threshold_does_not_double_create(self):
+        """Regression: unlocking "First" (xp_reward=100) recursively pushes the
+        student past "Threshold"'s own condition inside the SAME outer call.
+        Before the fix, the outer loop's stale candidate list still held
+        "Threshold" and tried to create it a second time -> IntegrityError,
+        rolling back the whole award_xp transaction (this call would have
+        raised instead of returning)."""
+        Achievement.objects.create(
+            name="First", description="d", condition_type=Achievement.ConditionType.XP_THRESHOLD,
+            condition_value=0, xp_reward=100,
+        )
+        Achievement.objects.create(
+            name="Threshold", description="d", condition_type=Achievement.ConditionType.XP_THRESHOLD,
+            condition_value=100, xp_reward=0,
+        )
+
+        check_achievements(self.student)
+
+        self.assertEqual(
+            set(
+                StudentAchievement.objects.filter(student=self.student).values_list(
+                    "achievement__name", flat=True
+                )
+            ),
+            {"First", "Threshold"},
+        )
+        self.assertEqual(self.student.total_xp, 100)
+
 
 class LeaderboardAPITests(APITestCase):
     def setUp(self):
