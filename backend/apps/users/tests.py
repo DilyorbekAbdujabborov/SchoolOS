@@ -187,6 +187,17 @@ class MeEndpointTests(APITestCase):
         response = self.client.get("/api/auth/me/")
         self.assertIsNone(response.data["total_xp"])
 
+    def test_teacher_sees_their_own_teacher_profile_id(self):
+        teacher_user, profile = make_teacher()
+        self.client.force_authenticate(teacher_user)
+        response = self.client.get("/api/auth/me/")
+        self.assertEqual(response.data["teacher_profile_id"], profile.id)
+
+    def test_non_teacher_has_no_teacher_profile_id(self):
+        self.client.force_authenticate(make_director())
+        response = self.client.get("/api/auth/me/")
+        self.assertIsNone(response.data["teacher_profile_id"])
+
 
 class AvatarAPITests(APITestCase):
     def setUp(self):

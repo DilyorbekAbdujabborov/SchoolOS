@@ -26,6 +26,7 @@ class UserSerializer(serializers.ModelSerializer):
 class MeSerializer(serializers.ModelSerializer):
     total_xp = serializers.SerializerMethodField()
     avatar_url = serializers.SerializerMethodField()
+    teacher_profile_id = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -39,12 +40,22 @@ class MeSerializer(serializers.ModelSerializer):
             "must_change_password",
             "total_xp",
             "avatar_url",
+            "teacher_profile_id",
         )
         read_only_fields = fields
 
     def get_total_xp(self, obj) -> int | None:
         profile = getattr(obj, "student_profile", None)
         return profile.total_xp if profile else None
+
+    def get_teacher_profile_id(self, obj) -> int | None:
+        """Lets the frontend filter `/timetable-slots/` and `/lessons/` down to a
+        teacher's own taught periods — that queryset is scoped more broadly (it
+        also includes a homeroom teacher's led-class slots taught by someone
+        else), so a `teacher=<this id>` filter is the only reliable way to get
+        just "my own schedule" for a linear, one-lesson-per-period day view."""
+        profile = getattr(obj, "teacher_profile", None)
+        return profile.id if profile else None
 
     def get_avatar_url(self, obj) -> str | None:
         if not obj.avatar:

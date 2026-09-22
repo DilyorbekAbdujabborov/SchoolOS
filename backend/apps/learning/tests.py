@@ -474,11 +474,39 @@ class AITestGenerationAPITests(APITestCase):
         self.assertEqual(first_question.options.get(is_correct=True).text, "a")
 
     @patch("apps.common.gemini.settings.GEMINI_API_KEY", "")
+    @patch("apps.common.gemini.settings.GROQ_API_KEY", "")
     def test_generation_fails_gracefully_without_an_api_key(self, *_):
         self.client.force_authenticate(self.teacher_user)
         response = self.client.post("/api/tests/generate/", self.payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(Test.objects.exists())
+
+    @patch("apps.common.gemini.settings.GEMINI_API_KEY", "test-key")
+    @patch("apps.common.gemini.requests.post")
+    def test_director_can_generate_a_test_for_a_chosen_teacher(self, mock_post):
+        mock_post.return_value = _gemini_response(self.ai_payload)
+        self.client.force_authenticate(make_director())
+        response = self.client.post(
+            "/api/tests/generate/", {**self.payload, "teacher": self.teacher.id}, format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        test = Test.objects.get(id=response.data["id"])
+        self.assertEqual(test.teacher, self.teacher)
+
+    @patch("apps.common.gemini.settings.GEMINI_API_KEY", "test-key")
+    def test_director_must_choose_a_teacher(self, *_):
+        self.client.force_authenticate(make_director())
+        response = self.client.post("/api/tests/generate/", self.payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Test.objects.exists())
+
+    @patch("apps.common.gemini.settings.GEMINI_API_KEY", "test-key")
+    def test_student_cannot_generate_a_test(self, *_):
+        self.client.force_authenticate(self.student_user)
+        response = self.client.post("/api/tests/generate/", self.payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("apps.common.gemini.settings.GEMINI_API_KEY", "test-key")
     @patch("apps.common.gemini.requests.post")

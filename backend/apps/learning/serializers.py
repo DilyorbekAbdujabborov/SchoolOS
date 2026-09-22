@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from apps.academics.models import Subject, TimetableSlot
 from apps.schools.models import SchoolClass
+from apps.users.models import TeacherProfile
 
 from .models import (
     LOW_FREQUENCY_QUESTION_CAP,
@@ -146,11 +147,18 @@ class TestWriteSerializer(serializers.ModelSerializer):
 
 
 class TestGenerateSerializer(serializers.Serializer):
-    """Input for `TestViewSet.generate` — an AI-drafted test from a topic."""
+    """Input for `TestViewSet.generate` — an AI-drafted test from a topic.
+
+    `teacher` is only meaningful for a director caller (who has no
+    `teacher_profile` of their own and must say which teacher this test
+    belongs to) — a teacher caller's own profile is always used instead,
+    regardless of what's sent here (see `TestViewSet.generate`).
+    """
 
     title = serializers.CharField(max_length=255)
     subject = serializers.PrimaryKeyRelatedField(queryset=Subject.objects.all())
     school_class = serializers.PrimaryKeyRelatedField(queryset=SchoolClass.objects.all())
+    teacher = serializers.PrimaryKeyRelatedField(queryset=TeacherProfile.objects.all(), required=False)
     topic = serializers.CharField(max_length=255)
     question_count = serializers.IntegerField(min_value=3, max_value=20, default=10)
     max_xp = serializers.IntegerField(min_value=1, default=100)

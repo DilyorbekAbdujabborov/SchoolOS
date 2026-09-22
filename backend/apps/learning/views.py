@@ -7,7 +7,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.common.permissions import IsStudent, IsTeacher
+from apps.common.permissions import IsDirector, IsStudent, IsTeacher
 from apps.remedial.services import maybe_start_remedial_session
 
 from . import services
@@ -78,19 +78,27 @@ class TestViewSet(viewsets.ModelViewSet):
         else:
             serializer.save()
 
-    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated, IsTeacher])
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated, IsTeacher | IsDirector])
     def generate(self, request):
         """Drafts a full test from a one-line topic via AI — saves the teacher
-        from typing out every question by hand. Always unpublished; the
-        teacher reviews/edits before publishing, same as a manually-built test.
+        (or director) from typing out every question by hand. Always
+        unpublished; reviewed/edited before publishing, same as a
+        manually-built test.
         """
         serializer = TestGenerateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        if request.user.is_teacher:
+            teacher = request.user.teacher_profile
+        else:
+            teacher = data.get("teacher")
+            if teacher is None:
+                raise ValidationError({"teacher": "Direktor uchun bu maydon majburiy."})
+
         try:
             test = services.generate_test_with_ai(
-                teacher=request.user.teacher_profile,
+                teacher=teacher,
                 title=data["title"],
                 subject=data["subject"],
                 school_class=data["school_class"],
