@@ -10,7 +10,7 @@ from apps.notifications.services import notify
 
 from .models import Attendance
 
-ATTENDANCE_GRACE_MINUTES = 10
+ATTENDANCE_GRACE_MINUTES = 5
 
 
 def count_by_status(queryset: QuerySet) -> dict[str, int]:
@@ -44,20 +44,31 @@ def can_mark_attendance(user, lesson: Lesson) -> bool:
     return profile.pk == lesson.teacher_id or profile.pk == lesson.school_class.class_teacher_id
 
 
+def _aware(d, t):
+    naive = datetime.combine(d, t)
+    return timezone.make_aware(naive) if timezone.is_naive(naive) else naive
+
+
 def attendance_window_opens_at(lesson: Lesson):
     """A lesson's attendance may only be marked once it's been running a while,
     so a teacher can't mark students absent before they've had a chance to walk in."""
-    naive_start = datetime.combine(lesson.date, lesson.start_time)
-    aware_start = timezone.make_aware(naive_start) if timezone.is_naive(naive_start) else naive_start
-    return aware_start + timedelta(minutes=ATTENDANCE_GRACE_MINUTES)
+    return _aware(lesson.date, lesson.start_time) + timedelta(minutes=ATTENDANCE_GRACE_MINUTES)
+
+
+def attendance_window_closes_at(lesson: Lesson):
+    """Attendance locks the moment the lesson ends — no editing a class's
+    attendance after the fact from the ordinary teacher UI."""
+    return _aware(lesson.date, lesson.end_time)
 
 
 def is_attendance_window_open(user, lesson: Lesson) -> bool:
     """Directors may backfill/correct attendance at any time; teachers must wait
-    out the grace period so early marking doesn't unfairly mark late arrivals absent."""
+    out the grace period so early marking doesn't unfairly mark late arrivals
+    absent, and lose access again the instant the lesson is over."""
     if user.is_director:
         return True
-    return timezone.now() >= attendance_window_opens_at(lesson)
+    now = timezone.now()
+    return attendance_window_opens_at(lesson) <= now < attendance_window_closes_at(lesson)
 
 
 @transaction.atomic

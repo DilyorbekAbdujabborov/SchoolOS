@@ -1,4 +1,4 @@
-from datetime import time, timedelta
+from datetime import datetime, time, timedelta
 
 from django.db import IntegrityError, transaction
 from django.test import TestCase
@@ -141,11 +141,17 @@ class BulkMarkAttendanceAPITests(APITestCase):
         self.other_teacher_user, _ = make_teacher()
         self.school_class = make_school_class()
         self.student_user, self.student = make_student(self.school_class)
+        # Started 15 minutes ago, 45-minute lesson — safely inside the
+        # attendance window (past the grace period, well before it ends), so
+        # these tests isolate authorization rather than window timing.
+        start = timezone.localtime() - timedelta(minutes=15)
         self.lesson = make_lesson(
             school_class=self.school_class,
             subject=self.subject,
             teacher=self.teacher,
-            lesson_date=timezone.localdate() - timedelta(days=1),
+            lesson_date=start.date(),
+            start_time=start.time(),
+            end_time=(start + timedelta(minutes=45)).time(),
         )
 
     def _payload(self, status_value=Attendance.Status.PRESENT):
@@ -192,15 +198,24 @@ class AttendanceWindowTests(TestCase):
         )
 
     def test_closed_within_grace_period(self):
-        lesson = self._lesson(minutes_ago=5)
+        lesson = self._lesson(minutes_ago=2)
         self.assertFalse(is_attendance_window_open(self.teacher_user, lesson))
 
     def test_open_after_grace_period(self):
         lesson = self._lesson(minutes_ago=11)
         self.assertTrue(is_attendance_window_open(self.teacher_user, lesson))
 
+    def test_closed_after_lesson_ends(self):
+        # The lesson in _lesson() runs 45 minutes; well past that, it's over.
+        lesson = self._lesson(minutes_ago=60)
+        self.assertFalse(is_attendance_window_open(self.teacher_user, lesson))
+
     def test_director_bypasses_grace_period(self):
         lesson = self._lesson(minutes_ago=0)
+        self.assertTrue(is_attendance_window_open(self.director, lesson))
+
+    def test_director_bypasses_lesson_end(self):
+        lesson = self._lesson(minutes_ago=60)
         self.assertTrue(is_attendance_window_open(self.director, lesson))
 
 
@@ -230,7 +245,14 @@ class BulkMarkAttendanceWindowAPITests(APITestCase):
         }
 
     def test_teacher_blocked_within_grace_period(self):
-        lesson = self._lesson(minutes_ago=5)
+        lesson = self._lesson(minutes_ago=2)
+        self.client.force_authenticate(self.teacher_user)
+        response = self.client.post("/api/attendance/bulk-mark/", self._payload(lesson), format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Attendance.objects.filter(lesson=lesson).count(), 0)
+
+    def test_teacher_blocked_after_lesson_ends(self):
+        lesson = self._lesson(minutes_ago=60)
         self.client.force_authenticate(self.teacher_user)
         response = self.client.post("/api/attendance/bulk-mark/", self._payload(lesson), format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -329,3 +351,66 @@ class ClassSummaryAPITests(APITestCase):
         response = self._get()
 
         self.assertNotIn("parent_phone_number", response.data["absent_students"][0])
+
+
+class AttendanceDailySummaryAPITests(APITestCase):
+    def setUp(self):
+        self.director = make_director()
+        self.subject = make_subject()
+        _, self.teacher = make_teacher()
+        self.class_6a = make_school_class(name="6-A")
+        self.class_9b = make_school_class(name="9-B")
+        _, self.student_6a = make_student(self.class_6a)
+        _, self.student_9b = make_student(self.class_9b)
+
+        self.today = timezone.localdate()
+        self.yesterday = self.today - timedelta(days=1)
+
+    def _lesson(self, school_class, lesson_date, start_time=time(9, 0)):
+        end = (datetime.combine(lesson_date, start_time) + timedelta(minutes=45)).time()
+        return make_lesson(
+            school_class=school_class,
+            subject=self.subject,
+            teacher=self.teacher,
+            lesson_date=lesson_date,
+            start_time=start_time,
+            end_time=end,
+        )
+
+    def test_counts_are_grouped_by_day_across_the_whole_school(self):
+        lesson_today = self._lesson(self.class_6a, self.today)
+        lesson_yesterday = self._lesson(self.class_9b, self.yesterday)
+        Attendance.objects.create(lesson=lesson_today, student=self.student_6a, status=Attendance.Status.PRESENT)
+        Attendance.objects.create(lesson=lesson_yesterday, student=self.student_9b, status=Attendance.Status.ABSENT)
+
+        self.client.force_authenticate(self.director)
+        response = self.client.get("/api/attendance/daily-summary/", {"days": 7})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 7)
+        by_date = {row["date"]: row for row in response.data}
+        self.assertEqual(by_date[self.today.isoformat()]["present"], 1)
+        self.assertEqual(by_date[self.yesterday.isoformat()]["absent"], 1)
+        # A day with no records at all still appears, zero-filled.
+        self.assertEqual(by_date[self.today.isoformat()]["late"], 0)
+
+    def test_grade_filter_only_counts_matching_classes(self):
+        lesson_6a = self._lesson(self.class_6a, self.today, start_time=time(9, 0))
+        lesson_9b = self._lesson(self.class_9b, self.today, start_time=time(10, 0))
+        Attendance.objects.create(lesson=lesson_6a, student=self.student_6a, status=Attendance.Status.PRESENT)
+        Attendance.objects.create(lesson=lesson_9b, student=self.student_9b, status=Attendance.Status.PRESENT)
+
+        self.client.force_authenticate(self.director)
+        response = self.client.get("/api/attendance/daily-summary/", {"days": 1, "grade": "6"})
+
+        self.assertEqual(response.data[0]["present"], 1)
+
+    def test_non_director_forbidden(self):
+        self.client.force_authenticate(self.teacher.user)
+        response = self.client.get("/api/attendance/daily-summary/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_days_parameter_is_clamped(self):
+        self.client.force_authenticate(self.director)
+        response = self.client.get("/api/attendance/daily-summary/", {"days": 9999})
+        self.assertEqual(len(response.data), 60)

@@ -1,6 +1,8 @@
+import re
+from datetime import timedelta
 from typing import ClassVar
 
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework import mixins, viewsets
@@ -9,6 +11,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
+from apps.common.permissions import IsDirector
 from apps.schools.models import SchoolClass
 from apps.schools.serializers import StudentRosterSerializer
 from apps.users.models import StudentProfile
@@ -22,6 +25,8 @@ from .serializers import (
     BulkMarkAttendanceSerializer,
 )
 
+_GRADE_PREFIX = re.compile(r"^(\d+)")
+
 
 class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """Read history here; attendance is written exclusively through `bulk-mark`."""
@@ -30,6 +35,11 @@ class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
     permission_classes: ClassVar[list[type[BasePermission]]] = [IsAuthenticated]
     filterset_class = AttendanceFilter
     ordering_fields = ("lesson__date", "lesson__start_time")
+
+    def get_permissions(self):
+        if self.action == "daily_summary":
+            return [IsDirector()]
+        return super().get_permissions()
 
     def get_queryset(self):
         user = self.request.user
@@ -59,14 +69,15 @@ class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
         if not services.can_mark_attendance(request.user, lesson):
             raise PermissionDenied("You may not mark attendance for this lesson.")
         if not services.is_attendance_window_open(request.user, lesson):
-            raise ValidationError(
-                {
-                    "lesson": (
-                        f"Davomatni dars boshlanganidan {services.ATTENDANCE_GRACE_MINUTES} "
-                        "daqiqa o'tgach belgilash mumkin."
-                    )
-                }
-            )
+            now = timezone.now()
+            if now >= services.attendance_window_closes_at(lesson):
+                detail = "Dars tugagani uchun davomatni endi o'zgartirib bo'lmaydi."
+            else:
+                detail = (
+                    f"Davomatni dars boshlanganidan {services.ATTENDANCE_GRACE_MINUTES} "
+                    "daqiqa o'tgach belgilash mumkin."
+                )
+            raise ValidationError({"lesson": detail})
 
         attendances = services.mark_lesson_attendance(
             lesson=lesson,
@@ -126,6 +137,55 @@ class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
                 ).data,
             }
         )
+
+    @action(detail=False, methods=["get"], url_path="daily-summary")
+    def daily_summary(self, request):
+        """Whole-school (or one grade's) attendance status counts, one row per
+        day, for the director's "kunlik diagramma" — the bar chart needs a
+        single number per day, not the raw per-lesson record list, so this
+        aggregates server-side rather than making the client page through
+        (potentially thousands of) individual Attendance rows.
+        """
+        max_days = 60
+        try:
+            days = int(request.query_params.get("days", 14))
+        except ValueError:
+            days = 14
+        days = min(max(days, 1), max_days)
+
+        since = timezone.localdate() - timedelta(days=days - 1)
+        queryset = Attendance.objects.filter(lesson__date__gte=since)
+
+        grade = request.query_params.get("grade")
+        if grade:
+            matching_class_ids = [
+                school_class.id
+                for school_class in SchoolClass.objects.only("id", "name")
+                if (match := _GRADE_PREFIX.match(school_class.name)) and match.group(1) == grade
+            ]
+            queryset = queryset.filter(lesson__school_class_id__in=matching_class_ids)
+
+        rows = queryset.values("lesson__date", "status").annotate(count=Count("id"))
+        by_date: dict = {}
+        for row in rows:
+            day_counts = by_date.setdefault(row["lesson__date"], dict.fromkeys(Attendance.Status.values, 0))
+            day_counts[row["status"]] = row["count"]
+
+        empty_day = dict.fromkeys(Attendance.Status.values, 0)
+        result = []
+        for offset in range(days):
+            day = since + timedelta(days=offset)
+            counts = by_date.get(day, empty_day)
+            result.append(
+                {
+                    "date": day.isoformat(),
+                    "present": counts[Attendance.Status.PRESENT],
+                    "late": counts[Attendance.Status.LATE],
+                    "absent": counts[Attendance.Status.ABSENT],
+                    "excused": counts[Attendance.Status.EXCUSED],
+                }
+            )
+        return Response(result)
 
     @staticmethod
     def _can_view_class(user, school_class) -> bool:
