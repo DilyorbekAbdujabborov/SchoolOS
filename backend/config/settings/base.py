@@ -201,4 +201,8 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.academics.tasks.send_lesson_reminders",
         "schedule": 300.0,  # every 5 minutes; must stay well under REMINDER_WINDOW
     },
+    "refill-low-question-pools": {
+        "task": "apps.games.tasks.refill_low_pools",
+        "schedule": 21_600.0,  # every 6 hours — pools drain slowly, no need to poll often
+    },
 }

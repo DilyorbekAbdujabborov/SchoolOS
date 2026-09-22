@@ -6,18 +6,20 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.common.permissions import IsStudent
+from apps.common.permissions import IsDirector, IsStudent
 
 from . import services
 from .models import GameSession
 from .serializers import (
+    GameAnswerCheckSerializer,
     GameQuestionSerializer,
     GameSessionCreateSerializer,
     GameSessionSerializer,
     GameSubmitSerializer,
+    PoolRefillSerializer,
 )
 
-AI_UNAVAILABLE_DETAIL = "AI hozircha javob bera olmadi. Birozdan so'ng qayta urinib ko'ring."
+POOL_NOT_READY_DETAIL = "Bu fan va sinf uchun savollar hali tayyorlanmagan. Birozdan so'ng qayta urinib ko'ring."
 
 
 class GameSessionViewSet(
@@ -44,10 +46,24 @@ class GameSessionViewSet(
     @action(detail=True, methods=["get"])
     def questions(self, request, pk=None):
         session = self.get_object()
-        game_questions = services.generate_questions(session)
+        game_questions = services.pick_session_questions(session)
         if game_questions is None:
-            return Response({"detail": AI_UNAVAILABLE_DETAIL}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            return Response({"detail": POOL_NOT_READY_DETAIL}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response(GameQuestionSerializer(game_questions, many=True).data)
+
+    @action(detail=True, methods=["post"])
+    def answer(self, request, pk=None):
+        """Live per-question check for the tug-of-war rope — see `services.check_answer`."""
+        session = self.get_object()
+        serializer = GameAnswerCheckSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            correct = services.check_answer(session=session, **serializer.validated_data)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+
+        return Response({"correct": correct})
 
     @action(detail=True, methods=["post"])
     def submit(self, request, pk=None):
@@ -65,3 +81,23 @@ class GameSessionViewSet(
             raise ValidationError(str(exc)) from exc
 
         return Response(GameSessionSerializer(session).data)
+
+
+class QuestionPoolViewSet(viewsets.ViewSet):
+    """Director-only: see and top up each subject+class question pool that
+    powers the self-serve games — see `apps.games.services.refill_pool`. A
+    game's live start never calls Gemini; only this (and the scheduled
+    `apps.games.tasks.refill_low_pools`) does.
+    """
+
+    permission_classes: ClassVar[list[type[BasePermission]]] = [IsAuthenticated, IsDirector]
+
+    def list(self, request):
+        return Response(services.pool_status())
+
+    @action(detail=False, methods=["post"])
+    def refill(self, request):
+        serializer = PoolRefillSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        added = services.refill_pool(**serializer.validated_data)
+        return Response({"added": added})

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from apps.academics.models import Subject
+from apps.schools.models import SchoolClass
 
 from . import services
 from .models import GameSession
@@ -52,8 +53,24 @@ class GameSessionCreateSerializer(serializers.Serializer):
 
 class GameAnswerInputSerializer(serializers.Serializer):
     question_index = serializers.IntegerField(min_value=0)
-    selected_index = serializers.IntegerField(min_value=0)
+    # -1 means "timed out on this question" (see GameAnswerCheckSerializer) —
+    # the frontend always includes a timed-out question in the final submit
+    # payload, so rejecting -1 here made every game where the student ever
+    # let the clock run out on a single question fail to submit entirely.
+    selected_index = serializers.IntegerField(min_value=-1)
 
 
 class GameSubmitSerializer(serializers.Serializer):
     answers = GameAnswerInputSerializer(many=True, allow_empty=False)
+
+
+class GameAnswerCheckSerializer(serializers.Serializer):
+    """A single live answer check — `selected_index` may be -1 for a timeout (never correct)."""
+
+    question_index = serializers.IntegerField(min_value=0)
+    selected_index = serializers.IntegerField(min_value=-1)
+
+
+class PoolRefillSerializer(serializers.Serializer):
+    subject = serializers.PrimaryKeyRelatedField(queryset=Subject.objects.all())
+    school_class = serializers.PrimaryKeyRelatedField(queryset=SchoolClass.objects.all())
