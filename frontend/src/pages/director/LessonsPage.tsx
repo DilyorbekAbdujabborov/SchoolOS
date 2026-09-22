@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Field, Input, PrimaryButton, Select, SecondaryButton } from "../../components/form";
 import { Modal } from "../../components/Modal";
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
 import { api } from "../../lib/api";
@@ -89,10 +90,10 @@ export function LessonsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Darslar</h1>
-        <PrimaryButton onClick={() => setModalOpen(true)}>+ Dars qo'shish</PrimaryButton>
-      </div>
+      <PageHeader
+        title="Darslar"
+        action={<PrimaryButton onClick={() => setModalOpen(true)}>+ Dars qo'shish</PrimaryButton>}
+      />
 
       <div className="flex flex-wrap gap-3">
         <Select

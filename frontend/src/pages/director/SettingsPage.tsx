@@ -3,6 +3,7 @@ import { CheckCircle2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Field, Input, PrimaryButton } from "../../components/form";
+import { PageHeader } from "../../components/PageHeader";
 import { ErrorState, LoadingState } from "../../components/states";
 import { TelegramConnect } from "../../components/TelegramConnect";
 import { api } from "../../lib/api";
@@ -54,8 +55,8 @@ export function SettingsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-md space-y-6">
-      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Sozlamalar</h1>
+    <div className="mx-auto max-w-3xl space-y-6">
+      <PageHeader title="Sozlamalar" subtitle="Maktab vaqti, dars jadvali va bog'lanish sozlamalari." />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}
@@ -66,79 +67,87 @@ export function SettingsPage() {
             e.preventDefault();
             save.mutate();
           }}
-          className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900"
+          className="space-y-6"
         >
-          <div>
-            <h2 className="font-semibold text-slate-900 dark:text-slate-50">Dars vaqti (School Time Lock)</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <section className="rounded-2xl border border-slate-200 bg-white p-7 dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">
+              Dars vaqti (School Time Lock)
+            </h2>
+            <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
               Shu vaqt oralig'ida o'quvchilar platformadan foydalana olmaydi. Direktor va
               o'qituvchilarga bu cheklov taalluqli emas.
             </p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Boshlanishi">
-              <Input
-                type="time"
-                required
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-              />
-            </Field>
-            <Field label="Tugashi">
-              <Input
-                type="time"
-                required
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-              />
-            </Field>
-          </div>
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Boshlanishi">
+                <Input
+                  type="time"
+                  required
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="py-2.5"
+                />
+              </Field>
+              <Field label="Tugashi">
+                <Input
+                  type="time"
+                  required
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="py-2.5"
+                />
+              </Field>
+            </div>
+          </section>
 
-          <div className="pt-2">
-            <h2 className="font-semibold text-slate-900 dark:text-slate-50">Dars jadvali vaqtlari</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <section className="rounded-2xl border border-slate-200 bg-white p-7 dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">Dars jadvali vaqtlari</h2>
+            <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
               Har bir dars va tanaffus necha daqiqa davom etishi. "Darslarni yaratish" tugmasi
               shu qiymatlarga qarab har bir darsning vaqtini hisoblaydi.
             </p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Dars davomiyligi (daqiqa)">
-              <Input
-                type="number"
-                min={1}
-                required
-                value={periodDuration}
-                onChange={(e) => setPeriodDuration(e.target.value)}
-              />
-            </Field>
-            <Field label="Kichik tanaffus (daqiqa)">
-              <Input
-                type="number"
-                min={0}
-                required
-                value={shortBreak}
-                onChange={(e) => setShortBreak(e.target.value)}
-              />
-            </Field>
-            <Field label="Katta tanaffus qaysi darsdan keyin">
-              <Input
-                type="number"
-                min={1}
-                required
-                value={longBreakAfterPeriod}
-                onChange={(e) => setLongBreakAfterPeriod(e.target.value)}
-              />
-            </Field>
-            <Field label="Katta tanaffus (daqiqa)">
-              <Input
-                type="number"
-                min={0}
-                required
-                value={longBreak}
-                onChange={(e) => setLongBreak(e.target.value)}
-              />
-            </Field>
-          </div>
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Dars davomiyligi (daqiqa)">
+                <Input
+                  type="number"
+                  min={1}
+                  required
+                  value={periodDuration}
+                  onChange={(e) => setPeriodDuration(e.target.value)}
+                  className="py-2.5"
+                />
+              </Field>
+              <Field label="Kichik tanaffus (daqiqa)">
+                <Input
+                  type="number"
+                  min={0}
+                  required
+                  value={shortBreak}
+                  onChange={(e) => setShortBreak(e.target.value)}
+                  className="py-2.5"
+                />
+              </Field>
+              <Field label="Katta tanaffus qaysi darsdan keyin">
+                <Input
+                  type="number"
+                  min={1}
+                  required
+                  value={longBreakAfterPeriod}
+                  onChange={(e) => setLongBreakAfterPeriod(e.target.value)}
+                  className="py-2.5"
+                />
+              </Field>
+              <Field label="Katta tanaffus (daqiqa)">
+                <Input
+                  type="number"
+                  min={0}
+                  required
+                  value={longBreak}
+                  onChange={(e) => setLongBreak(e.target.value)}
+                  className="py-2.5"
+                />
+              </Field>
+            </div>
+          </section>
 
           <div className="flex items-center gap-3">
             <PrimaryButton type="submit" disabled={save.isPending}>
@@ -153,10 +162,10 @@ export function SettingsPage() {
         </form>
       )}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="mb-3 font-semibold text-slate-900 dark:text-slate-50">Telegram</h2>
+      <section className="rounded-2xl border border-slate-200 bg-white p-7 dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-slate-50">Telegram</h2>
         <TelegramConnect />
-      </div>
+      </section>
     </div>
   );
 }

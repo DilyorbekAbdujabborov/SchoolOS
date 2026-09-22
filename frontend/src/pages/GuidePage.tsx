@@ -20,6 +20,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 
+import { PageHeader } from "../components/PageHeader";
 import { useAuth } from "../lib/auth";
 import type { Role } from "../types";
 
@@ -210,9 +211,9 @@ export function GuidePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Qo'llanma</h1>
+      <PageHeader title="Qo'llanma" />
 
-      <div className="rounded-2xl bg-gradient-to-r from-brand-600 to-brand-500 p-6 text-white">
+      <div className="rounded-2xl bg-brand-600 p-6 text-white">
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/20">
             <Compass size={22} />
@@ -232,10 +233,10 @@ export function GuidePage() {
             <button
               key={section.title}
               onClick={() => setActiveIndex(index)}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+              className={`flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-sm font-medium transition-colors ${
                 index === activeIndex
                   ? "bg-brand-600 text-white"
-                  : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                  : "hover-glow text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
               }`}
             >
               <span

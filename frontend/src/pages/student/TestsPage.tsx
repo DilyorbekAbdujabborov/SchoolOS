@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
 import type { Paginated, TestAttempt, TestSummary } from "../../types";
@@ -20,10 +21,7 @@ export function StudentTestsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Testlar</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Sinfingiz uchun e'lon qilingan testlar.</p>
-      </div>
+      <PageHeader title="Testlar" subtitle="Sinfingiz uchun e'lon qilingan testlar." />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}

@@ -25,11 +25,8 @@ interface StatCardProps {
 }
 
 export function StatCard({ label, value, hint, to, onClick, icon: Icon, tone = "brand" }: StatCardProps) {
-  const className =
-    "rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm dark:border-slate-800 dark:bg-slate-900" +
-    (to || onClick
-      ? " transition-colors hover:border-brand-200 hover:bg-brand-50/40 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/5"
-      : "");
+  const interactive = Boolean(to || onClick);
+  const className = `${interactive ? "hover-card" : ""} rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm dark:border-slate-800 dark:bg-slate-900`;
 
   const content = (
     <>

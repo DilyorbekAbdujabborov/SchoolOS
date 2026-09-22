@@ -10,25 +10,23 @@ import {
   Clock,
   FileText,
   GraduationCap,
-  LineChart,
   Medal,
   School,
   Settings,
+  TrendingUp,
   Trophy,
   UserX,
   Users,
 } from "lucide-react";
-import { lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 
+import { ClassGrowthGrid } from "../../components/ClassGrowthGrid";
+import { DashboardHero } from "../../components/DashboardHero";
 import { StatCard } from "../../components/StatCard";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 import type { ClassGrowthSeries, ClassLeaderboardEntry, DirectorDashboard } from "../../types";
-
-const ClassGrowthChart = lazy(() =>
-  import("../../components/charts/ClassGrowthChart").then((m) => ({ default: m.ClassGrowthChart })),
-);
 
 const MEDAL_TONE: Record<number, string> = {
   1: "text-amber-500",
@@ -44,6 +42,7 @@ const QUICK_LINKS = [
 ];
 
 export function DirectorDashboardPage() {
+  const { user } = useAuth();
   const { data, isLoading, isError } = useQuery({
     queryKey: ["dashboard", "director"],
     queryFn: async () => (await api.get<DirectorDashboard>("/dashboard/director/")).data,
@@ -61,7 +60,20 @@ export function DirectorDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Direktor paneli</h1>
+      <DashboardHero
+        name={user?.first_name || user?.username || ""}
+        avatarSrc={user?.avatar_url}
+        subtitle="Maktabingizning bugungi holati."
+        chips={
+          data
+            ? [
+                { label: `${data.total_students} o'quvchi`, tone: "brand" },
+                { label: `${data.total_teachers} o'qituvchi`, tone: "violet" },
+                { label: `Bugun ${data.today_lessons} ta dars`, tone: "slate" },
+              ]
+            : []
+        }
+      />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}
@@ -107,20 +119,12 @@ export function DirectorDashboardPage() {
 
           <section>
             <div className="mb-3 flex items-center gap-2">
-              <LineChart size={16} className="text-brand-600 dark:text-brand-400" />
+              <TrendingUp size={16} className="text-brand-600 dark:text-brand-400" />
               <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Sinflarning XP o'sishi (so'nggi 14 kun)
+                O'sish — har bir sinfning so'nggi 14 kunlik XP o'sishi
               </h2>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-              {classGrowth ? (
-                <Suspense fallback={<LoadingState label="Yuklanmoqda..." />}>
-                  <ClassGrowthChart series={classGrowth} />
-                </Suspense>
-              ) : (
-                <LoadingState label="Yuklanmoqda..." />
-              )}
-            </div>
+            {classGrowth ? <ClassGrowthGrid series={classGrowth} /> : <LoadingState label="Yuklanmoqda..." />}
           </section>
 
           <section>

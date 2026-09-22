@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Clock, School } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "../../components/Badge";
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
 import type { ClassAttendanceSummary, Paginated, RosterStudent, SchoolClass } from "../../types";
@@ -147,7 +148,7 @@ export function TeacherClassesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Mening sinflarim</h1>
+      <PageHeader title="Mening sinflarim" />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}

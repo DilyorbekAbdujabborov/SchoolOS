@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
 import type { Paginated, RosterStudent, SchoolClass } from "../../types";
@@ -20,7 +21,7 @@ export function StudentClassPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Mening sinfim</h1>
+      <PageHeader title="Mening sinfim" />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}

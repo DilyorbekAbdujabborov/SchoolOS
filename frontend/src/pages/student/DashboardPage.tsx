@@ -19,6 +19,7 @@ import { Link } from "react-router-dom";
 
 import { Avatar } from "../../components/Avatar";
 import { CircularProgress } from "../../components/CircularProgress";
+import { DashboardHero } from "../../components/DashboardHero";
 import { GradientActionCard } from "../../components/GradientActionCard";
 import { LessonList } from "../../components/LessonList";
 import { ProgressBar } from "../../components/ProgressBar";
@@ -119,7 +120,7 @@ function TaskChecklistCard({ entries }: { entries: ChecklistEntry[] }) {
               <li key={entry.key}>
                 <Link
                   to={entry.to}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-3 py-2.5 transition-colors hover:border-brand-200 hover:bg-brand-50/40 dark:border-slate-800 dark:hover:border-brand-500/30 dark:hover:bg-brand-500/5"
+                  className="hover-glow flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-3 py-2.5 dark:border-slate-800"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <Circle size={16} className="shrink-0 text-slate-300 dark:text-slate-600" />
@@ -252,26 +253,15 @@ export function StudentDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
-          Salom, {user?.first_name || user?.username}!
-        </h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Bugun ham bilim sari bir qadam.</p>
-        {data && (data.school_class || attendancePercent !== null) && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {data.school_class && (
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                {data.school_class}
-              </span>
-            )}
-            {attendancePercent !== null && (
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-                Davomat {attendancePercent}%
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+      <DashboardHero
+        name={user?.first_name || user?.username || ""}
+        avatarSrc={user?.avatar_url}
+        subtitle="Bugun ham bilim sari bir qadam."
+        chips={[
+          ...(data?.school_class ? [{ label: data.school_class, tone: "slate" as const }] : []),
+          ...(attendancePercent !== null ? [{ label: `Davomat ${attendancePercent}%`, tone: "emerald" as const }] : []),
+        ]}
+      />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}

@@ -1,67 +1,69 @@
 import { useQuery } from "@tanstack/react-query";
+import { Clock, DoorOpen, User } from "lucide-react";
 import { useState } from "react";
 
-import { Field, Input } from "../../components/form";
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
-import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
+import { WeekdayTabs } from "../../components/WeekdayTabs";
 import { api } from "../../lib/api";
-import type { Lesson, Paginated } from "../../types";
+import { periodTimes, todaySchoolWeekday } from "../../lib/schoolTime";
+import type { Paginated, SchoolTimeConfig, TimetableSlot } from "../../types";
 
 export function StudentLessonsPage() {
-  const [date, setDate] = useState("");
+  const [day, setDay] = useState(todaySchoolWeekday() ?? 1);
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["lessons", { date }],
-    queryFn: async () =>
-      (
-        await api.get<Paginated<Lesson>>("/lessons/", { params: { date: date || undefined } })
-      ).data,
+  const { data: config } = useQuery({
+    queryKey: ["school-config"],
+    queryFn: async () => (await api.get<SchoolTimeConfig>("/school-config/")).data,
   });
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["timetable-slots", "student", day],
+    queryFn: async () =>
+      (await api.get<Paginated<TimetableSlot>>("/timetable-slots/", { params: { day_of_week: day } })).data,
+  });
+
+  const slots = [...(data?.results ?? [])].sort((a, b) => a.period_number - b.period_number);
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Mening darslarim</h1>
+      <PageHeader title="Mening darslarim" subtitle="Kun tanlab, o'sha kundagi dars jadvalingizni ko'ring." />
 
-      <Field label="Sana">
-        <Input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="max-w-[180px]"
-        />
-      </Field>
+      <WeekdayTabs value={day} onChange={setDay} />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}
-      {data && data.results.length === 0 && <EmptyState title="Bu filtrga mos dars topilmadi" />}
+      {data && slots.length === 0 && <EmptyState title="Bu kunga dars belgilanmagan" />}
 
-      {data && data.results.length > 0 && (
-        <Table>
-          <Thead>
-            <Tr>
-              <Th>Sana</Th>
-              <Th>Vaqt</Th>
-              <Th>Fan</Th>
-              <Th>O'qituvchi</Th>
-              <Th>Xona</Th>
-              <Th>Mavzu</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {data.results.map((lesson) => (
-              <Tr key={lesson.id}>
-                <Td className="text-slate-700 dark:text-slate-200">{lesson.date}</Td>
-                <Td className="text-slate-700 dark:text-slate-200">
-                  {lesson.start_time.slice(0, 5)}–{lesson.end_time.slice(0, 5)}
-                </Td>
-                <Td className="text-slate-700 dark:text-slate-200">{lesson.subject_name}</Td>
-                <Td className="text-slate-700 dark:text-slate-200">{lesson.teacher_name}</Td>
-                <Td>{lesson.room || "—"}</Td>
-                <Td>{lesson.topic || "—"}</Td>
-              </Tr>
-            ))}
-          </Tbody>
-        </Table>
+      {data && slots.length > 0 && (
+        <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
+          {slots.map((slot) => {
+            const time = config ? periodTimes(slot.period_number, config) : null;
+            return (
+              <div key={slot.id} className="flex items-center gap-4 px-5 py-4">
+                <div className="flex h-11 w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+                  <span className="text-xs font-bold leading-tight">{time ? time.start : `${slot.period_number}-`}</span>
+                  <span className="text-[10px] leading-tight opacity-80">{time ? time.end : "dars"}</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-slate-900 dark:text-slate-50">{slot.subject_name}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <User size={12} /> {slot.teacher_name}
+                    </span>
+                    {slot.room && (
+                      <span className="flex items-center gap-1">
+                        <DoorOpen size={12} /> {slot.room}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Clock size={12} /> {slot.period_number}-dars
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

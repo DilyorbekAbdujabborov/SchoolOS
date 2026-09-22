@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Badge } from "../../components/Badge";
 import { Field, Input, PrimaryButton, SecondaryButton, Select } from "../../components/form";
 import { Modal } from "../../components/Modal";
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
 import { api } from "../../lib/api";
@@ -363,15 +364,17 @@ export function TeacherTestsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Testlar</h1>
-        <div className="flex gap-2">
-          <SecondaryButton onClick={() => setAIModalOpen(true)} className="inline-flex items-center gap-1.5">
-            <Sparkles size={15} /> AI bilan yaratish
-          </SecondaryButton>
-          <PrimaryButton onClick={() => setModalOpen(true)}>+ Test yaratish</PrimaryButton>
-        </div>
-      </div>
+      <PageHeader
+        title="Testlar"
+        action={
+          <div className="flex gap-2">
+            <SecondaryButton onClick={() => setAIModalOpen(true)} className="inline-flex items-center gap-1.5">
+              <Sparkles size={15} /> AI bilan yaratish
+            </SecondaryButton>
+            <PrimaryButton onClick={() => setModalOpen(true)}>+ Test yaratish</PrimaryButton>
+          </div>
+        }
+      />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}

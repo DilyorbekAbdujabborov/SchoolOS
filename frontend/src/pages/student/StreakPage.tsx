@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { CalendarClock, Flame } from "lucide-react";
 
+import { PageHeader } from "../../components/PageHeader";
 import { StatCard } from "../../components/StatCard";
 import { ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
@@ -14,7 +15,7 @@ export function StudentStreakPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Faollik seriyasi</h1>
+      <PageHeader title="Faollik seriyasi" />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}

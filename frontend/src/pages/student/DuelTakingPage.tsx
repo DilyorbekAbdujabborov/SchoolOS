@@ -1,15 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Hourglass, Swords, Trophy } from "lucide-react";
+import { Hourglass, Swords } from "lucide-react";
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
+import {
+  GameHeaderBar,
+  GameInlineError,
+  GameOptionButton,
+  GameQuestionCard,
+  GameResultScreen,
+  GameStepProgress,
+} from "../../components/games/GameUI";
 import { PrimaryButton } from "../../components/form";
 import { ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 import type { DuelListItem, DuelQuestionItem } from "../../types";
 
 export function StudentDuelTakingPage() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [error, setError] = useState<string | null>(null);
@@ -53,14 +63,23 @@ export function StudentDuelTakingPage() {
   if (isLoading) return <LoadingState />;
   if (isError || !questions) return <ErrorState />;
 
+  const answeredCount = Object.keys(answers).length;
   const allAnswered = questions.every((q) => answers[q.id] !== undefined);
+  const opponentName = duel ? (duel.my_role === "challenger" ? duel.opponent_name : duel.challenger_name) : "";
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center gap-2">
-        <Swords className="text-brand-600 dark:text-brand-400" size={20} />
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Duel</h1>
+    <div className="mx-auto max-w-2xl space-y-4">
+      <GameHeaderBar
+        title={opponentName ? `Duel · ${opponentName}` : "Duel"}
+        totalXp={user?.total_xp ?? 0}
+      />
+
+      <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
+        <span>
+          Javob berildi {answeredCount}/{questions.length}
+        </span>
       </div>
+      <GameStepProgress index={answeredCount} total={questions.length} />
 
       <form
         onSubmit={(e) => {
@@ -68,36 +87,28 @@ export function StudentDuelTakingPage() {
           setError(null);
           submitMutation.mutate();
         }}
-        className="space-y-5"
+        className="space-y-4"
       >
         {questions.map((question, index) => (
-          <div
-            key={question.id}
-            className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
-          >
-            <p className="font-medium text-slate-900 dark:text-slate-50">
+          <GameQuestionCard key={question.id}>
+            <p className="font-semibold text-slate-900 dark:text-slate-50">
               {index + 1}. {question.text}
             </p>
-            <div className="mt-3 space-y-2">
-              {question.options.map((option) => (
-                <label
+            <div className="mt-4 space-y-2.5">
+              {question.options.map((option, optionIndex) => (
+                <GameOptionButton
                   key={option.id}
-                  className="flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50 dark:border-slate-700 dark:hover:bg-slate-800 dark:has-[:checked]:bg-brand-500/10 dark:text-slate-200"
-                >
-                  <input
-                    type="radio"
-                    name={`question-${question.id}`}
-                    checked={answers[question.id] === option.id}
-                    onChange={() => setAnswers({ ...answers, [question.id]: option.id })}
-                  />
-                  {option.text}
-                </label>
+                  index={optionIndex}
+                  text={option.text}
+                  state={answers[question.id] === option.id ? "selected" : "default"}
+                  onClick={() => setAnswers({ ...answers, [question.id]: option.id })}
+                />
               ))}
             </div>
-          </div>
+          </GameQuestionCard>
         ))}
 
-        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        {error && <GameInlineError>{error}</GameInlineError>}
 
         <PrimaryButton type="submit" disabled={!allAnswered || submitMutation.isPending} className="w-full">
           {submitMutation.isPending ? "Yuborilmoqda..." : "Javoblarni yakunlash"}
@@ -112,58 +123,33 @@ function DuelResult({ duel }: { duel: DuelListItem }) {
 
   if (duel.status === "ACTIVE") {
     return (
-      <div className="mx-auto max-w-lg space-y-4 text-center">
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 dark:border-amber-500/30 dark:bg-amber-500/10">
-          <Hourglass className="mx-auto h-8 w-8 text-amber-600 dark:text-amber-400" />
-          <p className="mt-2 text-lg font-bold text-amber-700 dark:text-amber-300">Javobingiz qabul qilindi</p>
-          <p className="mt-1 text-sm text-amber-700/80 dark:text-amber-300/80">
-            {opponentName} hali javob bermadi — u topshirgach natija shu yerda chiqadi.
-          </p>
-        </div>
-        <BackLink />
-      </div>
+      <GameResultScreen
+        tone="neutral"
+        icon={Hourglass}
+        title="Javobingiz qabul qilindi"
+        subtitle={`${opponentName} hali javob bermadi — u topshirgach natija shu yerda chiqadi.`}
+        stats={[]}
+        secondaryTo="/student/duels"
+        secondaryLabel="Duellar ro'yxatiga qaytish"
+      />
     );
   }
 
-  const won = duel.i_won;
   const isDraw = duel.result === "DRAW";
-  const toneClass = isDraw
-    ? "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60"
-    : won
-      ? "border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10"
-      : "border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10";
-  const textToneClass = isDraw
-    ? "text-slate-700 dark:text-slate-200"
-    : won
-      ? "text-emerald-700 dark:text-emerald-400"
-      : "text-red-700 dark:text-red-400";
+  const tone = isDraw ? "draw" : duel.i_won ? "win" : "lose";
 
   return (
-    <div className="mx-auto max-w-lg space-y-4 text-center">
-      <div className={`rounded-2xl border p-8 ${toneClass}`}>
-        <Trophy className={`mx-auto h-8 w-8 ${textToneClass}`} />
-        <p className={`mt-2 text-lg font-bold ${textToneClass}`}>
-          {isDraw ? "Durang!" : won ? "G'alaba qozondingiz!" : "Bu safar omad yor bo'lmadi"}
-        </p>
-        <p className={`mt-1 text-sm ${textToneClass}`}>
-          Siz: {duel.my_score_percent?.toFixed(0)}% · {opponentName}: {duel.opponent_score_percent?.toFixed(0)}%
-        </p>
-        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-          Natijangiz asosida XP va duel reytingingiz avtomatik yangilandi.
-        </p>
-      </div>
-      <BackLink />
-    </div>
-  );
-}
-
-function BackLink() {
-  return (
-    <Link
-      to="/student/duels"
-      className="inline-flex items-center gap-0.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
-    >
-      <ChevronLeft className="h-4 w-4" /> Duellar ro'yxatiga qaytish
-    </Link>
+    <GameResultScreen
+      tone={tone}
+      icon={Swords}
+      title={isDraw ? "Durang!" : duel.i_won ? "G'alaba qozondingiz!" : "Bu safar omad yor bo'lmadi"}
+      subtitle="Natijangiz asosida XP va duel reytingingiz avtomatik yangilandi."
+      stats={[
+        { label: "Siz", value: `${duel.my_score_percent?.toFixed(0) ?? 0}%` },
+        { label: opponentName, value: `${duel.opponent_score_percent?.toFixed(0) ?? 0}%` },
+      ]}
+      secondaryTo="/student/duels"
+      secondaryLabel="Duellar ro'yxatiga qaytish"
+    />
   );
 }

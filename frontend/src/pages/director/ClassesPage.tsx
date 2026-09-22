@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Field, Input, PrimaryButton, Select, SecondaryButton } from "../../components/form";
 import { Modal } from "../../components/Modal";
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
 import type { Paginated, RosterStudent, SchoolClass, Teacher } from "../../types";
@@ -52,10 +53,10 @@ export function ClassesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Sinflar</h1>
-        <PrimaryButton onClick={() => setModalOpen(true)}>+ Sinf qo'shish</PrimaryButton>
-      </div>
+      <PageHeader
+        title="Sinflar"
+        action={<PrimaryButton onClick={() => setModalOpen(true)}>+ Sinf qo'shish</PrimaryButton>}
+      />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}

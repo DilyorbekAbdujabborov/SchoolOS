@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { AchievementUnlockCard } from "../../components/AchievementUnlockCard";
 import { PrimaryButton } from "../../components/form";
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { useNewlyUnlockedAchievements } from "../../lib/achievementCelebration";
 import { useNewlyGradedSubmissions } from "../../lib/activityResultCelebration";
@@ -105,10 +106,7 @@ export function StudentActivitiesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Topshiriqlar</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Sinfingiz uchun e'lon qilingan topshiriq va challenjlar.</p>
-      </div>
+      <PageHeader title="Topshiriqlar" subtitle="Sinfingiz uchun e'lon qilingan topshiriq va challenjlar." />
 
       {newlyGraded.length > 0 && (
         <div className="space-y-2">

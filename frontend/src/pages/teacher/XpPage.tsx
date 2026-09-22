@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { PageHeader } from "../../components/PageHeader";
 import { StatCard } from "../../components/StatCard";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
@@ -25,7 +26,7 @@ export function TeacherXpPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">XP statistikasi</h1>
+      <PageHeader title="XP statistikasi" />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}

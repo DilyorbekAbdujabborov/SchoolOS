@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Field, Input, PrimaryButton, Select, SecondaryButton } from "../../components/form";
 import { Modal } from "../../components/Modal";
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
 import type { Paginated, SchoolClass, Subject, Teacher, TimetableSlot } from "../../types";
@@ -120,22 +121,20 @@ export function TimetablePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Dars jadvali</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Haftalik shablonni tuzing, keyin belgilangan haftaga real darslarni yarating.
-          </p>
-        </div>
-        <div className="flex items-end gap-2">
-          <Field label="Hafta boshlanishi (Dushanba)">
-            <Input type="date" value={weekStart} onChange={(e) => setWeekStart(e.target.value)} />
-          </Field>
-          <PrimaryButton onClick={() => generate.mutate()} disabled={generate.isPending}>
-            {generate.isPending ? "Yaratilmoqda..." : "Darslarni yaratish"}
-          </PrimaryButton>
-        </div>
-      </div>
+      <PageHeader
+        title="Dars jadvali"
+        subtitle="Haftalik shablonni tuzing, keyin belgilangan haftaga real darslarni yarating."
+        action={
+          <div className="flex items-end gap-2">
+            <Field label="Hafta boshlanishi (Dushanba)">
+              <Input type="date" value={weekStart} onChange={(e) => setWeekStart(e.target.value)} />
+            </Field>
+            <PrimaryButton onClick={() => generate.mutate()} disabled={generate.isPending}>
+              {generate.isPending ? "Yaratilmoqda..." : "Darslarni yaratish"}
+            </PrimaryButton>
+          </div>
+        }
+      />
       {generateMessage && <p className="text-sm text-emerald-600 dark:text-emerald-400">{generateMessage}</p>}
 
       <Field label="Sinf">

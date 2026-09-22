@@ -10,6 +10,7 @@ export interface CurrentUser {
   must_change_password: boolean;
   total_xp: number | null;
   avatar_url: string | null;
+  teacher_profile_id: number | null;
 }
 
 export interface AttendanceCounts {
@@ -153,6 +154,16 @@ export interface ClassAttendanceSummary {
 }
 
 export type AttendanceStatus = "PRESENT" | "LATE" | "ABSENT" | "EXCUSED";
+
+/** One day's whole-school (or one grade's) attendance status counts — the
+ * director's daily attendance bar chart, from `/attendance/daily-summary/`. */
+export interface AttendanceDailyCount {
+  date: string;
+  present: number;
+  late: number;
+  absent: number;
+  excused: number;
+}
 
 export interface AttendanceRecord {
   id: number;
@@ -373,12 +384,16 @@ export interface Achievement {
   name: string;
   description: string;
   icon: string;
+  condition_type: AchievementConditionType;
+  condition_value: number;
+  xp_reward: number;
   unlocked: boolean;
   unlocked_at: string | null;
 }
 
 export type AchievementConditionType =
   | "FIRST_TEST"
+  | "TEST_COUNT"
   | "PERFECT_SCORE"
   | "XP_THRESHOLD"
   | "STREAK_LENGTH";
@@ -390,6 +405,7 @@ export interface AchievementManage {
   icon: string;
   condition_type: AchievementConditionType;
   condition_value: number;
+  xp_reward: number;
   is_active: boolean;
 }
 
@@ -530,4 +546,16 @@ export interface GameSession {
 export interface GameQuestion {
   text: string;
   options: string[];
+}
+
+/** Director-only — how many pre-generated questions a subject+class pool
+ * currently has. Powers `/director/question-pools`; a game's live start
+ * always draws from this pool, never calls Gemini directly.
+ */
+export interface QuestionPoolStatus {
+  subject: number;
+  subject_name: string;
+  school_class: number;
+  school_class_name: string;
+  count: number;
 }

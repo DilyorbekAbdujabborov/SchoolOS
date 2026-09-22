@@ -16,8 +16,12 @@ export function Tbody({ children }: { children: React.ReactNode }) {
   return <tbody className="divide-y divide-slate-100 dark:divide-slate-800">{children}</tbody>;
 }
 
-export function Tr({ children, ...rest }: HTMLAttributes<HTMLTableRowElement>) {
-  return <tr {...rest}>{children}</tr>;
+export function Tr({ children, className, ...rest }: HTMLAttributes<HTMLTableRowElement>) {
+  return (
+    <tr className={`transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40 ${className ?? ""}`} {...rest}>
+      {children}
+    </tr>
+  );
 }
 
 export function Th({ children, className, ...rest }: ThHTMLAttributes<HTMLTableCellElement>) {

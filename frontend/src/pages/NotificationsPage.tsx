@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { PageHeader } from "../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../components/states";
 import { api } from "../lib/api";
 import type { NotificationItem, Paginated } from "../types";
@@ -19,7 +20,7 @@ export function NotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Bildirishnomalar</h1>
+      <PageHeader title="Bildirishnomalar" />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}

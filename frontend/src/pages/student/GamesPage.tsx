@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Badge } from "../../components/Badge";
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
 import type { GameSession, GameType, Paginated, Subject } from "../../types";
@@ -45,10 +46,7 @@ export function StudentGamesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="flex items-center gap-2 text-xl font-bold text-slate-900 dark:text-slate-50">
-        <Gamepad2 className="text-brand-600 dark:text-brand-400" size={20} />
-        O'yinlar
-      </h1>
+      <PageHeader icon={Gamepad2} title="O'yinlar" />
 
       <div>
         <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">1. Fan tanlang</h2>
@@ -64,7 +62,7 @@ export function StudentGamesPage() {
                 className={`flex flex-col items-center gap-2 rounded-2xl border p-4 text-center transition-colors ${
                   selectedSubject === subject.id
                     ? "border-brand-500 bg-brand-50 dark:border-brand-400 dark:bg-brand-500/10"
-                    : "border-slate-200 bg-white hover:border-brand-200 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-brand-500/30"
+                    : "hover-card border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
                 }`}
               >
                 <span
@@ -92,7 +90,7 @@ export function StudentGamesPage() {
                 key={option.type}
                 onClick={() => startGame.mutate(option.type)}
                 disabled={startGame.isPending}
-                className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-left transition-colors hover:border-brand-300 hover:bg-brand-50/40 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-brand-500/30 dark:hover:bg-brand-500/5"
+                className="hover-card flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-left disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900"
               >
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
                   <option.icon size={20} />

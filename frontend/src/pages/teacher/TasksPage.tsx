@@ -3,6 +3,7 @@ import { CheckCircle2, Circle } from "lucide-react";
 
 import { Badge } from "../../components/Badge";
 import { SecondaryButton } from "../../components/form";
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
 import type { Paginated, TeacherTaskAssignment } from "../../types";
@@ -22,7 +23,7 @@ export function TeacherTasksPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Vazifalarim</h1>
+      <PageHeader title="Vazifalarim" />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}

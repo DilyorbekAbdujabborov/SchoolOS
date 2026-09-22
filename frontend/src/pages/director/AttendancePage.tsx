@@ -1,21 +1,36 @@
 import { useQuery } from "@tanstack/react-query";
-import { Phone, X } from "lucide-react";
-import { useState } from "react";
+import { BarChart3, Phone, X } from "lucide-react";
+import { lazy, Suspense, useState } from "react";
 
 import { Badge } from "../../components/Badge";
 import { Field, Input, Select } from "../../components/form";
+import { FilterPills } from "../../components/FilterPills";
+import { PageHeader } from "../../components/PageHeader";
 import { StatCard } from "../../components/StatCard";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
 import { api } from "../../lib/api";
+import { distinctGrades } from "../../lib/classGrade";
 import type {
+  AttendanceDailyCount,
   AttendanceRecord,
   AttendanceRosterStudent,
   AttendanceStatus,
   ClassAttendanceSummary,
+  DirectorDashboard,
   Paginated,
   SchoolClass,
 } from "../../types";
+
+const AttendanceDailyChart = lazy(() =>
+  import("../../components/charts/AttendanceDailyChart").then((m) => ({ default: m.AttendanceDailyChart })),
+);
+
+const DAY_RANGE_OPTIONS = [
+  { value: 7, label: "Oxirgi 7 kun" },
+  { value: 14, label: "Oxirgi 14 kun" },
+  { value: 30, label: "Oxirgi 30 kun" },
+];
 
 const STATUS_LABEL: Record<string, string> = {
   PRESENT: "Keldi",
@@ -68,11 +83,30 @@ export function AttendancePage() {
   const [selectedClass, setSelectedClass] = useState("");
   const [date, setDate] = useState(todayIso());
   const [rosterFilter, setRosterFilter] = useState<RosterFilter>(null);
+  const [dayRange, setDayRange] = useState(14);
+  const [gradeFilter, setGradeFilter] = useState<number | "all">("all");
 
   const { data: classes } = useQuery({
     queryKey: ["classes"],
     queryFn: async () => (await api.get<Paginated<SchoolClass>>("/classes/")).data,
   });
+
+  const { data: dashboard } = useQuery({
+    queryKey: ["dashboard", "director"],
+    queryFn: async () => (await api.get<DirectorDashboard>("/dashboard/director/")).data,
+  });
+
+  const dailyQuery = useQuery({
+    queryKey: ["attendance", "daily-summary", dayRange, gradeFilter],
+    queryFn: async () =>
+      (
+        await api.get<AttendanceDailyCount[]>("/attendance/daily-summary/", {
+          params: { days: dayRange, grade: gradeFilter === "all" ? undefined : gradeFilter },
+        })
+      ).data,
+  });
+
+  const grades = distinctGrades((classes?.results ?? []).map((c) => c.name));
 
   const summaryQuery = useQuery({
     queryKey: ["attendance", "class-summary", selectedClass, date],
@@ -97,7 +131,47 @@ export function AttendancePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Davomat</h1>
+      <PageHeader title="Davomat" />
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">Bugungi davomat</h2>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+          <StatCard label="Jami o'quvchilar" value={dashboard?.total_students ?? "—"} />
+          <StatCard label="Keldi" value={dashboard?.today_attendance.present ?? "—"} tone="emerald" />
+          <StatCard label="Kechikdi" value={dashboard?.today_attendance.late ?? "—"} tone="amber" />
+          <StatCard label="Kelmadi" value={dashboard?.today_attendance.absent ?? "—"} tone="rose" />
+          <StatCard label="Sababli" value={dashboard?.today_attendance.excused ?? "—"} tone="brand" />
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-3 flex items-center gap-2">
+          <BarChart3 size={16} className="text-brand-600 dark:text-brand-400" />
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+            Kunlik davomat — maktab bo'yicha necha o'quvchi darsga keldi
+          </h2>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <FilterPills value={dayRange} onChange={setDayRange} options={DAY_RANGE_OPTIONS} />
+            <FilterPills
+              value={gradeFilter}
+              onChange={setGradeFilter}
+              options={[
+                { value: "all" as const, label: "Barcha maktab" },
+                ...grades.map((grade) => ({ value: grade, label: `${grade}-sinflar` })),
+              ]}
+            />
+          </div>
+          {dailyQuery.isLoading && <LoadingState />}
+          {dailyQuery.isError && <ErrorState />}
+          {dailyQuery.data && (
+            <Suspense fallback={<LoadingState label="Yuklanmoqda..." />}>
+              <AttendanceDailyChart data={dailyQuery.data} />
+            </Suspense>
+          )}
+        </div>
+      </section>
 
       <div className="flex flex-wrap gap-3">
         <Field label="Sinf">

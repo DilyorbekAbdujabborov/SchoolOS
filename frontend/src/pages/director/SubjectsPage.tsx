@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { Input, PrimaryButton } from "../../components/form";
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
 import type { Paginated, Subject } from "../../types";
@@ -33,7 +34,7 @@ export function SubjectsPage() {
 
   return (
     <div className="mx-auto max-w-md space-y-6">
-      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Fanlar</h1>
+      <PageHeader title="Fanlar" />
 
       <form
         onSubmit={(e) => {

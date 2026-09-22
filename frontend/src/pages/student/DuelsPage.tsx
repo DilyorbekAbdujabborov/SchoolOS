@@ -7,6 +7,7 @@ import { Avatar } from "../../components/Avatar";
 import { Badge } from "../../components/Badge";
 import { PrimaryButton, Select } from "../../components/form";
 import { Modal } from "../../components/Modal";
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
 import type { DuelListItem, DuelRatingInfo, Paginated, RosterStudent } from "../../types";
@@ -106,13 +107,11 @@ export function StudentDuelsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-xl font-bold text-slate-900 dark:text-slate-50">
-          <Zap className="text-brand-600 dark:text-brand-400" size={20} />
-          Duellar
-        </h1>
-        <PrimaryButton onClick={() => setModalOpen(true)}>+ Yangi duel</PrimaryButton>
-      </div>
+      <PageHeader
+        icon={Zap}
+        title="Duellar"
+        action={<PrimaryButton onClick={() => setModalOpen(true)}>+ Yangi duel</PrimaryButton>}
+      />
 
       {rating && (
         <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
@@ -174,7 +173,11 @@ export function StudentDuelsPage() {
               const opponentName = duel.my_role === "challenger" ? duel.opponent_name : duel.challenger_name;
               const needsAction = duel.status === "ACTIVE" && !duel.i_have_submitted;
               const content = (
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-4 py-3 dark:border-slate-800">
+                <div
+                  className={`flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-4 py-3 dark:border-slate-800 ${
+                    needsAction ? "hover-card" : ""
+                  }`}
+                >
                   <div className="flex items-center gap-3">
                     <Avatar name={opponentName} size={36} />
                     <div>
@@ -192,7 +195,7 @@ export function StudentDuelsPage() {
                 </div>
               );
               return needsAction ? (
-                <Link key={duel.id} to={`/student/duels/${duel.id}`} className="block hover:opacity-90">
+                <Link key={duel.id} to={`/student/duels/${duel.id}`} className="block">
                   {content}
                 </Link>
               ) : (

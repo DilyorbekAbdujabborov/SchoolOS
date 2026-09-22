@@ -6,6 +6,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
+  Database,
   FileText,
   Flame,
   Gamepad2,
@@ -33,11 +34,13 @@ import { ClassesPage } from "./pages/director/ClassesPage";
 import { DirectorDashboardPage } from "./pages/director/DashboardPage";
 import { LessonsPage } from "./pages/director/LessonsPage";
 import { DirectorProfilePage } from "./pages/director/ProfilePage";
+import { QuestionPoolsPage } from "./pages/director/QuestionPoolsPage";
 import { DirectorRankingsPage } from "./pages/director/RankingsPage";
 import { SettingsPage } from "./pages/director/SettingsPage";
 import { StudentsPage } from "./pages/director/StudentsPage";
 import { SubjectsPage } from "./pages/director/SubjectsPage";
 import { DirectorTasksPage } from "./pages/director/TasksPage";
+import { DirectorTestsPage } from "./pages/director/TestsPage";
 import { TeachersPage } from "./pages/director/TeachersPage";
 import { TimetablePage } from "./pages/director/TimetablePage";
 import { StudentActivitiesPage } from "./pages/student/ActivitiesPage";
@@ -66,57 +69,115 @@ import { TeacherProfilePage } from "./pages/teacher/ProfilePage";
 import { TeacherTasksPage } from "./pages/teacher/TasksPage";
 import { TeacherTestsPage } from "./pages/teacher/TestsPage";
 import { TeacherXpPage } from "./pages/teacher/XpPage";
+import type { NavGroup } from "./routes/DashboardLayout";
 import { DashboardLayout } from "./routes/DashboardLayout";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 
-const DIRECTOR_NAV = [
-  { to: "/director", label: "Boshqaruv paneli", end: true, icon: LayoutDashboard },
-  { to: "/director/students", label: "O'quvchilar", icon: Users },
-  { to: "/director/teachers", label: "O'qituvchilar", icon: GraduationCap },
-  { to: "/director/classes", label: "Sinflar", icon: School },
-  { to: "/director/subjects", label: "Fanlar", icon: BookOpen },
-  { to: "/director/lessons", label: "Darslar", icon: ClipboardList },
-  { to: "/director/timetable", label: "Dars jadvali", icon: CalendarDays },
-  { to: "/director/attendance", label: "Davomat", icon: ClipboardCheck },
-  { to: "/director/tasks", label: "Vazifa berish", icon: Send },
-  { to: "/director/rankings", label: "XP va reyting", icon: Trophy },
-  { to: "/director/achievements", label: "Yutuqlar", icon: Award },
-  { to: "/director/notifications", label: "Bildirishnomalar", icon: Bell },
-  { to: "/director/profile", label: "Profil", icon: UserCircle },
-  { to: "/director/settings", label: "Sozlamalar", icon: Settings },
-  { to: "/director/guide", label: "Qo'llanma", icon: HelpCircle },
+const DIRECTOR_NAV: NavGroup[] = [
+  { items: [{ to: "/director", label: "Boshqaruv paneli", end: true, icon: LayoutDashboard }] },
+  {
+    label: "Ta'lim",
+    items: [
+      { to: "/director/students", label: "O'quvchilar", icon: Users },
+      { to: "/director/teachers", label: "O'qituvchilar", icon: GraduationCap },
+      { to: "/director/classes", label: "Sinflar", icon: School },
+      { to: "/director/subjects", label: "Fanlar", icon: BookOpen },
+    ],
+  },
+  {
+    label: "Darslar",
+    items: [
+      { to: "/director/lessons", label: "Darslar", icon: ClipboardList },
+      { to: "/director/timetable", label: "Dars jadvali", icon: CalendarDays },
+      { to: "/director/attendance", label: "Davomat", icon: ClipboardCheck },
+    ],
+  },
+  {
+    label: "Boshqaruv",
+    items: [
+      { to: "/director/tests", label: "Testlar", icon: FileText },
+      { to: "/director/tasks", label: "Vazifa berish", icon: Send },
+      { to: "/director/rankings", label: "XP va reyting", icon: Trophy },
+      { to: "/director/achievements", label: "Yutuqlar", icon: Award },
+      { to: "/director/question-pools", label: "Savollar ombori", icon: Database },
+    ],
+  },
+  {
+    label: "Hisob",
+    items: [
+      { to: "/director/notifications", label: "Bildirishnomalar", icon: Bell },
+      { to: "/director/profile", label: "Profil", icon: UserCircle },
+      { to: "/director/settings", label: "Sozlamalar", icon: Settings },
+      { to: "/director/guide", label: "Qo'llanma", icon: HelpCircle },
+    ],
+  },
 ];
 
-const TEACHER_NAV = [
-  { to: "/teacher", label: "Boshqaruv paneli", end: true, icon: LayoutDashboard },
-  { to: "/teacher/classes", label: "Sinflarim", icon: Users },
-  { to: "/teacher/lessons", label: "Darslarim", icon: BookOpen },
-  { to: "/teacher/attendance", label: "Davomat", icon: ClipboardCheck },
-  { to: "/teacher/tests", label: "Testlar", icon: FileText },
-  { to: "/teacher/activities", label: "Topshiriqlar", icon: ClipboardList },
-  { to: "/teacher/tasks", label: "Vazifalarim", icon: Send },
-  { to: "/teacher/xp", label: "XP", icon: Trophy },
-  { to: "/teacher/notifications", label: "Bildirishnomalar", icon: Bell },
-  { to: "/teacher/profile", label: "Profil", icon: UserCircle },
-  { to: "/teacher/guide", label: "Qo'llanma", icon: HelpCircle },
+const TEACHER_NAV: NavGroup[] = [
+  { items: [{ to: "/teacher", label: "Boshqaruv paneli", end: true, icon: LayoutDashboard }] },
+  {
+    label: "Darslar",
+    items: [
+      { to: "/teacher/classes", label: "Sinflarim", icon: Users },
+      { to: "/teacher/lessons", label: "Darslarim", icon: BookOpen },
+      { to: "/teacher/attendance", label: "Davomat", icon: ClipboardCheck },
+    ],
+  },
+  {
+    label: "Topshiriqlar",
+    items: [
+      { to: "/teacher/tests", label: "Testlar", icon: FileText },
+      { to: "/teacher/activities", label: "Topshiriqlar", icon: ClipboardList },
+      { to: "/teacher/tasks", label: "Vazifalarim", icon: Send },
+      { to: "/teacher/xp", label: "XP", icon: Trophy },
+    ],
+  },
+  {
+    label: "Hisob",
+    items: [
+      { to: "/teacher/notifications", label: "Bildirishnomalar", icon: Bell },
+      { to: "/teacher/profile", label: "Profil", icon: UserCircle },
+      { to: "/teacher/guide", label: "Qo'llanma", icon: HelpCircle },
+    ],
+  },
 ];
 
-const STUDENT_NAV = [
-  { to: "/student", label: "Boshqaruv paneli", end: true, icon: LayoutDashboard },
-  { to: "/student/class", label: "Mening sinfim", icon: Users },
-  { to: "/student/lessons", label: "Darslarim", icon: BookOpen },
-  { to: "/student/attendance", label: "Davomatim", icon: ClipboardCheck },
-  { to: "/student/tests", label: "Testlar", icon: FileText },
-  { to: "/student/activities", label: "Topshiriqlar", icon: ClipboardList },
-  { to: "/student/duels", label: "Duellar", icon: Swords },
-  { to: "/student/games", label: "O'yinlar", icon: Gamepad2 },
-  { to: "/student/xp", label: "Mening XP", icon: Trophy },
-  { to: "/student/leaderboard", label: "Reyting", icon: BarChart3 },
-  { to: "/student/achievements", label: "Yutuqlar", icon: Award },
-  { to: "/student/streak", label: "Seriya", icon: Flame },
-  { to: "/student/notifications", label: "Bildirishnomalar", icon: Bell },
-  { to: "/student/profile", label: "Profil", icon: UserCircle },
-  { to: "/student/guide", label: "Qo'llanma", icon: HelpCircle },
+const STUDENT_NAV: NavGroup[] = [
+  { items: [{ to: "/student", label: "Boshqaruv paneli", end: true, icon: LayoutDashboard }] },
+  {
+    label: "O'quv",
+    items: [
+      { to: "/student/class", label: "Mening sinfim", icon: Users },
+      { to: "/student/lessons", label: "Darslarim", icon: BookOpen },
+      { to: "/student/attendance", label: "Davomatim", icon: ClipboardCheck },
+      { to: "/student/tests", label: "Testlar", icon: FileText },
+      { to: "/student/activities", label: "Topshiriqlar", icon: ClipboardList },
+    ],
+  },
+  {
+    label: "Bellashuvlar",
+    items: [
+      { to: "/student/duels", label: "Duellar", icon: Swords },
+      { to: "/student/games", label: "O'yinlar", icon: Gamepad2 },
+    ],
+  },
+  {
+    label: "Reyting & yutuqlar",
+    items: [
+      { to: "/student/xp", label: "Mening XP", icon: Trophy },
+      { to: "/student/leaderboard", label: "Reyting", icon: BarChart3 },
+      { to: "/student/achievements", label: "Yutuqlar", icon: Award },
+      { to: "/student/streak", label: "Seriya", icon: Flame },
+    ],
+  },
+  {
+    label: "Hisob",
+    items: [
+      { to: "/student/notifications", label: "Bildirishnomalar", icon: Bell },
+      { to: "/student/profile", label: "Profil", icon: UserCircle },
+      { to: "/student/guide", label: "Qo'llanma", icon: HelpCircle },
+    ],
+  },
 ];
 
 function HomeRedirect() {
@@ -136,7 +197,7 @@ export default function App() {
         path="/director"
         element={
           <ProtectedRoute allowedRoles={["DIRECTOR"]}>
-            <DashboardLayout navItems={DIRECTOR_NAV} brand="Direktor paneli" />
+            <DashboardLayout navGroups={DIRECTOR_NAV} brand="Direktor paneli" />
           </ProtectedRoute>
         }
       >
@@ -148,8 +209,10 @@ export default function App() {
         <Route path="lessons" element={<LessonsPage />} />
         <Route path="timetable" element={<TimetablePage />} />
         <Route path="attendance" element={<AttendancePage />} />
+        <Route path="tests" element={<DirectorTestsPage />} />
         <Route path="tasks" element={<DirectorTasksPage />} />
         <Route path="rankings" element={<DirectorRankingsPage />} />
+        <Route path="question-pools" element={<QuestionPoolsPage />} />
         <Route path="achievements" element={<DirectorAchievementsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="profile" element={<DirectorProfilePage />} />
@@ -161,7 +224,7 @@ export default function App() {
         path="/teacher"
         element={
           <ProtectedRoute allowedRoles={["TEACHER"]}>
-            <DashboardLayout navItems={TEACHER_NAV} brand="O'qituvchi paneli" />
+            <DashboardLayout navGroups={TEACHER_NAV} brand="O'qituvchi paneli" />
           </ProtectedRoute>
         }
       >
@@ -182,7 +245,7 @@ export default function App() {
         path="/student"
         element={
           <ProtectedRoute allowedRoles={["STUDENT"]}>
-            <DashboardLayout navItems={STUDENT_NAV} brand="O'quvchi paneli" vibrant />
+            <DashboardLayout navGroups={STUDENT_NAV} brand="O'quvchi paneli" vibrant />
           </ProtectedRoute>
         }
       >

@@ -1,0 +1,28 @@
+{$DOMAIN:localhost} {
+	encode gzip
+
+	# Django-collected static files and uploaded media — served directly from
+	# the shared volume, never proxied through gunicorn.
+	handle_path /static/* {
+		root * /srv/static
+		file_server
+	}
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+	handle /admin/* {
+		reverse_proxy backend:8000
+	}
+
+	# Everything else: the React SPA (client-side routing falls back to index.html).
+	handle {
+		root * /srv/app
+		try_files {path} /index.html
+		file_server
+	}
+}

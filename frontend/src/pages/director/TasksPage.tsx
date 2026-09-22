@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Badge } from "../../components/Badge";
 import { Field, Input, PrimaryButton, SecondaryButton, Select } from "../../components/form";
 import { Modal } from "../../components/Modal";
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
 import type { Paginated, Teacher, TeacherTaskCategory, TeacherTaskSummary } from "../../types";
@@ -71,10 +72,10 @@ export function DirectorTasksPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Vazifa berish</h1>
-        <PrimaryButton onClick={() => setModalOpen(true)}>+ Vazifa berish</PrimaryButton>
-      </div>
+      <PageHeader
+        title="Vazifa berish"
+        action={<PrimaryButton onClick={() => setModalOpen(true)}>+ Vazifa berish</PrimaryButton>}
+      />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Badge } from "../../components/Badge";
 import { Field, Input, PrimaryButton, SecondaryButton, Select } from "../../components/form";
 import { Modal } from "../../components/Modal";
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
 import type {
@@ -216,10 +217,10 @@ export function TeacherActivitiesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Topshiriqlar</h1>
-        <PrimaryButton onClick={() => setModalOpen(true)}>+ Topshiriq yaratish</PrimaryButton>
-      </div>
+      <PageHeader
+        title="Topshiriqlar"
+        action={<PrimaryButton onClick={() => setModalOpen(true)}>+ Topshiriq yaratish</PrimaryButton>}
+      />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}

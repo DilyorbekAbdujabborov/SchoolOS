@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Bell, ChevronRight, ClipboardCheck, ClipboardList, FileText, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { DashboardHero } from "../../components/DashboardHero";
 import { GradientActionCard } from "../../components/GradientActionCard";
 import { LessonList } from "../../components/LessonList";
 import { StatCard } from "../../components/StatCard";
@@ -52,12 +53,22 @@ export function TeacherDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">
-          Xush kelibsiz, {user?.first_name || user?.username}
-        </h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Bugungi ish holatingiz.</p>
-      </div>
+      <DashboardHero
+        name={user?.first_name || user?.username || ""}
+        avatarSrc={user?.avatar_url}
+        subtitle="Bugungi ish holatingiz."
+        chips={
+          data
+            ? [
+                { label: `${data.my_classes_count} ta sinf`, tone: "brand" },
+                { label: `Bugun ${data.today_lessons.length} ta dars`, tone: "slate" },
+                ...(pendingAttendanceCount > 0
+                  ? [{ label: `${pendingAttendanceCount} ta davomat kutilmoqda`, tone: "amber" as const }]
+                  : []),
+              ]
+            : []
+        }
+      />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Trophy } from "lucide-react";
 
+import { PageHeader } from "../../components/PageHeader";
 import { StatCard } from "../../components/StatCard";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
@@ -22,7 +23,7 @@ export function StudentXpPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Mening XP'im</h1>
+      <PageHeader title="Mening XP'im" />
 
       <StatCard
         label="Jami XP"

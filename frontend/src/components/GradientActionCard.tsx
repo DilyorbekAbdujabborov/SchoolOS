@@ -2,12 +2,13 @@ import type { LucideIcon } from "lucide-react";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 
-type GradientTone = "brand" | "amber" | "violet";
+type GradientTone = "brand" | "amber";
 
+// A subtle same-hue lift, not a two-color wash — gradient is used sparingly,
+// as one accent among plain cards, never as the page's default surface.
 const TONE_CLASS: Record<GradientTone, string> = {
-  brand: "from-brand-600 to-brand-500 dark:from-brand-600/90 dark:to-brand-500/80",
-  amber: "from-amber-500 to-orange-500 dark:from-amber-500/90 dark:to-orange-500/80",
-  violet: "from-violet-600 to-fuchsia-500 dark:from-violet-600/90 dark:to-fuchsia-500/80",
+  brand: "from-brand-600 to-brand-700",
+  amber: "from-amber-500 to-amber-600",
 };
 
 export function GradientActionCard({
@@ -26,7 +27,7 @@ export function GradientActionCard({
   return (
     <Link
       to={to}
-      className={`flex items-center justify-between gap-4 rounded-2xl bg-gradient-to-r p-5 text-white shadow-sm transition-transform hover:scale-[1.01] ${TONE_CLASS[tone]}`}
+      className={`flex items-center justify-between gap-4 rounded-2xl bg-gradient-to-br p-5 text-white transition-opacity hover:opacity-95 ${TONE_CLASS[tone]}`}
     >
       <div className="flex items-center gap-4">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/20">

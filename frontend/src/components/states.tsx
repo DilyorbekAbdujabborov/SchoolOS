@@ -1,3 +1,5 @@
+import type { LucideIcon } from "lucide-react";
+
 export function LoadingState({ label = "Yuklanmoqda..." }: { label?: string }) {
   return (
     <div className="flex h-40 items-center justify-center text-sm text-slate-500 dark:text-slate-400">
@@ -14,9 +16,18 @@ export function ErrorState({ message = "Xatolik yuz berdi. Qayta urinib ko'ring.
   );
 }
 
-export function EmptyState({ title, description }: { title: string; description?: string }) {
+export function EmptyState({
+  title,
+  description,
+  icon: Icon,
+}: {
+  title: string;
+  description?: string;
+  icon?: LucideIcon;
+}) {
   return (
-    <div className="flex h-40 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 text-center text-slate-500 dark:border-slate-700 dark:text-slate-400">
+    <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 text-center text-slate-500 dark:border-slate-700 dark:text-slate-400">
+      {Icon && <Icon className="h-6 w-6 text-slate-300 dark:text-slate-600" />}
       <span className="text-sm font-medium">{title}</span>
       {description && <span className="text-xs">{description}</span>}
     </div>

@@ -5,40 +5,41 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Matched to edu.sanbax.uz's own palette (sampled from its live computed
-        // styles: primary button/active-nav #6f57cf, its CTA gradient
-        // #8b5cf6→#6c3ce0, and the light-mode active-nav tint #ece8fb/#5b46b8).
+        // The app's single accent — a clean, vivid blue. Used sparingly (primary
+        // actions, active nav, key stats), never as a page-wide wash — see the
+        // design-system brief this palette implements.
         brand: {
-          50: "#f3f1fc",
-          100: "#ece8fb",
-          200: "#d9d2f7",
-          300: "#bcaeef",
-          400: "#a38ee6",
-          500: "#8b5cf6",
-          600: "#6f57cf",
-          700: "#5b46b8",
-          800: "#4a3894",
-          900: "#392a70",
+          50: "#eff6ff",
+          100: "#dbeafe",
+          200: "#bfdbfe",
+          300: "#93c5fd",
+          400: "#60a5fa",
+          500: "#3b82f6",
+          600: "#2563eb",
+          700: "#1d4ed8",
+          800: "#1e40af",
+          900: "#1e3a8a",
         },
-        // Sanbax's neutral surface — a violet-tinted near-black/near-white, not
-        // Tailwind's default blue-gray slate. Overriding `slate` itself (rather
-        // than adding a new family) reskins every existing bg-slate-*/text-slate-*/
-        // border-slate-* usage across the app in one place. Dark-mode stops
-        // (900/950) are sampled from sanbax's real card/page backgrounds
-        // (#1c1a23/#17161d); light-mode stops (50) from its page background
-        // (#f5f6fa); 100–800 are interpolated to keep a smooth, coherent ramp.
+        // A true cool neutral (not blue- or violet-tinted) — overriding `slate`
+        // itself reskins every existing bg-slate-*/text-slate-*/border-slate-*
+        // usage across the app in one place. Dark and light are tuned as two
+        // separate, deliberate surfaces rather than a mechanical inversion:
+        // dark has three distinct steps (950 page → 900 card → 800 border) so
+        // cards read as a lifted surface against a genuinely near-black page;
+        // light stays a soft off-white (50) with plain white cards, so borders
+        // stay optional rather than doing all the separation work.
         slate: {
-          50: "#f5f6fa",
-          100: "#ececf3",
-          200: "#dedce8",
-          300: "#c3c0d1",
-          400: "#9a98a6",
-          500: "#82869a",
-          600: "#6b6879",
-          700: "#4a4757",
-          800: "#2e2b36",
-          900: "#1c1a23",
-          950: "#17161d",
+          50: "#f7f8fa",
+          100: "#eef0f3",
+          200: "#e1e4ea",
+          300: "#c7ccd6",
+          400: "#98a0b3",
+          500: "#6b7280",
+          600: "#4b5262",
+          700: "#343b4a",
+          800: "#1c212c",
+          900: "#141821",
+          950: "#08090d",
         },
       },
       keyframes: {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Badge } from "../../components/Badge";
 import { Field, Input, PrimaryButton, SecondaryButton, Select } from "../../components/form";
 import { Modal } from "../../components/Modal";
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
 import { ACHIEVEMENT_ICON_OPTIONS, AchievementIcon } from "../../lib/achievementIcons";
@@ -12,6 +13,7 @@ import type { AchievementConditionType, AchievementManage, Paginated } from "../
 
 const CONDITION_LABEL: Record<AchievementConditionType, string> = {
   FIRST_TEST: "Birinchi testni topshirish",
+  TEST_COUNT: "N ta test topshirish",
   PERFECT_SCORE: "Testdan 100% ball olish",
   XP_THRESHOLD: "Jami XP chegarasiga yetish",
   STREAK_LENGTH: "Seriya uzunligiga yetish",
@@ -23,6 +25,7 @@ interface FormState {
   icon: string;
   condition_type: AchievementConditionType;
   condition_value: string;
+  xp_reward: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -31,6 +34,7 @@ const EMPTY_FORM: FormState = {
   icon: "trophy",
   condition_type: "XP_THRESHOLD",
   condition_value: "100",
+  xp_reward: "50",
 };
 
 export function DirectorAchievementsPage() {
@@ -50,6 +54,7 @@ export function DirectorAchievementsPage() {
       api.post("/achievements/manage/", {
         ...payload,
         condition_value: Number(payload.condition_value),
+        xp_reward: Number(payload.xp_reward),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["achievements", "manage"] });
@@ -68,10 +73,10 @@ export function DirectorAchievementsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Yutuqlar</h1>
-        <PrimaryButton onClick={() => setModalOpen(true)}>+ Yutuq yaratish</PrimaryButton>
-      </div>
+      <PageHeader
+        title="Yutuqlar"
+        action={<PrimaryButton onClick={() => setModalOpen(true)}>+ Yutuq yaratish</PrimaryButton>}
+      />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}
@@ -84,6 +89,7 @@ export function DirectorAchievementsPage() {
               <Th>Nomi</Th>
               <Th>Shart</Th>
               <Th>Qiymat</Th>
+              <Th>XP mukofoti</Th>
               <Th>Holati</Th>
               <Th />
             </Tr>
@@ -99,6 +105,9 @@ export function DirectorAchievementsPage() {
                 </Td>
                 <Td>{CONDITION_LABEL[achievement.condition_type]}</Td>
                 <Td>{achievement.condition_value}</Td>
+                <Td className="font-semibold text-amber-600 dark:text-amber-400">
+                  {achievement.xp_reward > 0 ? `+${achievement.xp_reward} XP` : "—"}
+                </Td>
                 <Td>
                   <Badge tone={achievement.is_active ? "emerald" : "slate"}>
                     {achievement.is_active ? "Faol" : "Nofaol"}
@@ -187,6 +196,15 @@ export function DirectorAchievementsPage() {
                 />
               </Field>
             </div>
+            <Field label="XP mukofoti (bir marta beriladi)">
+              <Input
+                type="number"
+                min={0}
+                required
+                value={form.xp_reward}
+                onChange={(e) => setForm({ ...form, xp_reward: e.target.value })}
+              />
+            </Field>
             <p className="text-xs text-slate-400 dark:text-slate-500">
               "Birinchi test" va "100% ball" shartlari uchun qiymat e'tiborga olinmaydi.
             </p>

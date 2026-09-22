@@ -4,6 +4,7 @@ import { type FormEvent, useState } from "react";
 import { Badge } from "../../components/Badge";
 import { Field, Input, PrimaryButton, SecondaryButton } from "../../components/form";
 import { Modal } from "../../components/Modal";
+import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
 import { api } from "../../lib/api";
@@ -60,10 +61,10 @@ export function TeachersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">O'qituvchilar</h1>
-        <PrimaryButton onClick={() => setModalOpen(true)}>+ O'qituvchi qo'shish</PrimaryButton>
-      </div>
+      <PageHeader
+        title="O'qituvchilar"
+        action={<PrimaryButton onClick={() => setModalOpen(true)}>+ O'qituvchi qo'shish</PrimaryButton>}
+      />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}

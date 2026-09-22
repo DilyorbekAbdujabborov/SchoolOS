@@ -48,8 +48,8 @@ export function XpHistoryChart({ transactions }: { transactions: XPTransaction[]
   const { theme } = useTheme();
   const data = buildDailySeries(transactions);
   const hasAny = data.some((d) => d.xp > 0);
-  const gridColor = theme === "dark" ? "#1e293b" : "#e2e8f0";
-  const tickColor = theme === "dark" ? "#64748b" : "#94a3b8";
+  const gridColor = theme === "dark" ? "#1c212c" : "#e1e4ea";
+  const tickColor = theme === "dark" ? "#6b7280" : "#98a0b3";
   const cursorColor = theme === "dark" ? "#78350f" : "#fef3c7";
   const barColor = theme === "dark" ? "#f59e0b" : "#d97706";
 
@@ -63,7 +63,7 @@ export function XpHistoryChart({ transactions }: { transactions: XPTransaction[]
         <CartesianGrid vertical={false} stroke={gridColor} />
         <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: tickColor }} />
         <Tooltip content={<ChartTooltip />} cursor={{ fill: cursorColor }} />
-        <Bar dataKey="xp" fill={barColor} radius={[4, 4, 0, 0]} maxBarSize={28} />
+        <Bar dataKey="xp" fill={barColor} radius={[6, 6, 6, 6]} maxBarSize={22} />
       </BarChart>
     </ResponsiveContainer>
   );

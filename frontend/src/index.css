@@ -5,3 +5,42 @@
 body {
   @apply bg-slate-50 text-slate-900 antialiased transition-colors duration-200 dark:bg-slate-950 dark:text-slate-100;
 }
+
+/* Shared card/tile/menu-item hover language — one definition, applied via the
+ * `.hover-card` (cards, stat tiles, game tiles: border + glow + lift) and
+ * `.hover-glow` (compact list/menu rows: border + glow, no lift, so it
+ * doesn't jostle tightly-stacked siblings) classes below.
+ *
+ * Gated on `(hover: hover)` so touch devices never get a "stuck" hover state
+ * after a tap — the effect simply doesn't exist there, not just disabled.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .hover-card,
+  .hover-glow {
+    transition:
+      transform 200ms ease-out,
+      border-color 200ms ease-out,
+      box-shadow 200ms ease-out;
+  }
+
+  .hover-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .hover-card:hover,
+  .hover-glow:hover {
+    border-color: #93c5fd; /* brand-300 — a light, soft blue, never neon */
+    box-shadow:
+      0 0 0 1px rgba(37, 99, 235, 0.06),
+      0 12px 24px -10px rgba(37, 99, 235, 0.18);
+  }
+
+  /* A touch more visible against dark surfaces, per the brief — still soft. */
+  .dark .hover-card:hover,
+  .dark .hover-glow:hover {
+    border-color: rgba(96, 165, 250, 0.5); /* brand-400/50 */
+    box-shadow:
+      0 0 0 1px rgba(59, 130, 246, 0.15),
+      0 14px 28px -10px rgba(59, 130, 246, 0.35);
+  }
+}
