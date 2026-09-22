@@ -1,0 +1,97 @@
+x-backend-env: &backend-env
+  DJANGO_DB_ENGINE: django.db.backends.postgresql
+  DJANGO_DB_NAME: ${DJANGO_DB_NAME:-schoolos}
+  DJANGO_DB_USER: ${DJANGO_DB_USER:-schoolos}
+  DJANGO_DB_PASSWORD: ${DJANGO_DB_PASSWORD:?set DJANGO_DB_PASSWORD in .env}
+  DJANGO_DB_HOST: db
+  DJANGO_DB_PORT: 5432
+  CELERY_BROKER_URL: redis://redis:6379/0
+  CELERY_RESULT_BACKEND: redis://redis:6379/0
+  REDIS_URL: redis://redis:6379/1
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DJANGO_DB_NAME:-schoolos}
+      POSTGRES_USER: ${DJANGO_DB_USER:-schoolos}
+      POSTGRES_PASSWORD: ${DJANGO_DB_PASSWORD:?set DJANGO_DB_PASSWORD in .env}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DJANGO_DB_USER:-schoolos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment: *backend-env
+    volumes:
+      - static_files:/app/staticfiles
+      - media_files:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  celery_worker:
+    build: ./backend
+    restart: unless-stopped
+    command: ["celery", "-A", "config", "worker", "-l", "info"]
+    env_file: ./backend/.env
+    environment: *backend-env
+    volumes:
+      - media_files:/app/media
+    depends_on:
+      - backend
+
+  celery_beat:
+    build: ./backend
+    restart: unless-stopped
+    command: ["celery", "-A", "config", "beat", "-l", "info"]
+    env_file: ./backend/.env
+    environment: *backend-env
+    depends_on:
+      - backend
+
+  telegram_bot:
+    build: ./backend
+    restart: unless-stopped
+    command: ["python", "manage.py", "runbot"]
+    env_file: ./backend/.env
+    environment: *backend-env
+    depends_on:
+      - backend
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - static_files:/srv/static:ro
+      - media_files:/srv/media:ro
+      - caddy_data:/data
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
+  redis_data:
+  static_files:
+  media_files:
+  caddy_data:

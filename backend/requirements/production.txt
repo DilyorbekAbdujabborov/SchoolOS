@@ -2,3 +2,6 @@
 
 # PostgreSQL production driver
 psycopg[binary]>=3.3,<4
+
+# Production WSGI server
+gunicorn>=23,<24
