@@ -22,6 +22,10 @@ class PooledQuestion(TimeStampedModel):
     text = models.TextField(_("question text"))
     options = models.JSONField(_("options"))
     correct_index = models.PositiveSmallIntegerField(_("correct option index"))
+    # One-sentence "why" shown after a wrong answer in games that reveal the
+    # key mid-round (Minora qurish). Older pooled questions predate this and
+    # simply have none — the UI then shows only the correct option.
+    explanation = models.TextField(_("explanation"), blank=True, default="")
 
     class Meta:
         verbose_name = _("pooled question")
@@ -68,6 +72,10 @@ class GameSession(TimeStampedModel):
     class GameType(models.TextChoices):
         TUG_OF_WAR = "TUG_OF_WAR", _("Arqon tortish")
         QUIZ = "QUIZ", _("Viktorina")
+        TOWER_BUILDER = "TOWER_BUILDER", _("Minora qurish")
+        CODE_BREAKER = "CODE_BREAKER", _("Kodni buzish")
+        TREASURE_HUNT = "TREASURE_HUNT", _("Xazina ovi")
+        BATTLE_ARENA = "BATTLE_ARENA", _("Jang maydoni")
 
     class Status(models.TextChoices):
         ACTIVE = "ACTIVE", _("Active")
@@ -81,8 +89,17 @@ class GameSession(TimeStampedModel):
     )
     game_type = models.CharField(_("game type"), max_length=20, choices=GameType.choices)
     status = models.CharField(_("status"), max_length=20, choices=Status.choices, default=Status.ACTIVE)
-    # [{"text": str, "options": [str, ...], "correct_index": int}, ...] — AI-generated snapshot.
+    # [{"text": str, "options": [str, ...], "correct_index": int, "explanation": str}, ...] — AI-generated snapshot.
     questions = models.JSONField(_("questions"), default=list, blank=True)
+    # {"<question_index>": selected_index} — answers the server has locked in
+    # one at a time (see `services.record_live_answer`). Only games that
+    # reveal the answer key mid-round use this; the others still submit their
+    # answers in one batch at the end.
+    answers = models.JSONField(_("answers"), default=dict, blank=True)
+    # Kodni buzish only: one character per question, generated at start. Never
+    # sent to the client whole — only the segments earned so far, or all of it
+    # once the game ends unlocked (see `services.revealed_code`).
+    secret_code = models.CharField(_("secret code"), max_length=16, blank=True, default="")
     score_percent = models.FloatField(_("score (%)"), null=True, blank=True)
     xp_awarded = models.PositiveSmallIntegerField(_("XP awarded"), null=True, blank=True)
     completed_at = models.DateTimeField(_("completed at"), null=True, blank=True)

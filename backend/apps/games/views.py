@@ -53,12 +53,18 @@ class GameSessionViewSet(
 
     @action(detail=True, methods=["post"])
     def answer(self, request, pk=None):
-        """Live per-question check for the tug-of-war rope — see `services.check_answer`."""
+        """Live per-question check. Arqon tortish only learns whether the one
+        answer was right (`services.check_answer`); Minora qurish and Kodni
+        buzish lock the answer in server-side and get the key, explanation and
+        running totals back (`services.record_live_answer`).
+        """
         session = self.get_object()
         serializer = GameAnswerCheckSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         try:
+            if session.game_type in services.LIVE_KEY_GAMES:
+                return Response(services.record_live_answer(session=session, **serializer.validated_data))
             correct = services.check_answer(session=session, **serializer.validated_data)
         except ValueError as exc:
             raise ValidationError(str(exc)) from exc

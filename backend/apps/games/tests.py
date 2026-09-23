@@ -13,7 +13,9 @@ from .services import (
     check_answer,
     pick_session_questions,
     pool_status,
+    record_live_answer,
     refill_pool,
+    revealed_code,
     start_game,
     submit_game,
 )
@@ -31,7 +33,12 @@ def _questions_payload(count: int) -> str:
     return json.dumps(
         {
             "questions": [
-                {"text": f"Savol {i}", "options": ["a", "b", "c", "d"], "correct_index": i % 4}
+                {
+                    "text": f"Savol {i}",
+                    "options": ["a", "b", "c", "d"],
+                    "correct_index": i % 4,
+                    "explanation": f"Izoh {i}",
+                }
                 for i in range(count)
             ]
         }
@@ -46,6 +53,7 @@ def _seed_pool(*, subject, school_class, count: int) -> list[PooledQuestion]:
             text=f"Savol {i}",
             options=["a", "b", "c", "d"],
             correct_index=i % 4,
+            explanation=f"Izoh {i}",
         )
         for i in range(count)
     )
@@ -409,3 +417,421 @@ class QuestionPoolAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["added"], 10)
         self.assertEqual(PooledQuestion.objects.count(), 10)
+
+
+class TowerBuilderTests(APITestCase):
+    """Minora qurish: ten questions, answers locked in one at a time server-side,
+    the key revealed only after the answer is recorded, XP via the shared formula.
+    """
+
+    def setUp(self):
+        self.subject = make_subject()
+        self.school_class = make_school_class()
+        self.student_user, self.student = make_student(self.school_class)
+        _seed_pool(subject=self.subject, school_class=self.school_class, count=20)
+        self.session = start_game(
+            student=self.student, subject=self.subject, game_type=GameSession.GameType.TOWER_BUILDER
+        )
+        pick_session_questions(self.session)
+
+    def _answer(self, index, *, correct):
+        key = self.session.questions[index]["correct_index"]
+        return record_live_answer(
+            session=self.session, question_index=index, selected_index=key if correct else (key + 1) % 4
+        )
+
+    def test_picks_ten_questions(self):
+        self.assertEqual(len(self.session.questions), 10)
+
+    def test_other_games_still_pick_eight(self):
+        quiz = start_game(student=self.student, subject=self.subject, game_type=GameSession.GameType.QUIZ)
+        self.assertEqual(len(pick_session_questions(quiz)), 8)
+
+    def test_correct_answer_builds_a_floor_and_reports_running_xp(self):
+        result = self._answer(0, correct=True)
+
+        self.assertTrue(result["correct"])
+        self.assertEqual(result["correct_count"], 1)
+        self.assertEqual(result["answered_count"], 1)
+        self.assertEqual(result["xp_earned"], 3)
+
+    def test_wrong_answer_reveals_key_and_explanation_but_adds_no_floor(self):
+        result = self._answer(0, correct=False)
+
+        self.assertFalse(result["correct"])
+        self.assertEqual(result["correct_index"], self.session.questions[0]["correct_index"])
+        self.assertEqual(result["explanation"], self.session.questions[0]["explanation"])
+        self.assertEqual(result["correct_count"], 0)
+        self.assertEqual(result["xp_earned"], 0)
+
+    def test_an_answer_cannot_be_changed_once_recorded(self):
+        self._answer(0, correct=False)
+        with self.assertRaises(ValueError):
+            self._answer(0, correct=True)
+
+    def test_questions_must_be_answered_in_order(self):
+        with self.assertRaises(ValueError):
+            self._answer(3, correct=True)
+
+    def test_rejects_an_out_of_range_option(self):
+        with self.assertRaises(ValueError):
+            record_live_answer(session=self.session, question_index=0, selected_index=9)
+
+    def test_other_game_types_cannot_record_answers(self):
+        quiz = start_game(student=self.student, subject=self.subject, game_type=GameSession.GameType.QUIZ)
+        pick_session_questions(quiz)
+        with self.assertRaises(ValueError):
+            record_live_answer(session=quiz, question_index=0, selected_index=0)
+
+    def test_submit_scores_the_recorded_answers_not_the_payload(self):
+        for i in range(10):
+            self._answer(i, correct=i < 7)
+        self.session.refresh_from_db()
+
+        # The client claims a perfect game — the server's own record wins.
+        claimed = {i: q["correct_index"] for i, q in enumerate(self.session.questions)}
+        session = submit_game(session=self.session, answers=claimed)
+
+        self.assertEqual(session.score_percent, 70.0)
+        self.assertEqual(session.xp_awarded, 21)
+        transaction = XPTransaction.objects.get(student=self.student, source=XPTransaction.Source.GAME)
+        self.assertEqual(transaction.amount, 21)
+
+    def test_cannot_submit_before_every_question_is_answered(self):
+        self._answer(0, correct=True)
+        self.session.refresh_from_db()
+        with self.assertRaises(ValueError):
+            submit_game(session=self.session, answers={0: 0})
+
+    def test_cannot_answer_after_completion(self):
+        for i in range(10):
+            self._answer(i, correct=True)
+        self.session.refresh_from_db()
+        submit_game(session=self.session, answers={0: 0})
+        with self.assertRaises(ValueError):
+            record_live_answer(session=self.session, question_index=0, selected_index=0)
+
+    def test_api_flow_hides_the_key_until_answered_and_reports_progress(self):
+        self.client.force_authenticate(self.student_user)
+        questions = self.client.get(f"/api/games/{self.session.id}/questions/").data
+        self.assertEqual(len(questions), 10)
+        self.assertNotIn("correct_index", questions[0])
+        self.assertNotIn("explanation", questions[0])
+
+        response = self.client.post(
+            f"/api/games/{self.session.id}/answer/", {"question_index": 0, "selected_index": -1}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["correct"])
+        self.assertIn("correct_index", response.data)
+
+        repeat = self.client.post(
+            f"/api/games/{self.session.id}/answer/", {"question_index": 0, "selected_index": 0}, format="json"
+        )
+        self.assertEqual(repeat.status_code, status.HTTP_400_BAD_REQUEST)
+
+        detail = self.client.get(f"/api/games/{self.session.id}/").data
+        self.assertEqual(detail["answered_count"], 1)
+        self.assertEqual(detail["question_count"], 10)
+        self.assertEqual(detail["max_xp"], 30)
+
+    def test_refill_stores_explanations(self):
+        with (
+            patch("apps.common.gemini.settings.GEMINI_API_KEY", "test-key"),
+            patch("apps.common.gemini.requests.post", return_value=_gemini_response(_questions_payload(3))),
+        ):
+            other_class = make_school_class(name="7-B")
+            refill_pool(subject=self.subject, school_class=other_class, batch_size=3)
+
+        self.assertEqual(
+            sorted(PooledQuestion.objects.filter(school_class=other_class).values_list("explanation", flat=True)),
+            ["Izoh 0", "Izoh 1", "Izoh 2"],
+        )
+
+
+class CodeBreakerTests(APITestCase):
+    """Kodni buzish: a per-session secret code, one segment per correctly
+    answered question, the full code only after an unlocked (>= 70%) finish,
+    and XP awarded exactly once.
+    """
+
+    def setUp(self):
+        self.subject = make_subject()
+        self.school_class = make_school_class()
+        self.student_user, self.student = make_student(self.school_class)
+        _seed_pool(subject=self.subject, school_class=self.school_class, count=20)
+        self.session = start_game(
+            student=self.student, subject=self.subject, game_type=GameSession.GameType.CODE_BREAKER
+        )
+        pick_session_questions(self.session)
+
+    def _play(self, correct_upto: int):
+        for i, question in enumerate(self.session.questions):
+            key = question["correct_index"]
+            record_live_answer(
+                session=self.session, question_index=i, selected_index=key if i < correct_upto else (key + 1) % 4
+            )
+        self.session.refresh_from_db()
+
+    def test_each_session_gets_its_own_ten_character_code(self):
+        other = start_game(student=self.student, subject=self.subject, game_type=GameSession.GameType.CODE_BREAKER)
+        self.assertEqual(len(self.session.secret_code), 10)
+        self.assertNotEqual(self.session.secret_code, other.secret_code)
+
+    def test_other_games_have_no_code(self):
+        quiz = start_game(student=self.student, subject=self.subject, game_type=GameSession.GameType.QUIZ)
+        self.assertEqual(quiz.secret_code, "")
+        self.assertEqual(revealed_code(quiz), [])
+
+    def test_correct_answer_unlocks_only_its_own_segment(self):
+        key = self.session.questions[0]["correct_index"]
+        result = record_live_answer(session=self.session, question_index=0, selected_index=key)
+
+        self.assertEqual(result["code_segment"], self.session.secret_code[0])
+        self.session.refresh_from_db()
+        self.assertEqual(revealed_code(self.session), [self.session.secret_code[0]] + [None] * 9)
+
+    def test_wrong_answer_unlocks_nothing(self):
+        key = self.session.questions[0]["correct_index"]
+        result = record_live_answer(session=self.session, question_index=0, selected_index=(key + 1) % 4)
+
+        self.assertIsNone(result["code_segment"])
+        self.assertEqual(revealed_code(self.session), [None] * 10)
+
+    def test_seventy_percent_unlocks_the_whole_code(self):
+        self._play(correct_upto=7)
+        session = submit_game(session=self.session, answers={0: 0})
+
+        self.assertEqual(session.score_percent, 70.0)
+        self.assertEqual(revealed_code(session), list(session.secret_code))
+
+    def test_below_seventy_percent_keeps_unanswered_segments_locked(self):
+        self._play(correct_upto=6)
+        session = submit_game(session=self.session, answers={0: 0})
+
+        code = revealed_code(session)
+        self.assertEqual(code[:6], list(session.secret_code[:6]))
+        self.assertEqual(code[6:], [None] * 4)
+
+    def test_api_never_sends_the_full_code_before_unlocking(self):
+        self.client.force_authenticate(self.student_user)
+        detail = self.client.get(f"/api/games/{self.session.id}/").data
+
+        self.assertNotIn("secret_code", detail)
+        self.assertEqual(detail["revealed_code"], [None] * 10)
+        self.assertIsNone(detail["review"])
+
+    def test_locked_result_includes_review_with_explanations(self):
+        self._play(correct_upto=5)
+        self.client.force_authenticate(self.student_user)
+        response = self.client.post(
+            f"/api/games/{self.session.id}/submit/",
+            {"answers": [{"question_index": 0, "selected_index": 0}]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["goal_reached"])
+        wrong = [r for r in response.data["review"] if r["selected_index"] != r["correct_index"]]
+        self.assertEqual(len(wrong), 5)
+        self.assertTrue(all(r["explanation"] for r in wrong))
+
+    def test_xp_is_awarded_once_even_if_submit_is_repeated(self):
+        self._play(correct_upto=10)
+        self.client.force_authenticate(self.student_user)
+        url = f"/api/games/{self.session.id}/submit/"
+        payload = {"answers": [{"question_index": 0, "selected_index": 0}]}
+
+        first = self.client.post(url, payload, format="json")
+        second = self.client.post(url, payload, format="json")
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(XPTransaction.objects.filter(student=self.student, source=XPTransaction.Source.GAME).count(), 1)
+        self.assertEqual(first.data["xp_awarded"], 30)
+
+    def test_a_stale_session_object_cannot_award_twice(self):
+        """Two requests that loaded the session before either completed it."""
+        self._play(correct_upto=10)
+        stale = GameSession.objects.get(pk=self.session.pk)
+        submit_game(session=self.session, answers={0: 0})
+
+        with self.assertRaises(ValueError):
+            submit_game(session=stale, answers={0: 0})
+        self.assertEqual(XPTransaction.objects.filter(student=self.student, source=XPTransaction.Source.GAME).count(), 1)
+
+
+class TreasureHuntTests(APITestCase):
+    """Xazina ovi: same server-authoritative live-answer flow; the treasure is
+    reached at 80% and only once the game is over."""
+
+    def setUp(self):
+        self.subject = make_subject()
+        self.school_class = make_school_class()
+        self.student_user, self.student = make_student(self.school_class)
+        _seed_pool(subject=self.subject, school_class=self.school_class, count=20)
+        self.session = start_game(
+            student=self.student, subject=self.subject, game_type=GameSession.GameType.TREASURE_HUNT
+        )
+        pick_session_questions(self.session)
+
+    def _play(self, correct_upto: int):
+        for i, question in enumerate(self.session.questions):
+            key = question["correct_index"]
+            record_live_answer(
+                session=self.session, question_index=i, selected_index=key if i < correct_upto else (key + 1) % 4
+            )
+        self.session.refresh_from_db()
+
+    def _submit(self):
+        self.client.force_authenticate(self.student_user)
+        return self.client.post(
+            f"/api/games/{self.session.id}/submit/",
+            {"answers": [{"question_index": 0, "selected_index": 0}]},
+            format="json",
+        )
+
+    def test_ten_questions_and_no_secret_code(self):
+        self.assertEqual(len(self.session.questions), 10)
+        self.assertEqual(self.session.secret_code, "")
+
+    def test_answers_are_locked_in_like_the_other_live_games(self):
+        self._play(correct_upto=3)
+        with self.assertRaises(ValueError):
+            record_live_answer(session=self.session, question_index=0, selected_index=0)
+
+    def test_eighty_percent_reaches_the_treasure(self):
+        self._play(correct_upto=8)
+        response = self._submit()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["goal_reached"])
+        self.assertEqual(response.data["unlock_percent"], 80)
+        self.assertEqual(response.data["xp_awarded"], 24)
+
+    def test_seventy_percent_completes_the_journey_without_the_treasure(self):
+        self._play(correct_upto=7)
+        response = self._submit()
+
+        self.assertFalse(response.data["goal_reached"])
+        self.assertEqual(response.data["correct_count"], 7)
+        self.assertEqual(response.data["xp_awarded"], 21)
+
+    def test_goal_is_never_reported_before_the_game_ends(self):
+        self._play(correct_upto=10)
+        self.client.force_authenticate(self.student_user)
+        detail = self.client.get(f"/api/games/{self.session.id}/").data
+        self.assertFalse(detail["goal_reached"])
+
+    def test_xp_is_awarded_once(self):
+        self._play(correct_upto=10)
+        self.assertEqual(self._submit().status_code, status.HTTP_200_OK)
+        self.assertEqual(self._submit().status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(XPTransaction.objects.filter(student=self.student, source=XPTransaction.Source.GAME).count(), 1)
+
+    def test_other_games_have_no_win_threshold(self):
+        quiz = start_game(student=self.student, subject=self.subject, game_type=GameSession.GameType.QUIZ)
+        self.client.force_authenticate(self.student_user)
+        detail = self.client.get(f"/api/games/{quiz.id}/").data
+        self.assertIsNone(detail["unlock_percent"])
+        self.assertFalse(detail["goal_reached"])
+
+
+class BattleArenaTests(APITestCase):
+    """Jang maydoni: HP, combo and victory are replayed server-side from the
+    recorded answers; a battle can end early and is scored over rounds fought."""
+
+    def setUp(self):
+        self.subject = make_subject()
+        self.school_class = make_school_class()
+        self.student_user, self.student = make_student(self.school_class)
+        _seed_pool(subject=self.subject, school_class=self.school_class, count=20)
+        self.session = start_game(
+            student=self.student, subject=self.subject, game_type=GameSession.GameType.BATTLE_ARENA
+        )
+        pick_session_questions(self.session)
+
+    def _answer(self, index, *, correct):
+        key = self.session.questions[index]["correct_index"]
+        return record_live_answer(
+            session=self.session, question_index=index, selected_index=key if correct else (key + 1) % 4
+        )
+
+    def _submit(self):
+        self.client.force_authenticate(self.student_user)
+        return self.client.post(
+            f"/api/games/{self.session.id}/submit/",
+            {"answers": [{"question_index": 0, "selected_index": 0}]},
+            format="json",
+        )
+
+    def test_correct_answer_damages_the_enemy_and_builds_combo(self):
+        self._answer(0, correct=True)
+        result = self._answer(1, correct=True)
+
+        self.assertEqual(result["battle"]["enemy_hp"], 60)
+        self.assertEqual(result["battle"]["player_hp"], 100)
+        self.assertEqual(result["battle"]["combo"], 2)
+
+    def test_wrong_answer_damages_the_player_and_resets_combo(self):
+        self._answer(0, correct=True)
+        result = self._answer(1, correct=False)
+
+        self.assertEqual(result["battle"]["player_hp"], 90)
+        self.assertEqual(result["battle"]["combo"], 0)
+        self.assertEqual(result["battle"]["max_combo"], 1)
+
+    def test_five_hits_win_early_and_no_more_answers_are_accepted(self):
+        for i in range(5):
+            result = self._answer(i, correct=True)
+
+        self.assertTrue(result["battle"]["over"])
+        self.assertTrue(result["battle"]["victory"])
+        with self.assertRaises(ValueError):
+            self._answer(5, correct=True)
+
+    def test_running_xp_only_grows_with_hits(self):
+        first = self._answer(0, correct=True)
+        second = self._answer(1, correct=False)
+        self.assertEqual(first["xp_earned"], 3)
+        self.assertEqual(second["xp_earned"], 3)
+
+    def test_early_victory_is_scored_over_rounds_fought_and_credits_the_rest(self):
+        self._answer(0, correct=False)
+        for i in range(1, 6):
+            self._answer(i, correct=True)
+        response = self._submit()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["goal_reached"])
+        self.assertEqual(response.data["score_percent"], 83.33)
+        # 5 hits + 4 rounds the knockout made unnecessary = 9/10 of 30 XP.
+        self.assertEqual(response.data["xp_awarded"], 27)
+        self.assertEqual(response.data["battle"]["rounds_played"], 6)
+
+    def test_cannot_submit_while_the_battle_is_still_going(self):
+        self._answer(0, correct=True)
+        self.assertEqual(self._submit().status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_all_rounds_without_a_knockout_ends_without_victory(self):
+        for i in range(10):
+            self._answer(i, correct=i < 4)
+        response = self._submit()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["goal_reached"])
+        self.assertEqual(response.data["xp_awarded"], 12)
+        self.assertEqual(response.data["battle"]["enemy_hp"], 20)
+        self.assertEqual(response.data["battle"]["player_hp"], 40)
+
+    def test_xp_is_awarded_once(self):
+        for i in range(5):
+            self._answer(i, correct=True)
+        self.assertEqual(self._submit().status_code, status.HTTP_200_OK)
+        self.assertEqual(self._submit().status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(XPTransaction.objects.filter(student=self.student, source=XPTransaction.Source.GAME).count(), 1)
+
+    def test_other_games_report_no_battle(self):
+        quiz = start_game(student=self.student, subject=self.subject, game_type=GameSession.GameType.QUIZ)
+        self.client.force_authenticate(self.student_user)
+        self.assertIsNone(self.client.get(f"/api/games/{quiz.id}/").data["battle"])
