@@ -2,6 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 
+import { BattleArenaGame } from "../../components/games/BattleArenaGame";
+import { CodeBreakerGame } from "../../components/games/CodeBreakerGame";
+import { TreasureHuntGame } from "../../components/games/TreasureHuntGame";
+import { TowerBuilderGame } from "../../components/games/TowerBuilderGame";
 import { TugOfWarGame } from "../../components/games/TugOfWarGame";
 import {
   AnimatedNumber,
@@ -33,6 +37,22 @@ export function StudentGamePlayPage() {
 
   if (session.game_type === "TUG_OF_WAR") {
     return <TugOfWarGame session={session} />;
+  }
+
+  if (session.game_type === "TOWER_BUILDER") {
+    return <TowerBuilderGame session={session} />;
+  }
+
+  if (session.game_type === "CODE_BREAKER") {
+    return <CodeBreakerGame session={session} />;
+  }
+
+  if (session.game_type === "TREASURE_HUNT") {
+    return <TreasureHuntGame session={session} />;
+  }
+
+  if (session.game_type === "BATTLE_ARENA") {
+    return <BattleArenaGame session={session} />;
   }
 
   return <QuizGame session={session} />;

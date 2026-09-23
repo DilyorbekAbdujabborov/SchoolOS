@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { BookOpen, Brain, Clock, Gamepad2, Swords } from "lucide-react";
+import { BookOpen, Brain, Building2, Clock, Gamepad2, KeyRound, Map, Shield, Swords } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -21,6 +21,30 @@ const GAME_OPTIONS: { type: GameType; label: string; description: string; icon: 
     label: "Viktorina",
     description: "Klassik test-o'yin — savollarga javob bering, oxirida natijangizni ko'ring.",
     icon: Brain,
+  },
+  {
+    type: "TOWER_BUILDER",
+    label: "Minora qurish",
+    description: "Har to'g'ri javob minorangizga yangi qavat qo'shadi — 10 savolda eng baland minorani quring.",
+    icon: Building2,
+  },
+  {
+    type: "CODE_BREAKER",
+    label: "Kodni buzish",
+    description: "Har to'g'ri javob maxfiy kodning bir segmentini ochadi — 70% to'plab, kodni to'liq buzing.",
+    icon: KeyRound,
+  },
+  {
+    type: "TREASURE_HUNT",
+    label: "Xazina ovi",
+    description: "Har to'g'ri javob xaritada bir manzil oldinga olib boradi — 80% to'plab, xazinaga yeting.",
+    icon: Map,
+  },
+  {
+    type: "BATTLE_ARENA",
+    label: "Jang maydoni",
+    description: "Jangchingizni tanlang: to'g'ri javob — sizning zarbangiz, xato — raqibniki. Raqibni yenging!",
+    icon: Shield,
   },
 ];
 

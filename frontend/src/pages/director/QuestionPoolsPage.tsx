@@ -58,7 +58,7 @@ export function QuestionPoolsPage() {
         icon={Database}
         title="Savollar ombori"
         subtitle={
-          '"Arqon tortish" va "Viktorina" o\'yinlari shu yerdagi tayyor savollardan foydalanadi — o\'yin boshlanganda AI\'ga jonli so\'rov yubormaydi. Har bir sinf + fan uchun alohida ombor bor.'
+          'Barcha o\'yinlar ("Arqon tortish", "Viktorina", "Minora qurish", "Kodni buzish", "Xazina ovi", "Jang maydoni") shu yerdagi tayyor savollardan foydalanadi — o\'yin boshlanganda AI\'ga jonli so\'rov yubormaydi. Har bir sinf + fan uchun alohida ombor bor.'
         }
       />
 

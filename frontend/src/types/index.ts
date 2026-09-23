@@ -525,7 +525,7 @@ export interface RemedialGameQuestion {
 
 // ---------- Games (self-serve "O'yinlar" section) ----------
 
-export type GameType = "TUG_OF_WAR" | "QUIZ";
+export type GameType = "TUG_OF_WAR" | "QUIZ" | "TOWER_BUILDER" | "CODE_BREAKER" | "TREASURE_HUNT" | "BATTLE_ARENA";
 export type GameStatus = "ACTIVE" | "COMPLETED";
 
 export interface GameSession {
@@ -536,10 +536,65 @@ export interface GameSession {
   game_type_display: string;
   status: GameStatus;
   question_count: number;
+  /** Server-recorded progress — only non-zero for games that lock answers in one at a time. */
+  answered_count: number;
+  correct_count: number;
+  max_xp: number;
+  /** Kodni buzish only: earned segments (null = still locked); the whole code once unlocked. Empty for other games. */
+  revealed_code: (string | null)[];
+  /** Jang maydoni only: HP / combo / round state, computed server-side. */
+  battle: BattleState | null;
+  /** Kodni buzish: lock opened / Xazina ovi: treasure reached — only ever true once the game is over. */
+  goal_reached: boolean;
+  /** The win threshold for games that have one (Kodni buzish, Xazina ovi); null otherwise. */
+  unlock_percent: number | null;
+  /** Per-question answer review — only on a finished Minora qurish / Kodni buzish session's detail. */
+  review: GameReviewItem[] | null;
   score_percent: number | null;
   xp_awarded: number | null;
   created_at: string;
   completed_at: string | null;
+}
+
+export interface BattleRules {
+  player_hp: number;
+  enemy_hp: number;
+  hit_damage: number;
+  miss_damage: number;
+}
+
+export interface BattleState {
+  player_hp: number;
+  enemy_hp: number;
+  combo: number;
+  max_combo: number;
+  rounds_played: number;
+  over: boolean;
+  victory: boolean;
+  rules: BattleRules;
+}
+
+export interface GameReviewItem {
+  text: string;
+  options: string[];
+  selected_index: number;
+  correct_index: number;
+  explanation: string;
+}
+
+/** Minora qurish / Kodni buzish's `/games/:id/answer/` response — the answer
+ * is locked in server-side before the key is revealed. */
+export interface LiveAnswerResult {
+  correct: boolean;
+  /** Kodni buzish: the code character this correct answer unlocked. */
+  code_segment: string | null;
+  /** Jang maydoni: the battle state after this answer. */
+  battle: BattleState | null;
+  correct_index: number;
+  explanation: string;
+  answered_count: number;
+  correct_count: number;
+  xp_earned: number;
 }
 
 /** Answer-free, same shape as `RemedialGameQuestion`. */

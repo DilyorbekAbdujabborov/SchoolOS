@@ -1,5 +1,5 @@
 import { Check, X, Zap, type LucideIcon, Trophy } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { useCountUp } from "../../lib/useCountUp";
@@ -19,6 +19,35 @@ export function AnimatedNumber({ value, prefix = "" }: { value: number; prefix?:
       {prefix}
       {animated}
     </>
+  );
+}
+
+export function formatDuration(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** One fact on a game's start screen — question count, max XP, estimated time. */
+export function GameStartStat({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "amber";
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
+      <p
+        className={`mt-0.5 text-sm font-bold ${
+          tone === "amber" ? "text-amber-600 dark:text-amber-400" : "text-slate-900 dark:text-slate-50"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
   );
 }
 
@@ -118,7 +147,7 @@ export function GameOptionButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left text-sm font-medium text-slate-700 transition-all active:scale-[0.97] disabled:cursor-default dark:text-slate-200 ${stateClass}`}
+      className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left text-sm font-medium text-slate-700 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.97] disabled:cursor-default dark:text-slate-200 dark:focus-visible:ring-offset-slate-900 ${stateClass}`}
     >
       <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${badgeToneClass}`}>
         {state === "correct" ? <Check size={14} /> : state === "incorrect" ? <X size={14} /> : LETTERS[index]}
@@ -176,6 +205,7 @@ export function GameResultScreen({
   primaryLabel = "Yana o'ynash",
   secondaryTo = "/student/games",
   secondaryLabel = "O'yinlar ro'yxatiga qaytish",
+  children,
 }: {
   tone: GameResultTone;
   icon?: LucideIcon;
@@ -188,8 +218,19 @@ export function GameResultScreen({
   primaryLabel?: string;
   secondaryTo?: string;
   secondaryLabel?: string;
+  /** Optional game-specific showcase between the header and the stats (e.g. the finished tower). */
+  children?: ReactNode;
 }) {
-  const gridClass = stats.length === 3 ? "grid-cols-3" : stats.length === 2 ? "grid-cols-2" : "grid-cols-1";
+  const gridClass =
+    stats.length >= 5
+      ? "grid-cols-2 sm:grid-cols-3"
+      : stats.length === 4
+      ? "grid-cols-2 sm:grid-cols-4"
+      : stats.length === 3
+        ? "grid-cols-3"
+        : stats.length === 2
+          ? "grid-cols-2"
+          : "grid-cols-1";
 
   return (
     <div className="mx-auto max-w-lg space-y-5 text-center">
@@ -198,6 +239,8 @@ export function GameResultScreen({
         <h1 className="mt-3 text-2xl font-bold">{title}</h1>
         <p className="mt-1 text-sm text-white/80">{subtitle}</p>
       </div>
+
+      {children}
 
       {stats.length > 0 && (
         <div className={`grid gap-3 ${gridClass}`}>
@@ -250,5 +293,118 @@ export function GameResultScreen({
         </Link>
       </div>
     </div>
+  );
+}
+
+/** The after-answer banner for games that reveal the key mid-round (Minora
+ * qurish, Kodni buzish, Xazina ovi). Correct: a one-line success strip with
+ * the XP gained and a game-specific `successDetail` ("Yangi qavat", the
+ * unlocked code segment…); it moves on by itself. Wrong: the correct option
+ * and the question's explanation, and the student presses on when ready. */
+export function GameAnswerFeedback({
+  correct,
+  xpGained,
+  successDetail,
+  wrongTitle = "Noto'g'ri",
+  explanationLabel,
+  correctAnswerText,
+  explanation,
+  isLast,
+  onNext,
+}: {
+  correct: boolean;
+  xpGained: number;
+  successDetail?: ReactNode;
+  wrongTitle?: string;
+  /** Small heading above the explanation, e.g. "Nega?". */
+  explanationLabel?: string;
+  correctAnswerText?: string;
+  explanation?: string;
+  isLast: boolean;
+  onNext: () => void;
+}) {
+  // Keyboard players can press Enter to continue — focus the button without
+  // scrolling the page (that would push the game's HUD out of view).
+  const nextRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!correct) nextRef.current?.focus({ preventScroll: true });
+  }, [correct]);
+
+  if (correct) {
+    return (
+      <div className="animate-pop-in flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+        <p className="flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">
+          <Check size={16} /> To'g'ri!
+        </p>
+        {successDetail && (
+          <div className="flex min-w-0 items-center gap-2 text-xs font-semibold text-emerald-700/80 dark:text-emerald-300/80">
+            {successDetail}
+          </div>
+        )}
+        <p className="shrink-0 text-sm font-bold text-amber-600 dark:text-amber-400">+{xpGained} XP</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="animate-pop-in space-y-3 rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-500/30 dark:bg-red-500/10">
+      <p className="flex items-center gap-2 text-sm font-bold text-red-700 dark:text-red-300">
+        <X size={16} /> {wrongTitle}
+      </p>
+      {correctAnswerText !== undefined && (
+        <p className="text-sm text-slate-700 dark:text-slate-200">
+          To'g'ri javob: <span className="font-semibold text-slate-900 dark:text-slate-50">{correctAnswerText}</span>
+        </p>
+      )}
+      {explanation && (
+        <div>
+          {explanationLabel && (
+            <p className="text-[11px] font-bold uppercase tracking-wider text-red-600/80 dark:text-red-300/80">
+              {explanationLabel}
+            </p>
+          )}
+          <p className="text-sm text-slate-600 dark:text-slate-300">{explanation}</p>
+        </div>
+      )}
+      <button
+        ref={nextRef}
+        onClick={onNext}
+        className="w-full rounded-xl bg-brand-600 py-3 text-sm font-bold text-white transition-transform hover:bg-brand-700 active:scale-[0.98]"
+      >
+        {isLast ? "Natijani ko'rish" : "Keyingi savol"}
+      </button>
+    </div>
+  );
+}
+
+/** A start screen's "pool not ready" note + primary start button. */
+export function GameStartActions({
+  loading,
+  error,
+  resuming,
+  onStart,
+  label = "Boshlash",
+}: {
+  loading: boolean;
+  error: boolean;
+  resuming: boolean;
+  onStart: () => void;
+  label?: string;
+}) {
+  return (
+    <>
+      {error && (
+        <p className="text-sm text-red-600 dark:text-red-400">
+          Savollar hozircha tayyor emas. Sahifani yangilab qayta urinib ko'ring.
+        </p>
+      )}
+      <button
+        onClick={onStart}
+        disabled={loading || error}
+        className="w-full rounded-xl bg-brand-600 py-3 text-sm font-bold text-white shadow-sm transition-transform hover:bg-brand-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {loading ? "Tayyorlanmoqda..." : resuming ? "Davom ettirish" : label}
+      </button>
+    </>
   );
 }
