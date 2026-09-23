@@ -929,7 +929,7 @@ class TowerDefenseTests(APITestCase):
         response = self._submit(session)
         self.assertTrue(response.data["goal_reached"])
         self.assertEqual(response.data["xp_awarded"], 30)  # 3 XP × 10 questions, unplayed rounds credited
-        self.assertTrue(response.data["defense_record"]["is_record"])
+        self.assertTrue(response.data["personal_record"]["is_record"])
 
     def test_a_fallen_base_ends_the_game_without_victory(self):
         session = self._start("HARD")
@@ -967,7 +967,7 @@ class TowerDefenseTests(APITestCase):
         for i in range(10):
             if self._answer(second, i, correct=i % 2 == 0)["defense"]["over"]:
                 break
-        record = self._submit(second).data["defense_record"]
+        record = self._submit(second).data["personal_record"]
         self.assertIsNotNone(record["best_before"])
         self.assertFalse(record["is_record"])
 
@@ -983,3 +983,111 @@ class TowerDefenseTests(APITestCase):
         self.assertEqual(response.data["question_count"], 14)
         self.assertEqual(response.data["max_xp"], 42)
         self.assertEqual(response.data["defense"]["waves_total"], 4)
+
+
+class NeonRacingTests(APITestCase):
+    """Neon Racing: distances, position, nitro, laps and checkpoints are replayed
+    server-side; nitro is only accepted when the replayed meter is full."""
+
+    def setUp(self):
+        self.subject = make_subject()
+        self.school_class = make_school_class()
+        self.student_user, self.student = make_student(self.school_class)
+        _seed_pool(subject=self.subject, school_class=self.school_class, count=20)
+
+    def _start(self, difficulty="EASY"):
+        session = start_game(
+            student=self.student, subject=self.subject, game_type=GameSession.GameType.NEON_RACING, difficulty=difficulty
+        )
+        pick_session_questions(session)
+        return session
+
+    def _answer(self, session, index, *, correct, nitro=False):
+        key = session.questions[index]["correct_index"]
+        return record_live_answer(
+            session=session, question_index=index, selected_index=key if correct else (key + 1) % 4, nitro=nitro
+        )
+
+    def _submit(self, session):
+        self.client.force_authenticate(self.student_user)
+        return self.client.post(
+            f"/api/games/{session.id}/submit/",
+            {"answers": [{"question_index": 0, "selected_index": 0}]},
+            format="json",
+        )
+
+    def test_difficulty_sets_questions_laps_and_field(self):
+        for difficulty, count, laps in (("EASY", 10, 2), ("MEDIUM", 12, 3), ("HARD", 14, 3)):
+            session = self._start(difficulty)
+            self.client.force_authenticate(self.student_user)
+            race = self.client.get(f"/api/games/{session.id}/").data["race"]
+            self.assertEqual(len(session.questions), count)
+            self.assertEqual(race["laps"], laps)
+            self.assertEqual(race["field_size"], 4)
+
+    def test_correct_answers_drive_further_and_fill_nitro(self):
+        session = self._start()
+        right = self._answer(session, 0, correct=True)["race"]
+        wrong = self._answer(session, 1, correct=False)["race"]
+        self.assertEqual(right["racers"][0]["distance"], 10.0)
+        self.assertEqual(right["nitro"], 34)
+        self.assertEqual(wrong["racers"][0]["distance"], 14.5)
+        self.assertEqual(wrong["combo"], 0)
+
+    def test_nitro_is_refused_until_the_meter_is_full(self):
+        session = self._start()
+        with self.assertRaises(ValueError):
+            self._answer(session, 0, correct=True, nitro=True)
+        for i in range(3):
+            state = self._answer(session, i, correct=True)["race"]
+        self.assertTrue(state["nitro_ready"])
+        fired = self._answer(session, 3, correct=True, nitro=True)["race"]
+        self.assertTrue(fired["last"]["nitro"])
+        self.assertEqual(fired["nitro_used"], 1)
+        self.assertLess(fired["nitro"], 100)
+
+    def test_the_race_is_the_same_on_every_replay(self):
+        session = self._start()
+        for i in range(4):
+            self._answer(session, i, correct=i != 2)
+        self.client.force_authenticate(self.student_user)
+        first = self.client.get(f"/api/games/{session.id}/").data["race"]
+        second = self.client.get(f"/api/games/{session.id}/").data["race"]
+        self.assertEqual(first["racers"], second["racers"])
+
+    def test_a_perfect_race_with_nitro_wins_and_awards_full_xp_once(self):
+        session = self._start("HARD")
+        ready = False
+        for i in range(14):
+            ready = self._answer(session, i, correct=True, nitro=ready)["race"]["nitro_ready"]
+        session.refresh_from_db()
+        response = self._submit(session)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["race"]["position"], 1)
+        self.assertTrue(response.data["goal_reached"])
+        self.assertEqual(response.data["xp_awarded"], 42)
+        self.assertEqual(self._submit(session).status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_every_question_must_be_raced_before_submitting(self):
+        session = self._start()
+        self._answer(session, 0, correct=True)
+        self.assertEqual(self._submit(session).status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_laps_and_checkpoints_follow_race_time(self):
+        session = self._start("EASY")  # 10 questions, 2 laps, 3 checkpoints
+        for i in range(5):
+            state = self._answer(session, i, correct=True)["race"]
+        self.assertEqual(state["lap"], 2)
+        self.assertTrue(state["final_lap"])
+        self.assertEqual(state["checkpoints_passed"], 2)
+
+    def test_nitro_flag_is_ignored_by_other_games(self):
+        quiz = start_game(student=self.student, subject=self.subject, game_type=GameSession.GameType.TOWER_BUILDER)
+        pick_session_questions(quiz)
+        self.client.force_authenticate(self.student_user)
+        response = self.client.post(
+            f"/api/games/{quiz.id}/answer/", {"question_index": 0, "selected_index": 0, "nitro": True}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        quiz.refresh_from_db()
+        self.assertEqual(quiz.nitro_rounds, [])

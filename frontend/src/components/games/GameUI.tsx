@@ -1,5 +1,5 @@
 import { Bot, Check, ChevronRight, X, Zap, type LucideIcon, Trophy } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { useCountUp } from "../../lib/useCountUp";
@@ -431,5 +431,54 @@ export function GameStartActions({
         {loading ? "Tayyorlanmoqda..." : resuming ? "Davom ettirish" : label}
       </button>
     </>
+  );
+}
+
+/** Forces a game's own dark identity (Tailwind `dark:` variants) whatever the
+ * site theme is, inside one dark "game window" — Tower Defense, Neon Racing. */
+export function GameDarkShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="dark">
+      <div className="mx-auto max-w-6xl space-y-3 rounded-3xl bg-[#050914] p-3 text-slate-100 shadow-2xl ring-1 ring-white/5 sm:p-5">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** A labelled bar that fills up on mount — result screens' "how far did I get". */
+export function GameProgressBar({
+  label,
+  value,
+  max,
+  suffix = "",
+}: {
+  label: string;
+  value: number;
+  max: number;
+  suffix?: string;
+}) {
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const t = window.setTimeout(() => setWidth(max > 0 ? (value / max) * 100 : 0), 150);
+    return () => window.clearTimeout(t);
+  }, [value, max]);
+  return (
+    <div>
+      <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-300">
+        <span>{label}</span>
+        <span>
+          {value}
+          {suffix}
+          {max !== 100 && ` / ${max}`}
+        </span>
+      </div>
+      <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-brand-500 to-cyan-400 transition-[width] duration-1000 ease-out"
+          style={{ width: `${width}%` }}
+        />
+      </div>
+    </div>
   );
 }

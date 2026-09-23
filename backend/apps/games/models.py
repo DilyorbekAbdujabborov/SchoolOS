@@ -77,6 +77,7 @@ class GameSession(TimeStampedModel):
         TREASURE_HUNT = "TREASURE_HUNT", _("Xazina ovi")
         BATTLE_ARENA = "BATTLE_ARENA", _("Jang maydoni")
         TOWER_DEFENSE = "TOWER_DEFENSE", _("Tower Defense")
+        NEON_RACING = "NEON_RACING", _("Neon Racing")
 
     class Difficulty(models.TextChoices):
         EASY = "EASY", _("Oson")
@@ -107,6 +108,9 @@ class GameSession(TimeStampedModel):
     # Kodni buzish only: one character per question, generated at start. Never
     # sent to the client whole — only the segments earned so far, or all of it
     # once the game ends unlocked (see `services.revealed_code`).
+    # Neon Racing only: the question indices on which the student fired nitro
+    # (validated server-side against the replayed meter, see apps.games.racing).
+    nitro_rounds = models.JSONField(_("nitro rounds"), default=list, blank=True)
     secret_code = models.CharField(_("secret code"), max_length=16, blank=True, default="")
     score_percent = models.FloatField(_("score (%)"), null=True, blank=True)
     xp_awarded = models.PositiveSmallIntegerField(_("XP awarded"), null=True, blank=True)

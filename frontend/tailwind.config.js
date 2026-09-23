@@ -190,6 +190,28 @@ export default {
           "60%": { transform: "scale(1.15)", opacity: "1" },
           "100%": { transform: "scale(1)", opacity: "1", filter: "brightness(1)" },
         },
+        "road-scroll": {
+          "0%": { backgroundPosition: "0 0" },
+          "100%": { backgroundPosition: "0 160px" },
+        },
+        "scenery-scroll": {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
+        "car-bob": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-2.5%)" },
+        },
+        "gate-rush": {
+          "0%": { transform: "translate(-50%, 0) scale(0.08)", opacity: "0" },
+          "20%": { opacity: "1" },
+          "100%": { transform: "translate(-50%, 40%) scale(2.6)", opacity: "0" },
+        },
+        "speed-streak": {
+          "0%": { opacity: "0", transform: "scale(0.7)" },
+          "40%": { opacity: "0.9" },
+          "100%": { opacity: "0", transform: "scale(1.5)" },
+        },
         shake: {
           "0%, 100%": { transform: "translateX(0)" },
           "20%": { transform: "translateX(-6px)" },
@@ -243,6 +265,11 @@ export default {
         "lane-flow": "lane-flow 1.6s linear infinite",
         "lane-flow-y": "lane-flow-y 1.6s linear infinite",
         "boss-enter": "boss-enter 1.1s cubic-bezier(0.22,1,0.36,1) both",
+        "road-scroll": "road-scroll var(--road-speed, 0.6s) linear infinite",
+        "scenery-scroll": "scenery-scroll var(--scenery-speed, 40s) linear infinite",
+        "car-bob": "car-bob 0.9s ease-in-out infinite",
+        "gate-rush": "gate-rush 1.1s ease-in forwards",
+        "speed-streak": "speed-streak 0.7s ease-out infinite",
       },
     },
   },

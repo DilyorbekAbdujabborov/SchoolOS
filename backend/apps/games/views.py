@@ -69,7 +69,11 @@ class GameSessionViewSet(
         try:
             if session.game_type in services.LIVE_KEY_GAMES:
                 return Response(services.record_live_answer(session=session, **serializer.validated_data))
-            correct = services.check_answer(session=session, **serializer.validated_data)
+            correct = services.check_answer(
+                session=session,
+                question_index=serializer.validated_data["question_index"],
+                selected_index=serializer.validated_data["selected_index"],
+            )
         except ValueError as exc:
             raise ValidationError(str(exc)) from exc
 

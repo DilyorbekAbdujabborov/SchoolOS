@@ -1,5 +1,17 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { BookOpen, Brain, Building2, Castle, Clock, Gamepad2, KeyRound, Map, Shield, Swords } from "lucide-react";
+import {
+  BookOpen,
+  Brain,
+  Building2,
+  Castle,
+  Clock,
+  Gamepad2,
+  Gauge,
+  KeyRound,
+  Map,
+  Shield,
+  Swords,
+} from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -53,30 +65,33 @@ const GAME_OPTIONS: { type: GameType; label: string; description: string; icon: 
       "Bazangizni to'lqin-to'lqin hujumdan himoya qiling — har to'g'ri javob minorani o'q uzdiradi. Oxirida — BOSS.",
     icon: Castle,
   },
+  {
+    type: "NEON_RACING",
+    label: "Neon Racing",
+    description:
+      "Neon trekda AI raqiblar bilan poyga — bilimingiz mashinangizni tezlashtiradi. Nitroni o'z vaqtida yoqing!",
+    icon: Gauge,
+  },
 ];
 
-// Games that ask for a level before starting.
-const LEVELED_GAMES: GameType[] = ["TOWER_DEFENSE"];
+// Games that ask for a level before starting, and what each level means there.
+const LEVELS: Partial<Record<GameType, Record<GameDifficulty, string>>> = {
+  TOWER_DEFENSE: {
+    EASY: "10 savol · 3 to'lqin · sekin dushmanlar",
+    MEDIUM: "12 savol · 4 to'lqin · kuchliroq boss",
+    HARD: "14 savol · 4 to'lqin · tez va kuchli dushmanlar",
+  },
+  NEON_RACING: {
+    EASY: "10 savol · 2 aylana · nitro tez to'ladi",
+    MEDIUM: "12 savol · 3 aylana · kuchli raqiblar",
+    HARD: "14 savol · 3 aylana · eng tez raqiblar, nitro — sekin",
+  },
+};
 
-const DIFFICULTY_OPTIONS: { value: GameDifficulty; label: string; description: string; tone: string }[] = [
-  {
-    value: "EASY",
-    label: "Oson",
-    description: "10 savol · 3 to'lqin · sekin dushmanlar",
-    tone: "text-emerald-600 dark:text-emerald-400",
-  },
-  {
-    value: "MEDIUM",
-    label: "O'rta",
-    description: "12 savol · 4 to'lqin · kuchliroq boss",
-    tone: "text-amber-600 dark:text-amber-400",
-  },
-  {
-    value: "HARD",
-    label: "Qiyin",
-    description: "14 savol · 4 to'lqin · tez va kuchli dushmanlar",
-    tone: "text-red-600 dark:text-red-400",
-  },
+const DIFFICULTY_OPTIONS: { value: GameDifficulty; label: string; tone: string }[] = [
+  { value: "EASY", label: "Oson", tone: "text-emerald-600 dark:text-emerald-400" },
+  { value: "MEDIUM", label: "O'rta", tone: "text-amber-600 dark:text-amber-400" },
+  { value: "HARD", label: "Qiyin", tone: "text-red-600 dark:text-red-400" },
 ];
 
 export function StudentGamesPage() {
@@ -150,9 +165,7 @@ export function StudentGamesPage() {
               <button
                 key={option.type}
                 onClick={() =>
-                  LEVELED_GAMES.includes(option.type)
-                    ? setLevelFor(option.type)
-                    : startGame.mutate({ game_type: option.type })
+                  LEVELS[option.type] ? setLevelFor(option.type) : startGame.mutate({ game_type: option.type })
                 }
                 disabled={startGame.isPending}
                 className="hover-card flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-left disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900"
@@ -180,7 +193,9 @@ export function StudentGamesPage() {
                     className="hover-card rounded-xl border border-slate-200 p-4 text-left disabled:opacity-60 dark:border-slate-700"
                   >
                     <p className={`font-bold ${level.tone}`}>{level.label}</p>
-                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{level.description}</p>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                      {LEVELS[levelFor]?.[level.value]}
+                    </p>
                   </button>
                 ))}
               </div>

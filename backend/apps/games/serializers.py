@@ -25,7 +25,9 @@ class GameSessionSerializer(serializers.ModelSerializer):
     # Tower Defense: server-replayed waves / enemies / base HP / combo, and —
     # once finished — the score against the student's previous best.
     defense = serializers.SerializerMethodField()
-    defense_record = serializers.SerializerMethodField()
+    # Neon Racing: server-replayed distances, position, laps, nitro, combo.
+    race = serializers.SerializerMethodField()
+    personal_record = serializers.SerializerMethodField()
     goal_reached = serializers.SerializerMethodField()
     unlock_percent = serializers.SerializerMethodField()
     review = serializers.SerializerMethodField()
@@ -49,7 +51,8 @@ class GameSessionSerializer(serializers.ModelSerializer):
             "difficulty",
             "battle",
             "defense",
-            "defense_record",
+            "race",
+            "personal_record",
             "goal_reached",
             "unlock_percent",
             "review",
@@ -82,11 +85,14 @@ class GameSessionSerializer(serializers.ModelSerializer):
     def get_defense(self, obj) -> dict | None:
         return services.defense.defense_state(obj)
 
-    def get_defense_record(self, obj) -> dict | None:
+    def get_race(self, obj) -> dict | None:
+        return services.racing.race_state(obj)
+
+    def get_personal_record(self, obj) -> dict | None:
         view = self.context.get("view")
         if view is not None and getattr(view, "action", None) == "list":
             return None
-        return services.defense_record(obj)
+        return services.personal_record(obj)
 
     def get_goal_reached(self, obj) -> bool:
         return services.is_goal_reached(obj)
@@ -147,6 +153,8 @@ class GameAnswerCheckSerializer(serializers.Serializer):
 
     question_index = serializers.IntegerField(min_value=0)
     selected_index = serializers.IntegerField(min_value=-1)
+    # Neon Racing: fire nitro on this stretch (checked against the server's meter).
+    nitro = serializers.BooleanField(required=False, default=False)
 
 
 class PoolRefillSerializer(serializers.Serializer):

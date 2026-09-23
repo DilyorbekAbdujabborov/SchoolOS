@@ -23,7 +23,9 @@ import { emitGameEvent } from "./gameEvents";
 import {
   AnimatedNumber,
   formatDuration,
+  GameDarkShell,
   GameInlineError,
+  GameProgressBar,
   GameResultScreen,
   GameStartActions,
   GameStartStat,
@@ -252,7 +254,7 @@ export function TowerDefenseGame({ session }: { session: GameSession }) {
 
   if (game.phase === "start") {
     return (
-      <GameShell>
+      <GameDarkShell>
         <Briefing
           session={session}
           state={field}
@@ -265,7 +267,7 @@ export function TowerDefenseGame({ session }: { session: GameSession }) {
             showWaveBanner(field.wave, field.boss_wave);
           }}
         />
-      </GameShell>
+      </GameDarkShell>
     );
   }
 
@@ -277,7 +279,7 @@ export function TowerDefenseGame({ session }: { session: GameSession }) {
   const boss = enemies.find((enemy) => enemy.type === "boss");
 
   return (
-    <GameShell>
+    <GameDarkShell>
       <Hud
         state={field}
         round={Math.min(game.questionIndex + 1, game.total)}
@@ -347,19 +349,7 @@ export function TowerDefenseGame({ session }: { session: GameSession }) {
           />
         </div>
       )}
-    </GameShell>
-  );
-}
-
-/** Forces the game's dark identity (Tailwind `dark:` variants) whatever the
- * site theme is, inside one dark "game window". */
-function GameShell({ children }: { children: ReactNode }) {
-  return (
-    <div className="dark">
-      <div className="mx-auto max-w-6xl space-y-3 rounded-3xl bg-[#050914] p-3 text-slate-100 shadow-2xl ring-1 ring-white/5 sm:p-5">
-        {children}
-      </div>
-    </div>
+    </GameDarkShell>
   );
 }
 
@@ -936,32 +926,6 @@ function Briefing({
 
 // ---------- Result ----------
 
-function ResultBar({ label, value, max, suffix = "" }: { label: string; value: number; max: number; suffix?: string }) {
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const t = window.setTimeout(() => setWidth(max > 0 ? (value / max) * 100 : 0), 150);
-    return () => window.clearTimeout(t);
-  }, [value, max]);
-  return (
-    <div>
-      <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-300">
-        <span>{label}</span>
-        <span>
-          {value}
-          {suffix}
-          {max !== 100 && ` / ${max}`}
-        </span>
-      </div>
-      <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-brand-500 to-cyan-400 transition-[width] duration-1000 ease-out"
-          style={{ width: `${width}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
 function DefenseResult({
   session,
   elapsed,
@@ -972,7 +936,7 @@ function DefenseResult({
   onPlayAgain: () => void;
 }) {
   const state = session.defense;
-  const record = session.defense_record;
+  const record = session.personal_record;
   const accuracy = Math.round(session.score_percent ?? 0);
   const victory = session.goal_reached;
   const xp = session.xp_awarded ? <AnimatedNumber value={session.xp_awarded} prefix="+" /> : "0";
@@ -1004,9 +968,9 @@ function DefenseResult({
               <Gem size={16} /> Yangi shaxsiy rekord!
             </p>
           )}
-          <ResultBar label="Aniqlik" value={accuracy} max={100} suffix="%" />
-          <ResultBar label="To'lqinlar" value={state.waves_cleared} max={state.waves_total} />
-          <ResultBar label="Dushmanlar" value={state.enemies_defeated} max={state.enemies_total} />
+          <GameProgressBar label="Aniqlik" value={accuracy} max={100} suffix="%" />
+          <GameProgressBar label="To'lqinlar" value={state.waves_cleared} max={state.waves_total} />
+          <GameProgressBar label="Dushmanlar" value={state.enemies_defeated} max={state.enemies_total} />
           {record?.best_before !== null && record?.best_before !== undefined && (
             <p className="text-center text-xs text-slate-500 dark:text-slate-400">
               Oldingi eng yaxshi natija: {record.best_before} ball
@@ -1035,8 +999,8 @@ function DefenseResult({
       secondaryLabel="O'yinlarga qaytish"
     >
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 text-left dark:border-slate-800 dark:bg-slate-900">
-        <ResultBar label="To'lqinlar" value={state.waves_cleared} max={state.waves_total} />
-        <ResultBar label="Dushmanlar" value={state.enemies_defeated} max={state.enemies_total} />
+        <GameProgressBar label="To'lqinlar" value={state.waves_cleared} max={state.waves_total} />
+        <GameProgressBar label="Dushmanlar" value={state.enemies_defeated} max={state.enemies_total} />
         <p className="text-center text-xs text-slate-500 dark:text-slate-400">
           Vaqt: {formatDuration(playedSeconds(elapsed, session))}
         </p>

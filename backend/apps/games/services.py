@@ -13,7 +13,7 @@ from apps.gamification.models import XPTransaction
 from apps.gamification.services import award_xp
 from apps.schools.models import SchoolClass
 
-from . import defense
+from . import defense, racing
 from .models import GameSession, PooledQuestion, PooledQuestionServed
 
 logger = logging.getLogger(__name__)
@@ -70,6 +70,7 @@ _GAME_LABELS = {
     GameSession.GameType.TREASURE_HUNT: "xazina ovi",
     GameSession.GameType.BATTLE_ARENA: "jang maydoni",
     GameSession.GameType.TOWER_DEFENSE: "tower defense",
+    GameSession.GameType.NEON_RACING: "neon racing",
 }
 
 # Games whose answers the server records one by one and reveals the key for
@@ -80,19 +81,26 @@ LIVE_KEY_GAMES = {
     GameSession.GameType.TREASURE_HUNT,
     GameSession.GameType.BATTLE_ARENA,
     GameSession.GameType.TOWER_DEFENSE,
+    GameSession.GameType.NEON_RACING,
+}
+
+# Games with Easy/Medium/Hard levels → the module holding each one's rules.
+_LEVELED_GAMES = {
+    GameSession.GameType.TOWER_DEFENSE: defense,
+    GameSession.GameType.NEON_RACING: racing,
 }
 
 
 def question_count_for(game_type: str, difficulty: str = "") -> int:
-    if game_type == GameSession.GameType.TOWER_DEFENSE:
-        return defense.config_for(difficulty)["questions"]
+    if game_type in _LEVELED_GAMES:
+        return _LEVELED_GAMES[game_type].config_for(difficulty)["questions"]
     return _QUESTION_COUNTS.get(game_type, GAME_QUESTION_COUNT)
 
 
 def max_xp_for(game_type: str, difficulty: str = "") -> int:
-    if game_type == GameSession.GameType.TOWER_DEFENSE:
+    if game_type in _LEVELED_GAMES:
         # A harder level has more questions, so more to earn at the same 3 XP each.
-        return defense.XP_PER_QUESTION * question_count_for(game_type, difficulty)
+        return _LEVELED_GAMES[game_type].XP_PER_QUESTION * question_count_for(game_type, difficulty)
     return _MAX_XP.get(game_type, MAX_GAME_XP)
 
 
@@ -127,8 +135,9 @@ def start_game(*, student, subject, game_type: str, difficulty: str = "") -> Gam
     secret_code = ""
     if game_type == GameSession.GameType.CODE_BREAKER:
         secret_code = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(question_count_for(game_type)))
-    if game_type == GameSession.GameType.TOWER_DEFENSE:
-        difficulty = difficulty if difficulty in GameSession.Difficulty.values else defense.DEFAULT_DIFFICULTY
+    if game_type in _LEVELED_GAMES:
+        if difficulty not in GameSession.Difficulty.values:
+            difficulty = _LEVELED_GAMES[game_type].DEFAULT_DIFFICULTY
     else:
         difficulty = ""
     return GameSession.objects.create(
@@ -177,20 +186,24 @@ def battle_state(session: GameSession) -> dict | None:
     }
 
 
-def defense_record(session: GameSession) -> dict | None:
-    """For a finished Tower Defense game: the student's best score before this
-    one (replayed from their other finished games, never stored) and whether
-    this game beat it — the result screen's "new personal record"."""
-    state = defense.defense_state(session)
+def _scored_state(session: GameSession) -> dict | None:
+    return defense.defense_state(session) or racing.race_state(session)
+
+
+def personal_record(session: GameSession) -> dict | None:
+    """For a finished Tower Defense / Neon Racing game: the student's best score
+    in that game before this one (replayed from their other finished games,
+    never stored) and whether this game beat it — "new personal record"."""
+    state = _scored_state(session)
     if state is None or session.status != GameSession.Status.COMPLETED:
         return None
     previous = GameSession.objects.filter(
         student_id=session.student_id,
-        game_type=GameSession.GameType.TOWER_DEFENSE,
+        game_type=session.game_type,
         status=GameSession.Status.COMPLETED,
     ).exclude(pk=session.pk)
-    best_before = max((defense.defense_state(game)["score"] for game in previous), default=None)
-    is_record = state["score"] > best_before if best_before is not None else state["victory"]
+    best_before = max((_scored_state(game)["score"] for game in previous), default=None)
+    is_record = state["score"] > best_before if best_before is not None else is_goal_reached(session)
     return {"score": state["score"], "best_before": best_before, "is_record": is_record}
 
 
@@ -201,6 +214,9 @@ def is_goal_reached(session: GameSession) -> bool:
     if session.game_type in (GameSession.GameType.BATTLE_ARENA, GameSession.GameType.TOWER_DEFENSE):
         state = arena_state(session)
         return session.status == GameSession.Status.COMPLETED and bool(state and state["victory"])
+    if session.game_type == GameSession.GameType.NEON_RACING:
+        race = racing.race_state(session)
+        return session.status == GameSession.Status.COMPLETED and bool(race and race["position"] == 1)
     threshold = unlock_percent_for(session.game_type)
     return (
         threshold is not None
@@ -414,7 +430,9 @@ def check_answer(*, session: GameSession, question_index: int, selected_index: i
     return session.questions[question_index].get("correct_index") == selected_index
 
 
-def record_live_answer(*, session: GameSession, question_index: int, selected_index: int) -> dict:
+def record_live_answer(
+    *, session: GameSession, question_index: int, selected_index: int, nitro: bool = False
+) -> dict:
     """The live-key games' (Minora, Kod, Xazina, Jang) server-authoritative answer step. Questions must be
     answered strictly in order and each exactly once — the answer is locked in
     *before* the key is revealed, so a student can't peek at the correct
@@ -444,9 +462,16 @@ def record_live_answer(*, session: GameSession, question_index: int, selected_in
         if not (-1 <= selected_index < len(question["options"])):
             raise ValueError("Noto'g'ri javob varianti.")
 
+        # Neon Racing: nitro can ride along with an answer, but only if the
+        # replayed meter says it's actually full right now.
+        if nitro and locked.game_type == GameSession.GameType.NEON_RACING:
+            if not racing.race_state(locked)["nitro_ready"]:
+                raise ValueError("Nitro hali tayyor emas.")
+            locked.nitro_rounds = [*(locked.nitro_rounds or []), question_index]
+
         answers[question_index] = selected_index
         locked.answers = {str(index): selected for index, selected in answers.items()}
-        locked.save(update_fields=["answers", "updated_at"])
+        locked.save(update_fields=["answers", "nitro_rounds", "updated_at"])
 
     session.answers = locked.answers
     total = len(locked.questions)
@@ -464,6 +489,7 @@ def record_live_answer(*, session: GameSession, question_index: int, selected_in
         ),
         "battle": battle_state(locked),
         "defense": defense.defense_state(locked),
+        "race": racing.race_state(locked),
     }
 
 

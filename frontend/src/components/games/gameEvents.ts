@@ -21,7 +21,13 @@ export type GameEventName =
   | "wave_start"
   | "boss_arrival"
   | "victory"
-  | "defeat";
+  | "defeat"
+  | "countdown"
+  | "race_start"
+  | "nitro"
+  | "checkpoint"
+  | "final_lap"
+  | "finish";
 
 export interface GameEventDetail {
   name: GameEventName;

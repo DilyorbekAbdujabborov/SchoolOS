@@ -34,12 +34,14 @@ export function useLiveGame(
     isGameOver?: (result: LiveAnswerResult) => boolean;
     /** The game was already over when loaded (e.g. the submit was lost). */
     initiallyOver?: boolean;
+    /** Extra fields sent with each answer (Neon Racing's `nitro`), read at answer time. */
+    answerExtras?: () => Record<string, unknown>;
   } = {},
 ) {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const { onAnswered, advanceMs = DEFAULT_ADVANCE_MS, isGameOver, initiallyOver = false } = options;
+  const { onAnswered, advanceMs = DEFAULT_ADVANCE_MS, isGameOver, initiallyOver = false, answerExtras } = options;
 
   const total = session.question_count;
   const [phase, setPhase] = useState<LiveGamePhase>(session.status === "COMPLETED" ? "finished" : "start");
@@ -61,11 +63,12 @@ export function useLiveGame(
   });
 
   const answerMutation = useMutation({
-    mutationFn: async (vars: { questionIndex: number; selectedIndex: number }) =>
+    mutationFn: async (vars: { questionIndex: number; selectedIndex: number; extras?: Record<string, unknown> }) =>
       (
         await api.post<LiveAnswerResult>(`/games/${session.id}/answer/`, {
           question_index: vars.questionIndex,
           selected_index: vars.selectedIndex,
+          ...vars.extras,
         })
       ).data,
   });
@@ -129,7 +132,7 @@ export function useLiveGame(
     if (feedback || answerMutation.isPending) return;
     const index = questionIndex;
     answerMutation.mutate(
-      { questionIndex: index, selectedIndex },
+      { questionIndex: index, selectedIndex, extras: answerExtras?.() },
       {
         onSuccess: (result) => {
           answersRef.current[index] = selectedIndex;

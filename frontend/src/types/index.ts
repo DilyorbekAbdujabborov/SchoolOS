@@ -531,7 +531,8 @@ export type GameType =
   | "CODE_BREAKER"
   | "TREASURE_HUNT"
   | "BATTLE_ARENA"
-  | "TOWER_DEFENSE";
+  | "TOWER_DEFENSE"
+  | "NEON_RACING";
 export type GameDifficulty = "EASY" | "MEDIUM" | "HARD";
 export type GameStatus = "ACTIVE" | "COMPLETED";
 
@@ -555,8 +556,10 @@ export interface GameSession {
   difficulty: GameDifficulty | "";
   /** Tower Defense only: waves / enemies / base HP / combo, replayed server-side. */
   defense: DefenseState | null;
-  /** Tower Defense, once finished: this game's score against the student's previous best. */
-  defense_record: { score: number; best_before: number | null; is_record: boolean } | null;
+  /** Neon Racing only: distances / position / laps / nitro, replayed server-side. */
+  race: RaceState | null;
+  /** Tower Defense / Neon Racing, once finished: this game's score against the student's previous best. */
+  personal_record: { score: number; best_before: number | null; is_record: boolean } | null;
   /** Kodni buzish: lock opened / Xazina ovi: treasure reached — only ever true once the game is over. */
   goal_reached: boolean;
   /** The win threshold for games that have one (Kodni buzish, Xazina ovi); null otherwise. */
@@ -637,6 +640,36 @@ export interface DefenseState {
   tower_damage: number;
 }
 
+export interface RaceRacer {
+  id: string;
+  name: string;
+  style: string;
+  distance: number;
+  is_player: boolean;
+}
+
+export interface RaceState {
+  difficulty: GameDifficulty;
+  laps: number;
+  lap: number;
+  final_lap: boolean;
+  checkpoints_total: number;
+  checkpoints_passed: number;
+  racers: RaceRacer[];
+  position: number;
+  field_size: number;
+  combo: number;
+  max_combo: number;
+  /** 0–100 */
+  nitro: number;
+  nitro_ready: boolean;
+  nitro_used: number;
+  answered: number;
+  finished: boolean;
+  last: { correct: boolean; gain: number; nitro: boolean } | null;
+  score: number;
+}
+
 export interface GameReviewItem {
   text: string;
   options: string[];
@@ -655,6 +688,8 @@ export interface LiveAnswerResult {
   battle: BattleState | null;
   /** Tower Defense: the defense state after this answer. */
   defense: DefenseState | null;
+  /** Neon Racing: the race state after this answer. */
+  race: RaceState | null;
   correct_index: number;
   explanation: string;
   answered_count: number;

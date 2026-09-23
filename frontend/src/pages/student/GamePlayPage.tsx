@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 
 import { BattleArenaGame } from "../../components/games/BattleArenaGame";
 import { CodeBreakerGame } from "../../components/games/CodeBreakerGame";
+import { NeonRacingGame } from "../../components/games/NeonRacingGame";
 import { TowerDefenseGame } from "../../components/games/TowerDefenseGame";
 import { TreasureHuntGame } from "../../components/games/TreasureHuntGame";
 import { TowerBuilderGame } from "../../components/games/TowerBuilderGame";
@@ -50,6 +51,10 @@ export function StudentGamePlayPage() {
 
   if (session.game_type === "TREASURE_HUNT") {
     return <TreasureHuntGame session={session} />;
+  }
+
+  if (session.game_type === "NEON_RACING") {
+    return <NeonRacingGame session={session} />;
   }
 
   if (session.game_type === "TOWER_DEFENSE") {
