@@ -22,6 +22,10 @@ class GameSessionSerializer(serializers.ModelSerializer):
     revealed_code = serializers.SerializerMethodField()
     # Jang maydoni: server-computed HP / combo / round state (null for other games).
     battle = serializers.SerializerMethodField()
+    # Tower Defense: server-replayed waves / enemies / base HP / combo, and —
+    # once finished — the score against the student's previous best.
+    defense = serializers.SerializerMethodField()
+    defense_record = serializers.SerializerMethodField()
     goal_reached = serializers.SerializerMethodField()
     unlock_percent = serializers.SerializerMethodField()
     review = serializers.SerializerMethodField()
@@ -42,7 +46,10 @@ class GameSessionSerializer(serializers.ModelSerializer):
             "correct_count",
             "max_xp",
             "revealed_code",
+            "difficulty",
             "battle",
+            "defense",
+            "defense_record",
             "goal_reached",
             "unlock_percent",
             "review",
@@ -55,7 +62,7 @@ class GameSessionSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_question_count(self, obj) -> int:
-        return len(obj.questions) or services.question_count_for(obj.game_type)
+        return len(obj.questions) or services.question_count_for(obj.game_type, obj.difficulty)
 
     def get_answered_count(self, obj) -> int:
         return len(obj.answers or {})
@@ -64,13 +71,22 @@ class GameSessionSerializer(serializers.ModelSerializer):
         return services.correct_answer_count(obj, services.recorded_answers(obj))
 
     def get_max_xp(self, obj) -> int:
-        return services.max_xp_for(obj.game_type)
+        return services.max_xp_for(obj.game_type, obj.difficulty)
 
     def get_revealed_code(self, obj) -> list[str | None]:
         return services.revealed_code(obj)
 
     def get_battle(self, obj) -> dict | None:
         return services.battle_state(obj)
+
+    def get_defense(self, obj) -> dict | None:
+        return services.defense.defense_state(obj)
+
+    def get_defense_record(self, obj) -> dict | None:
+        view = self.context.get("view")
+        if view is not None and getattr(view, "action", None) == "list":
+            return None
+        return services.defense_record(obj)
 
     def get_goal_reached(self, obj) -> bool:
         return services.is_goal_reached(obj)
@@ -100,11 +116,16 @@ class GameQuestionSerializer(serializers.Serializer):
 class GameSessionCreateSerializer(serializers.Serializer):
     subject = serializers.PrimaryKeyRelatedField(queryset=Subject.objects.all())
     game_type = serializers.ChoiceField(choices=GameSession.GameType.choices)
+    # Only games with levels use it (Tower Defense); ignored by the rest.
+    difficulty = serializers.ChoiceField(choices=GameSession.Difficulty.choices, required=False)
 
     def create(self, validated_data):
         student = self.context["request"].user.student_profile
         return services.start_game(
-            student=student, subject=validated_data["subject"], game_type=validated_data["game_type"]
+            student=student,
+            subject=validated_data["subject"],
+            game_type=validated_data["game_type"],
+            difficulty=validated_data.get("difficulty", ""),
         )
 
 

@@ -165,6 +165,31 @@ export default {
           "0%": { opacity: "0", transform: "scale(1.4)", letterSpacing: "0.6em" },
           "100%": { opacity: "1", transform: "scale(1)", letterSpacing: "0.2em" },
         },
+        spark: {
+          "0%": { transform: "translate(0, 0) scale(1)", opacity: "1" },
+          "100%": { transform: "translate(var(--sx), var(--sy)) scale(0.2)", opacity: "0" },
+        },
+        "enemy-bob": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-6%)" },
+        },
+        "enemy-die": {
+          "0%": { transform: "scale(1)", opacity: "1", filter: "brightness(2.5)" },
+          "100%": { transform: "scale(0.3) rotate(25deg)", opacity: "0", filter: "brightness(3)" },
+        },
+        "lane-flow": {
+          "0%": { backgroundPosition: "0 0" },
+          "100%": { backgroundPosition: "-80px 0" },
+        },
+        "lane-flow-y": {
+          "0%": { backgroundPosition: "0 0" },
+          "100%": { backgroundPosition: "0 80px" },
+        },
+        "boss-enter": {
+          "0%": { transform: "scale(0.4)", opacity: "0", filter: "brightness(3)" },
+          "60%": { transform: "scale(1.15)", opacity: "1" },
+          "100%": { transform: "scale(1)", opacity: "1", filter: "brightness(1)" },
+        },
         shake: {
           "0%, 100%": { transform: "translateX(0)" },
           "20%": { transform: "translateX(-6px)" },
@@ -212,6 +237,12 @@ export default {
         "combo-pop": "combo-pop 0.4s cubic-bezier(0.34,1.56,0.64,1)",
         "particle-rise": "particle-rise 6s linear infinite",
         "banner-in": "banner-in 0.7s cubic-bezier(0.22,1,0.36,1) both",
+        spark: "spark 0.6s ease-out forwards",
+        "enemy-bob": "enemy-bob 2.2s ease-in-out infinite",
+        "enemy-die": "enemy-die 0.7s ease-in forwards",
+        "lane-flow": "lane-flow 1.6s linear infinite",
+        "lane-flow-y": "lane-flow-y 1.6s linear infinite",
+        "boss-enter": "boss-enter 1.1s cubic-bezier(0.22,1,0.36,1) both",
       },
     },
   },

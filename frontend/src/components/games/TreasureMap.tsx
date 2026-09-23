@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { useIsWide } from "./useIsWide";
+
 /** Xazina ovi's adventure map — an illustrated SVG route from the camp to the
  * treasure through ten locations, one per correct answer. The explorer walks
  * the actual curved trail (not a straight jump) and a camera follows them;
@@ -131,17 +133,6 @@ function easeInOut(t: number) {
   return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 }
 
-function useIsWide() {
-  const query = "(min-width: 768px)";
-  const [wide, setWide] = useState(() => window.matchMedia(query).matches);
-  useEffect(() => {
-    const mql = window.matchMedia(query);
-    const onChange = () => setWide(mql.matches);
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
-  return wide;
-}
 
 export function TreasureMap({
   explored,

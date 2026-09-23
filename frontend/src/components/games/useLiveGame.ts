@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { api } from "../../lib/api";
 import type { GameQuestion, GameSession, LiveAnswerResult } from "../../types";
@@ -37,6 +37,7 @@ export function useLiveGame(
   } = {},
 ) {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { onAnswered, advanceMs = DEFAULT_ADVANCE_MS, isGameOver, initiallyOver = false } = options;
 
@@ -153,10 +154,16 @@ export function useLiveGame(
     }
   }
 
+  /** A fresh game of the same kind (and level). The new page skips its
+   * intro and starts straight away — see `autoStart`. */
   function playAgain() {
     api
-      .post<GameSession>("/games/", { subject: session.subject, game_type: session.game_type })
-      .then(({ data }) => navigate(`/student/games/${data.id}`, { replace: true }));
+      .post<GameSession>("/games/", {
+        subject: session.subject,
+        game_type: session.game_type,
+        ...(session.difficulty ? { difficulty: session.difficulty } : {}),
+      })
+      .then(({ data }) => navigate(`/student/games/${data.id}`, { replace: true, state: { autoStart: true } }));
   }
 
   function optionState(index: number): GameOptionState {
@@ -193,6 +200,8 @@ export function useLiveGame(
     submitMutation,
     finalSession,
     playAgain,
+    /** Arrived here through "play again" — the game may skip its intro screen. */
+    autoStart: Boolean((location.state as { autoStart?: boolean } | null)?.autoStart),
   };
 }
 

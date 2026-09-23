@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 
 import { BattleArenaGame } from "../../components/games/BattleArenaGame";
 import { CodeBreakerGame } from "../../components/games/CodeBreakerGame";
+import { TowerDefenseGame } from "../../components/games/TowerDefenseGame";
 import { TreasureHuntGame } from "../../components/games/TreasureHuntGame";
 import { TowerBuilderGame } from "../../components/games/TowerBuilderGame";
 import { TugOfWarGame } from "../../components/games/TugOfWarGame";
@@ -49,6 +50,10 @@ export function StudentGamePlayPage() {
 
   if (session.game_type === "TREASURE_HUNT") {
     return <TreasureHuntGame session={session} />;
+  }
+
+  if (session.game_type === "TOWER_DEFENSE") {
+    return <TowerDefenseGame session={session} />;
   }
 
   if (session.game_type === "BATTLE_ARENA") {

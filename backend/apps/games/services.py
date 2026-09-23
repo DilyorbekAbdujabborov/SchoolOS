@@ -13,6 +13,7 @@ from apps.gamification.models import XPTransaction
 from apps.gamification.services import award_xp
 from apps.schools.models import SchoolClass
 
+from . import defense
 from .models import GameSession, PooledQuestion, PooledQuestionServed
 
 logger = logging.getLogger(__name__)
@@ -68,6 +69,7 @@ _GAME_LABELS = {
     GameSession.GameType.CODE_BREAKER: "kodni buzish",
     GameSession.GameType.TREASURE_HUNT: "xazina ovi",
     GameSession.GameType.BATTLE_ARENA: "jang maydoni",
+    GameSession.GameType.TOWER_DEFENSE: "tower defense",
 }
 
 # Games whose answers the server records one by one and reveals the key for
@@ -77,24 +79,36 @@ LIVE_KEY_GAMES = {
     GameSession.GameType.CODE_BREAKER,
     GameSession.GameType.TREASURE_HUNT,
     GameSession.GameType.BATTLE_ARENA,
+    GameSession.GameType.TOWER_DEFENSE,
 }
 
 
-def question_count_for(game_type: str) -> int:
+def question_count_for(game_type: str, difficulty: str = "") -> int:
+    if game_type == GameSession.GameType.TOWER_DEFENSE:
+        return defense.config_for(difficulty)["questions"]
     return _QUESTION_COUNTS.get(game_type, GAME_QUESTION_COUNT)
 
 
-def max_xp_for(game_type: str) -> int:
+def max_xp_for(game_type: str, difficulty: str = "") -> int:
+    if game_type == GameSession.GameType.TOWER_DEFENSE:
+        # A harder level has more questions, so more to earn at the same 3 XP each.
+        return defense.XP_PER_QUESTION * question_count_for(game_type, difficulty)
     return _MAX_XP.get(game_type, MAX_GAME_XP)
 
 
-def xp_for(*, game_type: str, correct: int, total: int) -> int:
+def xp_for(*, game_type: str, correct: int, total: int, difficulty: str = "") -> int:
     """Same partial-scoring formula for every game — `submit_game` awards
     this, and Minora qurish shows the running value live after each floor."""
     if not total:
         return 0
     score_percent = round((correct / total) * 100, 2)
-    return round(max_xp_for(game_type) * score_percent / 100)
+    return round(max_xp_for(game_type, difficulty) * score_percent / 100)
+
+
+def arena_state(session: GameSession) -> dict | None:
+    """The replayed fight for games that can end early (Jang maydoni's
+    knockout, Tower Defense's victory or fallen base); None for the others."""
+    return battle_state(session) or defense.defense_state(session)
 
 
 def recorded_answers(session: GameSession) -> dict[int, int]:
@@ -109,12 +123,16 @@ def correct_answer_count(session: GameSession, answers: dict[int, int]) -> int:
     )
 
 
-def start_game(*, student, subject, game_type: str) -> GameSession:
+def start_game(*, student, subject, game_type: str, difficulty: str = "") -> GameSession:
     secret_code = ""
     if game_type == GameSession.GameType.CODE_BREAKER:
         secret_code = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(question_count_for(game_type)))
+    if game_type == GameSession.GameType.TOWER_DEFENSE:
+        difficulty = difficulty if difficulty in GameSession.Difficulty.values else defense.DEFAULT_DIFFICULTY
+    else:
+        difficulty = ""
     return GameSession.objects.create(
-        student=student, subject=subject, game_type=game_type, secret_code=secret_code
+        student=student, subject=subject, game_type=game_type, secret_code=secret_code, difficulty=difficulty
     )
 
 
@@ -159,12 +177,29 @@ def battle_state(session: GameSession) -> dict | None:
     }
 
 
+def defense_record(session: GameSession) -> dict | None:
+    """For a finished Tower Defense game: the student's best score before this
+    one (replayed from their other finished games, never stored) and whether
+    this game beat it — the result screen's "new personal record"."""
+    state = defense.defense_state(session)
+    if state is None or session.status != GameSession.Status.COMPLETED:
+        return None
+    previous = GameSession.objects.filter(
+        student_id=session.student_id,
+        game_type=GameSession.GameType.TOWER_DEFENSE,
+        status=GameSession.Status.COMPLETED,
+    ).exclude(pk=session.pk)
+    best_before = max((defense.defense_state(game)["score"] for game in previous), default=None)
+    is_record = state["score"] > best_before if best_before is not None else state["victory"]
+    return {"score": state["score"], "best_before": best_before, "is_record": is_record}
+
+
 def is_goal_reached(session: GameSession) -> bool:
     """Kodni buzish's lock opened / Xazina ovi's treasure found / Jang
     maydoni's opponent defeated — decided only from the server's own record,
     never before the game ends."""
-    if session.game_type == GameSession.GameType.BATTLE_ARENA:
-        state = battle_state(session)
+    if session.game_type in (GameSession.GameType.BATTLE_ARENA, GameSession.GameType.TOWER_DEFENSE):
+        state = arena_state(session)
         return session.status == GameSession.Status.COMPLETED and bool(state and state["victory"])
     threshold = unlock_percent_for(session.game_type)
     return (
@@ -254,7 +289,7 @@ def pick_session_questions(session: GameSession) -> list[dict] | None:
             )
         )
 
-        needed = question_count_for(locked.game_type)
+        needed = question_count_for(locked.game_type, locked.difficulty)
         picked = list(pool.exclude(id__in=served_ids).order_by("?")[:needed])
         if len(picked) < needed:
             # Not enough fresh ones left for this student — top up with questions
@@ -397,8 +432,8 @@ def record_live_answer(*, session: GameSession, question_index: int, selected_in
         if not locked.questions:
             raise ValueError("Savollar hali tayyor emas.")
 
-        battle = battle_state(locked)
-        if battle and battle["over"]:
+        arena = arena_state(locked)
+        if arena and arena["over"]:
             raise ValueError("Jang allaqachon tugagan.")
 
         answers = recorded_answers(locked)
@@ -424,8 +459,11 @@ def record_live_answer(*, session: GameSession, question_index: int, selected_in
         "explanation": question.get("explanation", ""),
         "answered_count": len(answers),
         "correct_count": correct_count,
-        "xp_earned": xp_for(game_type=locked.game_type, correct=correct_count, total=total),
+        "xp_earned": xp_for(
+            game_type=locked.game_type, correct=correct_count, total=total, difficulty=locked.difficulty
+        ),
         "battle": battle_state(locked),
+        "defense": defense.defense_state(locked),
     }
 
 
@@ -458,16 +496,16 @@ def _score_and_award(session: GameSession, answers: dict[int, int]) -> None:
     xp_credit = 0
     if session.game_type in LIVE_KEY_GAMES:
         answers = recorded_answers(session)
-        battle = battle_state(session)
-        if battle is not None:
-            # A battle can end before the last round (an HP bar hits 0).
-            # Accuracy is over the rounds actually fought, and a knockout
-            # credits the rounds it made unnecessary — so a quick win is worth
-            # as much XP as winning them all, never less.
-            if not battle["over"]:
+        arena = arena_state(session)
+        if arena is not None:
+            # A battle can end before the last round (an HP bar hits 0, the
+            # last wave falls). Accuracy is over the rounds actually fought,
+            # and a win credits the rounds it made unnecessary — so a quick
+            # win is worth as much XP as winning them all, never less.
+            if not arena["over"]:
                 raise ValueError("Jang hali tugamagan.")
-            scored_rounds = battle["rounds_played"]
-            if battle["victory"]:
+            scored_rounds = arena["rounds_played"]
+            if arena["victory"]:
                 xp_credit = total - scored_rounds
         elif len(answers) < total:
             raise ValueError("Hali barcha savollarga javob berilmagan.")
@@ -478,7 +516,9 @@ def _score_and_award(session: GameSession, answers: dict[int, int]) -> None:
 
     correct = correct_answer_count(session, answers)
     score_percent = round((correct / scored_rounds) * 100, 2) if scored_rounds else 0.0
-    xp_awarded = xp_for(game_type=session.game_type, correct=correct + xp_credit, total=total)
+    xp_awarded = xp_for(
+        game_type=session.game_type, correct=correct + xp_credit, total=total, difficulty=session.difficulty
+    )
 
     session.score_percent = score_percent
     session.xp_awarded = xp_awarded

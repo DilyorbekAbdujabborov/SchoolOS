@@ -76,6 +76,12 @@ class GameSession(TimeStampedModel):
         CODE_BREAKER = "CODE_BREAKER", _("Kodni buzish")
         TREASURE_HUNT = "TREASURE_HUNT", _("Xazina ovi")
         BATTLE_ARENA = "BATTLE_ARENA", _("Jang maydoni")
+        TOWER_DEFENSE = "TOWER_DEFENSE", _("Tower Defense")
+
+    class Difficulty(models.TextChoices):
+        EASY = "EASY", _("Oson")
+        MEDIUM = "MEDIUM", _("O'rta")
+        HARD = "HARD", _("Qiyin")
 
     class Status(models.TextChoices):
         ACTIVE = "ACTIVE", _("Active")
@@ -88,6 +94,8 @@ class GameSession(TimeStampedModel):
         "academics.Subject", verbose_name=_("subject"), related_name="+", on_delete=models.CASCADE
     )
     game_type = models.CharField(_("game type"), max_length=20, choices=GameType.choices)
+    # Only games that have levels use it (Tower Defense); blank for the rest.
+    difficulty = models.CharField(_("difficulty"), max_length=10, choices=Difficulty.choices, blank=True, default="")
     status = models.CharField(_("status"), max_length=20, choices=Status.choices, default=Status.ACTIVE)
     # [{"text": str, "options": [str, ...], "correct_index": int, "explanation": str}, ...] — AI-generated snapshot.
     questions = models.JSONField(_("questions"), default=list, blank=True)

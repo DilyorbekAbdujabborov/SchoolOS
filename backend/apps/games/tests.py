@@ -835,3 +835,151 @@ class BattleArenaTests(APITestCase):
         quiz = start_game(student=self.student, subject=self.subject, game_type=GameSession.GameType.QUIZ)
         self.client.force_authenticate(self.student_user)
         self.assertIsNone(self.client.get(f"/api/games/{quiz.id}/").data["battle"])
+
+
+class TowerDefenseTests(APITestCase):
+    """Tower Defense: difficulty sets the length and the fight; waves, enemy HP,
+    shields, base HP, combo boosts and the outcome are all replayed server-side."""
+
+    def setUp(self):
+        self.subject = make_subject()
+        self.school_class = make_school_class()
+        self.student_user, self.student = make_student(self.school_class)
+        _seed_pool(subject=self.subject, school_class=self.school_class, count=20)
+
+    def _start(self, difficulty="EASY"):
+        session = start_game(
+            student=self.student,
+            subject=self.subject,
+            game_type=GameSession.GameType.TOWER_DEFENSE,
+            difficulty=difficulty,
+        )
+        pick_session_questions(session)
+        return session
+
+    def _answer(self, session, index, *, correct):
+        key = session.questions[index]["correct_index"]
+        return record_live_answer(
+            session=session, question_index=index, selected_index=key if correct else (key + 1) % 4
+        )
+
+    def _submit(self, session):
+        self.client.force_authenticate(self.student_user)
+        return self.client.post(
+            f"/api/games/{session.id}/submit/",
+            {"answers": [{"question_index": 0, "selected_index": 0}]},
+            format="json",
+        )
+
+    def test_difficulty_sets_the_number_of_questions_and_xp(self):
+        for difficulty, count in (("EASY", 10), ("MEDIUM", 12), ("HARD", 14)):
+            session = self._start(difficulty)
+            self.assertEqual(len(session.questions), count)
+            self.assertEqual(session.difficulty, difficulty)
+
+    def test_other_games_ignore_difficulty(self):
+        quiz = start_game(
+            student=self.student, subject=self.subject, game_type=GameSession.GameType.QUIZ, difficulty="HARD"
+        )
+        self.assertEqual(quiz.difficulty, "")
+
+    def test_a_hit_damages_the_front_enemy_and_a_miss_damages_the_base(self):
+        session = self._start("EASY")
+        hit = self._answer(session, 0, correct=True)["defense"]
+        self.assertEqual(hit["last_event"]["kind"], "hit")
+        self.assertTrue(hit["last_event"]["killed"])  # 40 damage vs a 25 HP scout
+        self.assertEqual(hit["enemies_defeated"], 1)
+
+        miss = self._answer(session, 1, correct=False)["defense"]
+        self.assertEqual(miss["last_event"]["kind"], "base_hit")
+        self.assertEqual(miss["base_hp"], 90)
+        self.assertEqual(miss["combo"], 0)
+
+    def test_shields_soak_damage_before_hp(self):
+        session = self._start("EASY")
+        self._answer(session, 0, correct=True)
+        self._answer(session, 1, correct=True)  # wave 1 cleared → wave 2: one shielded enemy
+        state = self._answer(session, 2, correct=True)["defense"]
+        shielded = state["enemies"][0]
+        self.assertEqual(shielded["type"], "shield")
+        self.assertEqual(shielded["shield"], 0)
+        self.assertEqual(shielded["hp"], 20)  # 40 damage: 20 into the shield, 20 into 40 HP
+        self.assertTrue(state["last_event"]["shield_hit"])
+
+    def test_a_combo_of_five_powers_up_the_tower(self):
+        session = self._start("HARD")
+        for i in range(5):
+            state = self._answer(session, i, correct=True)["defense"]
+        self.assertEqual(state["boost"], "POWER_BOOST")
+        self.assertEqual(state["last_event"]["damage"], 66)  # 44 × 1.5
+
+    def test_clearing_every_wave_is_a_victory_with_the_boss_last(self):
+        session = self._start("EASY")
+        seen_boss = False
+        for i in range(10):
+            state = self._answer(session, i, correct=True)["defense"]
+            seen_boss = seen_boss or state["boss_wave"]
+            if state["over"]:
+                break
+        self.assertTrue(state["victory"])
+        self.assertTrue(seen_boss)
+        with self.assertRaises(ValueError):
+            self._answer(session, i + 1, correct=True)
+
+        response = self._submit(session)
+        self.assertTrue(response.data["goal_reached"])
+        self.assertEqual(response.data["xp_awarded"], 30)  # 3 XP × 10 questions, unplayed rounds credited
+        self.assertTrue(response.data["defense_record"]["is_record"])
+
+    def test_a_fallen_base_ends_the_game_without_victory(self):
+        session = self._start("HARD")
+        for i in range(14):
+            state = self._answer(session, i, correct=False)["defense"]
+            if state["over"]:
+                break
+        self.assertEqual(state["base_hp"], 0)
+        self.assertFalse(state["victory"])
+        response = self._submit(session)
+        self.assertFalse(response.data["goal_reached"])
+        self.assertEqual(response.data["xp_awarded"], 0)
+
+    def test_cannot_submit_mid_battle_and_xp_is_awarded_once(self):
+        session = self._start("EASY")
+        self._answer(session, 0, correct=True)
+        self.assertEqual(self._submit(session).status_code, status.HTTP_400_BAD_REQUEST)
+        for i in range(1, 10):
+            if self._answer(session, i, correct=True)["defense"]["over"]:
+                break
+        self.assertEqual(self._submit(session).status_code, status.HTTP_200_OK)
+        self.assertEqual(self._submit(session).status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            XPTransaction.objects.filter(student=self.student, source=XPTransaction.Source.GAME).count(), 1
+        )
+
+    def test_personal_record_compares_with_earlier_games(self):
+        first = self._start("EASY")
+        for i in range(10):
+            if self._answer(first, i, correct=True)["defense"]["over"]:
+                break
+        self._submit(first)
+
+        second = self._start("EASY")
+        for i in range(10):
+            if self._answer(second, i, correct=i % 2 == 0)["defense"]["over"]:
+                break
+        record = self._submit(second).data["defense_record"]
+        self.assertIsNotNone(record["best_before"])
+        self.assertFalse(record["is_record"])
+
+    def test_api_accepts_a_difficulty(self):
+        self.client.force_authenticate(self.student_user)
+        response = self.client.post(
+            "/api/games/",
+            {"subject": self.subject.id, "game_type": "TOWER_DEFENSE", "difficulty": "HARD"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["difficulty"], "HARD")
+        self.assertEqual(response.data["question_count"], 14)
+        self.assertEqual(response.data["max_xp"], 42)
+        self.assertEqual(response.data["defense"]["waves_total"], 4)

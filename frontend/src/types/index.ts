@@ -524,7 +524,15 @@ export interface RemedialGameQuestion {
 
 // ---------- Games (self-serve "O'yinlar" section) ----------
 
-export type GameType = "TUG_OF_WAR" | "QUIZ" | "TOWER_BUILDER" | "CODE_BREAKER" | "TREASURE_HUNT" | "BATTLE_ARENA";
+export type GameType =
+  | "TUG_OF_WAR"
+  | "QUIZ"
+  | "TOWER_BUILDER"
+  | "CODE_BREAKER"
+  | "TREASURE_HUNT"
+  | "BATTLE_ARENA"
+  | "TOWER_DEFENSE";
+export type GameDifficulty = "EASY" | "MEDIUM" | "HARD";
 export type GameStatus = "ACTIVE" | "COMPLETED";
 
 export interface GameSession {
@@ -543,6 +551,12 @@ export interface GameSession {
   revealed_code: (string | null)[];
   /** Jang maydoni only: HP / combo / round state, computed server-side. */
   battle: BattleState | null;
+  /** Blank for games without levels. */
+  difficulty: GameDifficulty | "";
+  /** Tower Defense only: waves / enemies / base HP / combo, replayed server-side. */
+  defense: DefenseState | null;
+  /** Tower Defense, once finished: this game's score against the student's previous best. */
+  defense_record: { score: number; best_before: number | null; is_record: boolean } | null;
   /** Kodni buzish: lock opened / Xazina ovi: treasure reached — only ever true once the game is over. */
   goal_reached: boolean;
   /** The win threshold for games that have one (Kodni buzish, Xazina ovi); null otherwise. */
@@ -575,6 +589,54 @@ export interface BattleState {
   rules: BattleRules;
 }
 
+export type DefenseEnemyType = "scout" | "shield" | "tank" | "boss";
+export type DefenseBoost = "POWER_BOOST" | "OVERCHARGE" | null;
+
+export interface DefenseEnemy {
+  type: DefenseEnemyType;
+  hp: number;
+  max_hp: number;
+  shield: number;
+  max_shield: number;
+}
+
+export type DefenseEvent =
+  | {
+      kind: "hit";
+      target: number;
+      damage: number;
+      shield_hit: boolean;
+      killed: boolean;
+      wave_cleared: boolean;
+      boost: DefenseBoost;
+    }
+  | { kind: "base_hit"; source: number; damage: number };
+
+export interface DefenseState {
+  difficulty: GameDifficulty;
+  base_hp: number;
+  max_base_hp: number;
+  combo: number;
+  max_combo: number;
+  boost: DefenseBoost;
+  /** 1-based; the wave now on the field. */
+  wave: number;
+  waves_total: number;
+  boss_wave: boolean;
+  enemies: DefenseEnemy[];
+  enemies_defeated: number;
+  enemies_total: number;
+  waves_cleared: number;
+  rounds_played: number;
+  over: boolean;
+  victory: boolean;
+  score: number;
+  last_event: DefenseEvent | null;
+  /** Presentation only — how briskly enemies move on screen. */
+  speed: number;
+  tower_damage: number;
+}
+
 export interface GameReviewItem {
   text: string;
   options: string[];
@@ -591,6 +653,8 @@ export interface LiveAnswerResult {
   code_segment: string | null;
   /** Jang maydoni: the battle state after this answer. */
   battle: BattleState | null;
+  /** Tower Defense: the defense state after this answer. */
+  defense: DefenseState | null;
   correct_index: number;
   explanation: string;
   answered_count: number;

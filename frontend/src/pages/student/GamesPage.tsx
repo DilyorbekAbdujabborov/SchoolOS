@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { BookOpen, Brain, Building2, Clock, Gamepad2, KeyRound, Map, Shield, Swords } from "lucide-react";
+import { BookOpen, Brain, Building2, Castle, Clock, Gamepad2, KeyRound, Map, Shield, Swords } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -7,7 +7,7 @@ import { Badge } from "../../components/Badge";
 import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
-import type { GameSession, GameType, Paginated, Subject } from "../../types";
+import type { GameDifficulty, GameSession, GameType, Paginated, Subject } from "../../types";
 
 const GAME_OPTIONS: { type: GameType; label: string; description: string; icon: typeof Swords }[] = [
   {
@@ -46,13 +46,48 @@ const GAME_OPTIONS: { type: GameType; label: string; description: string; icon: 
     description: "Jangchingizni tanlang: to'g'ri javob — sizning zarbangiz, xato — raqibniki. Raqibni yenging!",
     icon: Shield,
   },
+  {
+    type: "TOWER_DEFENSE",
+    label: "Tower Defense",
+    description:
+      "Bazangizni to'lqin-to'lqin hujumdan himoya qiling — har to'g'ri javob minorani o'q uzdiradi. Oxirida — BOSS.",
+    icon: Castle,
+  },
+];
+
+// Games that ask for a level before starting.
+const LEVELED_GAMES: GameType[] = ["TOWER_DEFENSE"];
+
+const DIFFICULTY_OPTIONS: { value: GameDifficulty; label: string; description: string; tone: string }[] = [
+  {
+    value: "EASY",
+    label: "Oson",
+    description: "10 savol · 3 to'lqin · sekin dushmanlar",
+    tone: "text-emerald-600 dark:text-emerald-400",
+  },
+  {
+    value: "MEDIUM",
+    label: "O'rta",
+    description: "12 savol · 4 to'lqin · kuchliroq boss",
+    tone: "text-amber-600 dark:text-amber-400",
+  },
+  {
+    value: "HARD",
+    label: "Qiyin",
+    description: "14 savol · 4 to'lqin · tez va kuchli dushmanlar",
+    tone: "text-red-600 dark:text-red-400",
+  },
 ];
 
 export function StudentGamesPage() {
   const navigate = useNavigate();
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
 
-  const { data: subjects, isLoading, isError } = useQuery({
+  const {
+    data: subjects,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["subjects"],
     queryFn: async () => (await api.get<Paginated<Subject>>("/subjects/")).data,
   });
@@ -62,9 +97,11 @@ export function StudentGamesPage() {
     queryFn: async () => (await api.get<Paginated<GameSession>>("/games/")).data,
   });
 
+  const [levelFor, setLevelFor] = useState<GameType | null>(null);
+
   const startGame = useMutation({
-    mutationFn: async (game_type: GameType) =>
-      (await api.post<GameSession>("/games/", { subject: selectedSubject, game_type })).data,
+    mutationFn: async ({ game_type, difficulty }: { game_type: GameType; difficulty?: GameDifficulty }) =>
+      (await api.post<GameSession>("/games/", { subject: selectedSubject, game_type, difficulty })).data,
     onSuccess: (session) => navigate(`/student/games/${session.id}`),
   });
 
@@ -112,7 +149,11 @@ export function StudentGamesPage() {
             {GAME_OPTIONS.map((option) => (
               <button
                 key={option.type}
-                onClick={() => startGame.mutate(option.type)}
+                onClick={() =>
+                  LEVELED_GAMES.includes(option.type)
+                    ? setLevelFor(option.type)
+                    : startGame.mutate({ game_type: option.type })
+                }
                 disabled={startGame.isPending}
                 className="hover-card flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-left disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900"
               >
@@ -126,6 +167,25 @@ export function StudentGamesPage() {
               </button>
             ))}
           </div>
+          {levelFor && (
+            <div className="mt-4 animate-pop-in rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">3. Qiyinlikni tanlang</h3>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {DIFFICULTY_OPTIONS.map((level) => (
+                  <button
+                    key={level.value}
+                    type="button"
+                    onClick={() => startGame.mutate({ game_type: levelFor, difficulty: level.value })}
+                    disabled={startGame.isPending}
+                    className="hover-card rounded-xl border border-slate-200 p-4 text-left disabled:opacity-60 dark:border-slate-700"
+                  >
+                    <p className={`font-bold ${level.tone}`}>{level.label}</p>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{level.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {startGame.isPending && <LoadingState label="O'yin boshlanmoqda..." />}
         </div>
       )}
