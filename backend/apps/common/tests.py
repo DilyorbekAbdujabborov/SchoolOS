@@ -87,6 +87,11 @@ class GeminiGroqFallbackTests(TestCase):
 
         self.assertEqual(result, "gemini natija")
         mock_post.assert_called_once()
+        # The key travels in a header, never in the URL (which ends up in logs).
+        args, kwargs = mock_post.call_args
+        self.assertEqual(kwargs["headers"]["x-goog-api-key"], "gemini-key")
+        self.assertNotIn("gemini-key", args[0])
+        self.assertNotIn("params", kwargs)
 
     @patch("apps.common.gemini.settings.GEMINI_API_KEY", "gemini-key")
     @patch("apps.common.gemini.settings.GROQ_API_KEY", "groq-key")
@@ -114,3 +119,23 @@ class GeminiGroqFallbackTests(TestCase):
     @patch("apps.common.gemini.settings.GROQ_API_KEY", "")
     def test_returns_none_when_neither_provider_is_configured(self):
         self.assertIsNone(call_gemini(prompt="salom"))
+
+
+class ShuffleOptionsTests(TestCase):
+    def test_keeps_the_right_answer_and_every_option(self):
+        from apps.common.questions import shuffle_options
+
+        question = {"text": "2+2?", "options": ["4", "3", "5", "22"], "correct_index": 0, "explanation": "x"}
+        for _ in range(20):
+            shuffled = shuffle_options(question)
+            self.assertEqual(shuffled["options"][shuffled["correct_index"]], "4")
+            self.assertEqual(sorted(shuffled["options"]), sorted(question["options"]))
+            self.assertEqual(shuffled["explanation"], "x")
+        self.assertEqual(question["options"], ["4", "3", "5", "22"])  # input untouched
+
+    def test_the_answer_does_not_stay_in_one_slot(self):
+        from apps.common.questions import shuffle_options
+
+        question = {"text": "2+2?", "options": ["4", "3", "5", "22"], "correct_index": 0}
+        slots = {shuffle_options(question)["correct_index"] for _ in range(60)}
+        self.assertGreater(len(slots), 1)

@@ -52,6 +52,7 @@ export function TowerBuilderGame({ session }: { session: GameSession }) {
 
     return (
       <GameResultScreen
+        remedialSessionId={finalSession?.remedial_session_id}
         tone={accuracy >= 50 ? "win" : "lose"}
         icon={Building2}
         title="Minora qurildi!"
@@ -61,7 +62,13 @@ export function TowerBuilderGame({ session }: { session: GameSession }) {
           { label: "Aniqlik", value: `${accuracy}%` },
           {
             label: "Olingan XP",
-            value: submitMutation.isPending ? "…" : submitMutation.isError ? "—" : <AnimatedNumber value={xpAwarded} prefix="+" />,
+            value: submitMutation.isPending ? (
+              "…"
+            ) : submitMutation.isError ? (
+              "—"
+            ) : (
+              <AnimatedNumber value={xpAwarded} prefix="+" />
+            ),
             tone: "amber",
           },
           { label: "Vaqt", value: formatDuration(playedSeconds(game.elapsed, finalSession)) },

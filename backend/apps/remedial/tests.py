@@ -245,7 +245,9 @@ class RemedialAPITests(APITestCase):
         self.assertEqual(len(game_response.data), 6)
         self.assertNotIn("correct_index", game_response.data[0])
 
-        answers = [{"question_index": i, "selected_index": 0} for i in range(6)]
+        # Options are shuffled on the way in — answer with the stored key.
+        stored = RemedialSession.objects.get(pk=session_id).questions
+        answers = [{"question_index": i, "selected_index": q["correct_index"]} for i, q in enumerate(stored)]
         submit_game_response = self.client.post(
             f"/api/remedial-sessions/{session_id}/submit/", {"answers": answers}, format="json"
         )
@@ -264,3 +266,64 @@ class RemedialAPITests(APITestCase):
         self.client.force_authenticate(self.teacher_user)
         response = self.client.get("/api/remedial-sessions/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class GameRemedialTests(APITestCase):
+    """A low practice-game score opens the same AI-tutor flow as a low test score."""
+
+    def setUp(self):
+        from apps.common.testing import make_school_class, make_student, make_subject
+        from apps.games.models import PooledQuestion
+
+        self.subject = make_subject()
+        school_class = make_school_class()
+        self.user, self.student = make_student(school_class)
+        PooledQuestion.objects.bulk_create(
+            PooledQuestion(
+                subject=self.subject, school_class=school_class, text=f"Savol {i}", options=["a", "b", "c", "d"],
+                correct_index=i % 4,
+            )
+            for i in range(12)
+        )
+        self.client.force_authenticate(self.user)
+
+    def _play_quiz(self, *, correct: int):
+        from apps.games.models import GameSession
+
+        session_id = self.client.post(
+            "/api/games/", {"subject": self.subject.id, "game_type": "QUIZ"}, format="json"
+        ).data["id"]
+        self.client.get(f"/api/games/{session_id}/questions/")
+        questions = GameSession.objects.get(pk=session_id).questions
+        answers = [
+            {"question_index": i, "selected_index": q["correct_index"] if i < correct else (q["correct_index"] + 1) % 4}
+            for i, q in enumerate(questions)
+        ]
+        return self.client.post(f"/api/games/{session_id}/submit/", {"answers": answers}, format="json")
+
+    def test_low_game_score_opens_a_remedial_session(self):
+        response = self._play_quiz(correct=2)
+
+        self.assertIsNotNone(response.data["remedial_session_id"])
+        remedial = RemedialSession.objects.get(pk=response.data["remedial_session_id"])
+        self.assertEqual(remedial.game_session_id, response.data["id"])
+        self.assertIsNone(remedial.attempt_id)
+
+    def test_good_game_score_does_not(self):
+        response = self._play_quiz(correct=7)
+
+        self.assertIsNone(response.data["remedial_session_id"])
+        self.assertFalse(RemedialSession.objects.exists())
+
+    @patch("apps.remedial.services.call_gemini", return_value="Tushuntirish matni")
+    def test_explanation_is_about_the_missed_game_questions(self, mock_gemini):
+        remedial_id = self._play_quiz(correct=2).data["remedial_session_id"]
+
+        response = self.client.post(f"/api/remedial-sessions/{remedial_id}/explain/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["source"], "GAME")
+        self.assertEqual(response.data["test_title"], "Viktorina")
+        prompt = mock_gemini.call_args.kwargs["prompt"]
+        self.assertIn("mashq o'yinini", prompt)
+        self.assertEqual(prompt.count("- Savol"), 6)

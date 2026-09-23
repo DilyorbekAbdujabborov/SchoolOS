@@ -5,7 +5,9 @@ from .models import RemedialSession
 
 class RemedialSessionSerializer(serializers.ModelSerializer):
     subject_name = serializers.CharField(source="subject.name", read_only=True)
-    test_title = serializers.CharField(source="attempt.test.title", read_only=True)
+    # "TEST" or "GAME" — what the low score came from — and a title for it.
+    source = serializers.SerializerMethodField()
+    test_title = serializers.SerializerMethodField()
     question_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -13,6 +15,8 @@ class RemedialSessionSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "attempt",
+            "game_session",
+            "source",
             "subject",
             "subject_name",
             "test_title",
@@ -28,6 +32,14 @@ class RemedialSessionSerializer(serializers.ModelSerializer):
 
     def get_question_count(self, obj) -> int:
         return len(obj.questions)
+
+    def get_source(self, obj) -> str:
+        return "TEST" if obj.attempt_id else "GAME"
+
+    def get_test_title(self, obj) -> str:
+        if obj.attempt_id:
+            return obj.attempt.test.title
+        return obj.game_session.get_game_type_display()
 
 
 class RemedialGameQuestionSerializer(serializers.Serializer):

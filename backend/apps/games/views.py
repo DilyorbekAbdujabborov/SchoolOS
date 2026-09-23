@@ -30,7 +30,11 @@ class GameSessionViewSet(
     permission_classes: ClassVar[list[type[BasePermission]]] = [IsAuthenticated, IsStudent]
 
     def get_queryset(self):
-        return GameSession.objects.filter(student=self.request.user.student_profile).select_related("subject")
+        return (
+            GameSession.objects.filter(student=self.request.user.student_profile)
+            .select_related("subject")
+            .prefetch_related("remedial_sessions")
+        )
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -86,7 +90,13 @@ class GameSessionViewSet(
         except ValueError as exc:
             raise ValidationError(str(exc)) from exc
 
-        return Response(GameSessionSerializer(session).data)
+        # A low score opens the same AI-tutor flow a low test score does.
+        from apps.remedial.services import maybe_start_remedial_for_game
+
+        maybe_start_remedial_for_game(session)
+        # Re-read so the response's `remedial_session_id` sees a session just opened
+        # (the one from get_object() carries a stale prefetch cache).
+        return Response(GameSessionSerializer(self.get_queryset().get(pk=session.pk)).data)
 
 
 class QuestionPoolViewSet(viewsets.ViewSet):

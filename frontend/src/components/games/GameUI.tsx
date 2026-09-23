@@ -1,4 +1,4 @@
-import { Check, X, Zap, type LucideIcon, Trophy } from "lucide-react";
+import { Bot, Check, ChevronRight, X, Zap, type LucideIcon, Trophy } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
@@ -149,7 +149,9 @@ export function GameOptionButton({
       onClick={onClick}
       className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left text-sm font-medium text-slate-700 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.97] disabled:cursor-default dark:text-slate-200 dark:focus-visible:ring-offset-slate-900 ${stateClass}`}
     >
-      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${badgeToneClass}`}>
+      <span
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${badgeToneClass}`}
+      >
         {state === "correct" ? <Check size={14} /> : state === "incorrect" ? <X size={14} /> : LETTERS[index]}
       </span>
       {text}
@@ -205,6 +207,7 @@ export function GameResultScreen({
   primaryLabel = "Yana o'ynash",
   secondaryTo = "/student/games",
   secondaryLabel = "O'yinlar ro'yxatiga qaytish",
+  remedialSessionId,
   children,
 }: {
   tone: GameResultTone;
@@ -220,17 +223,19 @@ export function GameResultScreen({
   secondaryLabel?: string;
   /** Optional game-specific showcase between the header and the stats (e.g. the finished tower). */
   children?: ReactNode;
+  /** A low score opened an AI-tutor session (apps.remedial) — offer it here. */
+  remedialSessionId?: number | null;
 }) {
   const gridClass =
     stats.length >= 5
       ? "grid-cols-2 sm:grid-cols-3"
       : stats.length === 4
-      ? "grid-cols-2 sm:grid-cols-4"
-      : stats.length === 3
-        ? "grid-cols-3"
-        : stats.length === 2
-          ? "grid-cols-2"
-          : "grid-cols-1";
+        ? "grid-cols-2 sm:grid-cols-4"
+        : stats.length === 3
+          ? "grid-cols-3"
+          : stats.length === 2
+            ? "grid-cols-2"
+            : "grid-cols-1";
 
   return (
     <div className="mx-auto max-w-lg space-y-5 text-center">
@@ -274,6 +279,26 @@ export function GameResultScreen({
             </button>
           )}
         </div>
+      )}
+
+      {remedialSessionId && (
+        <Link
+          to={`/student/remedial/${remedialSessionId}`}
+          className="flex items-center gap-3 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-left transition-colors hover:bg-violet-100 dark:border-violet-500/30 dark:bg-violet-500/10 dark:hover:bg-violet-500/15"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white">
+            <Bot size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-violet-700 dark:text-violet-300">
+              AI Ustoz yordam beradi
+            </span>
+            <span className="block text-xs text-slate-600 dark:text-slate-300">
+              Xato qilgan savollaringiz mavzusini tushuntirib, qisqa mashq beradi.
+            </span>
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-violet-500" />
+        </Link>
       )}
 
       <div className="flex flex-col gap-2 sm:flex-row">

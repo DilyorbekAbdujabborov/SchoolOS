@@ -391,12 +391,7 @@ export interface Achievement {
   unlocked_at: string | null;
 }
 
-export type AchievementConditionType =
-  | "FIRST_TEST"
-  | "TEST_COUNT"
-  | "PERFECT_SCORE"
-  | "XP_THRESHOLD"
-  | "STREAK_LENGTH";
+export type AchievementConditionType = "FIRST_TEST" | "TEST_COUNT" | "PERFECT_SCORE" | "XP_THRESHOLD" | "STREAK_LENGTH";
 
 export interface AchievementManage {
   id: number;
@@ -504,9 +499,13 @@ export type RemedialStatus = "PENDING" | "EXPLAINED" | "COMPLETED";
 
 export interface RemedialSession {
   id: number;
-  attempt: number;
+  attempt: number | null;
+  game_session: number | null;
+  /** What the low score came from — a test or a practice game. */
+  source: "TEST" | "GAME";
   subject: number;
   subject_name: string;
+  /** The test's title, or the game's name for a game-sourced session. */
   test_title: string;
   status: RemedialStatus;
   explanation: string;
@@ -550,6 +549,8 @@ export interface GameSession {
   unlock_percent: number | null;
   /** Per-question answer review — only on a finished Minora qurish / Kodni buzish session's detail. */
   review: GameReviewItem[] | null;
+  /** Set when a low score opened an AI-tutor session for this game. */
+  remedial_session_id: number | null;
   score_percent: number | null;
   xp_awarded: number | null;
   created_at: string;
@@ -613,4 +614,48 @@ export interface QuestionPoolStatus {
   school_class: number;
   school_class_name: string;
   count: number;
+}
+
+// ---------- Class progress reports (teacher / director) ----------
+
+export type StudentReportStatus = "GOOD" | "WATCH" | "RISK" | "NO_DATA";
+
+export interface StudentReportRow {
+  id: number;
+  full_name: string;
+  status: StudentReportStatus;
+  test_avg: number | null;
+  tests_taken: number;
+  /** Test average in the period's second half minus the first half; null if either half is empty. */
+  test_trend: number | null;
+  game_avg: number | null;
+  games_played: number;
+  attendance_rate: number | null;
+  absences: number;
+  late: number;
+  xp_gained: number;
+  weak_subjects: { subject: string; avg: number; results: number }[];
+}
+
+export interface ClassReport {
+  school_class: { id: number; name: string };
+  period_days: number;
+  summary: {
+    students: number;
+    test_avg: number | null;
+    tests_taken: number;
+    game_avg: number | null;
+    games_played: number;
+    attendance_rate: number | null;
+    xp_gained: number;
+    at_risk: number;
+    watch: number;
+  };
+  subjects: { subject: string; avg: number; results: number }[];
+  students: StudentReportRow[];
+}
+
+export interface ClassReportAISummary {
+  summary: string;
+  generated_at: string;
 }

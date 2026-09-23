@@ -155,6 +155,7 @@ function CodeResult({
 
   return (
     <GameResultScreen
+      remedialSessionId={session?.remedial_session_id}
       tone={unlocked ? "win" : "lose"}
       icon={unlocked ? LockOpen : Lock}
       title={unlocked ? "CODE UNLOCKED" : "CODE LOCKED"}
@@ -264,8 +265,8 @@ function StartScreen({
       </div>
 
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        Har bir to'g'ri javob kodning bitta segmentini ochadi. Kamida {needed}/{total} ({unlockPercent}%)
-        to'g'ri javob bersangiz — kod to'liq ochiladi.
+        Har bir to'g'ri javob kodning bitta segmentini ochadi. Kamida {needed}/{total} ({unlockPercent}%) to'g'ri javob
+        bersangiz — kod to'liq ochiladi.
       </p>
 
       <GameStartActions

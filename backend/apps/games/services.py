@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from apps.academics.models import Subject
 from apps.common.gemini import call_gemini
+from apps.common.questions import shuffle_options
 from apps.gamification.models import XPTransaction
 from apps.gamification.services import award_xp
 from apps.schools.models import SchoolClass
@@ -273,8 +274,12 @@ def pick_session_questions(session: GameSession) -> list[dict] | None:
             ignore_conflicts=True,
         )
 
+        # Options are re-shuffled per game, so a question the student has seen
+        # before doesn't have its answer in the same place again.
         questions = [
-            {"text": q.text, "options": q.options, "correct_index": q.correct_index, "explanation": q.explanation}
+            shuffle_options(
+                {"text": q.text, "options": q.options, "correct_index": q.correct_index, "explanation": q.explanation}
+            )
             for q in picked
         ]
         locked.questions = questions
@@ -466,6 +471,10 @@ def _score_and_award(session: GameSession, answers: dict[int, int]) -> None:
                 xp_credit = total - scored_rounds
         elif len(answers) < total:
             raise ValueError("Hali barcha savollarga javob berilmagan.")
+    else:
+        # Batch-submitted games keep what was sent, so a low score can later be
+        # explained question by question (see apps.remedial).
+        session.answers = {str(index): selected for index, selected in answers.items() if 0 <= index < total}
 
     correct = correct_answer_count(session, answers)
     score_percent = round((correct / scored_rounds) * 100, 2) if scored_rounds else 0.0
@@ -476,7 +485,7 @@ def _score_and_award(session: GameSession, answers: dict[int, int]) -> None:
     session.status = GameSession.Status.COMPLETED
     session.completed_at = timezone.now()
     session.save(
-        update_fields=["score_percent", "xp_awarded", "status", "completed_at", "updated_at"]
+        update_fields=["score_percent", "xp_awarded", "status", "completed_at", "answers", "updated_at"]
     )
 
     if xp_awarded > 0:

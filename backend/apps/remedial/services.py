@@ -4,6 +4,7 @@ import logging
 from django.utils import timezone
 
 from apps.common.gemini import call_gemini
+from apps.common.questions import shuffle_options
 from apps.gamification.models import XPTransaction
 from apps.gamification.services import award_xp
 
@@ -30,19 +31,53 @@ def maybe_start_remedial_session(attempt) -> RemedialSession | None:
     return session
 
 
+def maybe_start_remedial_for_game(game_session) -> RemedialSession | None:
+    """The practice-game counterpart of `maybe_start_remedial_session`: a
+    finished game scored below `LOW_SCORE_THRESHOLD` opens the same AI-tutor
+    flow (explanation → short practice game) for the questions missed there.
+    Idempotent per game session.
+    """
+    if game_session.score_percent is None or game_session.score_percent >= LOW_SCORE_THRESHOLD:
+        return None
+
+    session, _created = RemedialSession.objects.get_or_create(
+        game_session=game_session,
+        defaults={"student": game_session.student, "subject": game_session.subject},
+    )
+    return session
+
+
+def _missed_questions(session: RemedialSession) -> tuple[str, float, list[str]]:
+    """What the explanation is about: ("test" | "o'yin", the score, the texts
+    of the questions answered wrongly) — from whichever source opened it."""
+    if session.attempt_id:
+        wrong = [
+            answer.question.text
+            for answer in session.attempt.answers.select_related("question", "selected_option")
+            if not answer.selected_option.is_correct
+        ]
+        return "test", session.attempt.score_percent or 0.0, wrong
+
+    game = session.game_session
+    answers = {int(index): selected for index, selected in (game.answers or {}).items()}
+    wrong = [
+        question["text"]
+        for index, question in enumerate(game.questions)
+        if index in answers and answers[index] != question.get("correct_index")
+    ]
+    return "o'yin", game.score_percent or 0.0, wrong
+
+
 def generate_explanation(session: RemedialSession) -> str | None:
     """Idempotent — a session only ever gets one explanation."""
     if session.explanation:
         return session.explanation
 
-    wrong_question_texts = [
-        answer.question.text
-        for answer in session.attempt.answers.select_related("question", "selected_option")
-        if not answer.selected_option.is_correct
-    ]
+    activity, score, wrong_question_texts = _missed_questions(session)
+    activity_verb = "test topshirdi" if activity == "test" else "mashq o'yinini o'ynadi"
     prompt = (
-        f'Sen mehribon va sabrli o\'qituvchisan. O\'quvchi "{session.subject.name}" fanidan test topshirdi '
-        f"va {session.attempt.score_percent:.0f}% ball oldi — bu past natija.\n"
+        f'Sen mehribon va sabrli o\'qituvchisan. O\'quvchi "{session.subject.name}" fanidan {activity_verb} '
+        f"va {score:.0f}% ball oldi — bu past natija.\n"
         "U quyidagi savollarda xato qildi:\n"
         + "\n".join(f"- {text}" for text in wrong_question_texts[:10])
         + "\n\nShu mavzuni O'ZBEK TILIDA, oddiy va tushunarli qilib, 4-6 jumlada tushuntir. "
@@ -85,6 +120,17 @@ def generate_game_questions(session: RemedialSession) -> list[dict] | None:
     try:
         questions = json.loads(content)["questions"]
         if not isinstance(questions, list) or not questions:
+            raise ValueError
+        questions = [
+            shuffle_options(q)
+            for q in questions
+            if isinstance(q, dict)
+            and isinstance(q.get("options"), list)
+            and len(q["options"]) >= 2
+            and isinstance(q.get("correct_index"), int)
+            and 0 <= q["correct_index"] < len(q["options"])
+        ]
+        if not questions:
             raise ValueError
     except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         logger.warning("Could not parse Gemini question JSON for remedial session %s", session.pk)

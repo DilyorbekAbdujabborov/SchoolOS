@@ -304,6 +304,7 @@ function HuntResult({
   if (found) {
     return (
       <GameResultScreen
+        remedialSessionId={session?.remedial_session_id}
         tone="win"
         icon={Gem}
         title="TREASURE FOUND"
@@ -325,6 +326,7 @@ function HuntResult({
 
   return (
     <GameResultScreen
+      remedialSessionId={session?.remedial_session_id}
       tone="neutral"
       icon={Compass}
       title="JOURNEY COMPLETE"

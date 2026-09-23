@@ -25,6 +25,8 @@ class GameSessionSerializer(serializers.ModelSerializer):
     goal_reached = serializers.SerializerMethodField()
     unlock_percent = serializers.SerializerMethodField()
     review = serializers.SerializerMethodField()
+    # Set once a low score has opened an AI-tutor session for this game (apps.remedial).
+    remedial_session_id = serializers.SerializerMethodField()
 
     class Meta:
         model = GameSession
@@ -44,6 +46,7 @@ class GameSessionSerializer(serializers.ModelSerializer):
             "goal_reached",
             "unlock_percent",
             "review",
+            "remedial_session_id",
             "score_percent",
             "xp_awarded",
             "created_at",
@@ -74,6 +77,10 @@ class GameSessionSerializer(serializers.ModelSerializer):
 
     def get_unlock_percent(self, obj) -> int | None:
         return services.unlock_percent_for(obj.game_type)
+
+    def get_remedial_session_id(self, obj) -> int | None:
+        remedial = next(iter(obj.remedial_sessions.all()), None)
+        return remedial.id if remedial else None
 
     def get_review(self, obj) -> list[dict] | None:
         # The history list doesn't need every past game's full question set.

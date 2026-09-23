@@ -120,9 +120,7 @@ export function StudentRemedialPage() {
               <p className="text-xs font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400">
                 AI Ustoz
               </p>
-              <p className="mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
-                {session.explanation}
-              </p>
+              <p className="mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-200">{session.explanation}</p>
             </div>
           </div>
           <PrimaryButton className="w-full" onClick={() => setPhase("playing")}>
@@ -159,9 +157,7 @@ export function StudentRemedialPage() {
           )}
           {gameQuery.data?.[questionIndex] && (
             <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-              <p className="font-medium text-slate-900 dark:text-slate-50">
-                {gameQuery.data[questionIndex].text}
-              </p>
+              <p className="font-medium text-slate-900 dark:text-slate-50">{gameQuery.data[questionIndex].text}</p>
               <div className="mt-3 space-y-2">
                 {gameQuery.data[questionIndex].options.map((option, optionIndex) => (
                   <button
@@ -212,15 +208,15 @@ function RemedialResult({ session, ropePosition }: { session: RemedialSession; r
           {won ? "Ajoyib! Arqonni o'zingizga tortdingiz!" : "Yaxshi urinish — yana mashq qiling!"}
         </p>
         <p className={`mt-1 text-sm ${textToneClass}`}>
-          Natija: {session.score_percent?.toFixed(0)}%
-          {session.xp_awarded ? ` · +${session.xp_awarded} XP` : ""}
+          Natija: {session.score_percent?.toFixed(0)}%{session.xp_awarded ? ` · +${session.xp_awarded} XP` : ""}
         </p>
       </div>
       <Link
-        to="/student/tests"
+        to={session.source === "GAME" ? "/student/games" : "/student/tests"}
         className="inline-flex items-center gap-0.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
       >
-        <ChevronLeft className="h-4 w-4" /> Testlar ro'yxatiga qaytish
+        <ChevronLeft className="h-4 w-4" />{" "}
+        {session.source === "GAME" ? "O'yinlar ro'yxatiga qaytish" : "Testlar ro'yxatiga qaytish"}
       </Link>
     </div>
   );

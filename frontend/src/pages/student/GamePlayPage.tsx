@@ -97,10 +97,7 @@ function QuizGame({ session }: { session: GameSession }) {
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
-      <GameHeaderBar
-        title={`${session.subject_name} · ${session.game_type_display}`}
-        totalXp={user?.total_xp ?? 0}
-      />
+      <GameHeaderBar title={`${session.subject_name} · ${session.game_type_display}`} totalXp={user?.total_xp ?? 0} />
 
       <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
         <span>
@@ -162,6 +159,7 @@ function QuizResult({ session }: { session: GameSession }) {
 
   return (
     <GameResultScreen
+      remedialSessionId={session?.remedial_session_id}
       tone={won ? "win" : "lose"}
       title={won ? "Zo'r natija!" : "Yana urinib ko'ring!"}
       subtitle={`Natija: ${score.toFixed(0)}%`}

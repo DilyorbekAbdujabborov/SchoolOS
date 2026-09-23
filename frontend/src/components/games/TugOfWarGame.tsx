@@ -155,6 +155,7 @@ export function TugOfWarGame({ session }: { session: GameSession }) {
     const xpAwarded = submitMutation.data?.xp_awarded ?? liveXp;
     return (
       <GameResultScreen
+        remedialSessionId={submitMutation.data?.remedial_session_id}
         tone={tone}
         title={RESULT_TITLE[tone]}
         subtitle={RESULT_SUBTITLE[tone]}
@@ -162,7 +163,13 @@ export function TugOfWarGame({ session }: { session: GameSession }) {
           { label: "Natija", value: `${correctCount}/${total || "…"}` },
           {
             label: "Olingan XP",
-            value: submitMutation.isPending ? "…" : submitMutation.isError ? "—" : <AnimatedNumber value={xpAwarded} prefix="+" />,
+            value: submitMutation.isPending ? (
+              "…"
+            ) : submitMutation.isError ? (
+              "—"
+            ) : (
+              <AnimatedNumber value={xpAwarded} prefix="+" />
+            ),
             tone: "amber",
           },
         ]}
@@ -218,7 +225,11 @@ export function TugOfWarGame({ session }: { session: GameSession }) {
             {question.options.map((option, i) => {
               const isFeedback = phase.kind === "feedback";
               const wasPicked = isFeedback && answersRef.current[questionIndex] === i;
-              const state = wasPicked ? (phase.kind === "feedback" && phase.correct ? "correct" : "incorrect") : "default";
+              const state = wasPicked
+                ? phase.kind === "feedback" && phase.correct
+                  ? "correct"
+                  : "incorrect"
+                : "default";
               return (
                 <GameOptionButton
                   key={option}

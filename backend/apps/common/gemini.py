@@ -38,10 +38,11 @@ def _call_gemini(prompt: str, json_mode: bool) -> str | None:
     url = _GEMINI_URL_TEMPLATE.format(model=settings.GEMINI_MODEL)
 
     try:
+        # The key goes in a header, not the query string, so it never ends up
+        # in request-URL logs (urllib3 debug logging, proxies, error traces).
         response = requests.post(
             url,
-            params={"key": api_key},
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
             json=payload,
             timeout=30,
         )

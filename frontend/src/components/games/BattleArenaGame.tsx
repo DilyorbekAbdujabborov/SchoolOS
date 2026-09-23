@@ -754,6 +754,7 @@ function BattleResult({
   if (victory) {
     return (
       <GameResultScreen
+        remedialSessionId={session?.remedial_session_id}
         tone="win"
         icon={Trophy}
         title="VICTORY"
@@ -779,6 +780,7 @@ function BattleResult({
 
   return (
     <GameResultScreen
+      remedialSessionId={session?.remedial_session_id}
       tone="neutral"
       icon={Swords}
       title="BATTLE COMPLETE"

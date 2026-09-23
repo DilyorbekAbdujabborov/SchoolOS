@@ -31,7 +31,7 @@ class RemedialSessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, v
     def get_queryset(self):
         return RemedialSession.objects.filter(
             student=self.request.user.student_profile
-        ).select_related("subject", "attempt__test")
+        ).select_related("subject", "attempt__test", "game_session")
 
     @action(detail=True, methods=["post"])
     def explain(self, request, pk=None):
