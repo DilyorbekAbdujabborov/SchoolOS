@@ -72,6 +72,7 @@ import { TeacherXpPage } from "./pages/teacher/XpPage";
 import type { NavGroup } from "./routes/DashboardLayout";
 import { DashboardLayout } from "./routes/DashboardLayout";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
+import { ReportsPage } from "./pages/ReportsPage";
 
 const DIRECTOR_NAV: NavGroup[] = [
   { items: [{ to: "/director", label: "Boshqaruv paneli", end: true, icon: LayoutDashboard }] },
@@ -97,6 +98,7 @@ const DIRECTOR_NAV: NavGroup[] = [
     items: [
       { to: "/director/tests", label: "Testlar", icon: FileText },
       { to: "/director/tasks", label: "Vazifa berish", icon: Send },
+      { to: "/director/reports", label: "Hisobotlar", icon: BarChart3 },
       { to: "/director/rankings", label: "XP va reyting", icon: Trophy },
       { to: "/director/achievements", label: "Yutuqlar", icon: Award },
       { to: "/director/question-pools", label: "Savollar ombori", icon: Database },
@@ -129,6 +131,7 @@ const TEACHER_NAV: NavGroup[] = [
       { to: "/teacher/tests", label: "Testlar", icon: FileText },
       { to: "/teacher/activities", label: "Topshiriqlar", icon: ClipboardList },
       { to: "/teacher/tasks", label: "Vazifalarim", icon: Send },
+      { to: "/teacher/reports", label: "Hisobotlar", icon: BarChart3 },
       { to: "/teacher/xp", label: "XP", icon: Trophy },
     ],
   },
@@ -211,6 +214,7 @@ export default function App() {
         <Route path="attendance" element={<AttendancePage />} />
         <Route path="tests" element={<DirectorTestsPage />} />
         <Route path="tasks" element={<DirectorTasksPage />} />
+        <Route path="reports" element={<ReportsPage />} />
         <Route path="rankings" element={<DirectorRankingsPage />} />
         <Route path="question-pools" element={<QuestionPoolsPage />} />
         <Route path="achievements" element={<DirectorAchievementsPage />} />
@@ -235,6 +239,7 @@ export default function App() {
         <Route path="tests" element={<TeacherTestsPage />} />
         <Route path="activities" element={<TeacherActivitiesPage />} />
         <Route path="tasks" element={<TeacherTasksPage />} />
+        <Route path="reports" element={<ReportsPage />} />
         <Route path="xp" element={<TeacherXpPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="profile" element={<TeacherProfilePage />} />

@@ -1,7 +1,9 @@
 from typing import ClassVar
 
 from django.db.models import Q, Sum
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from rest_framework import status
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,6 +16,8 @@ from apps.gamification.models import XPTransaction
 from apps.learning.models import Activity, Test
 from apps.schools.models import SchoolClass
 from apps.users.models import StudentProfile, TeacherProfile
+
+from . import reports
 
 
 def _attendance_counts(queryset) -> dict:
@@ -141,3 +145,41 @@ class StudentDashboardView(APIView):
                 "unread_notifications": request.user.notifications.filter(is_read=False).count(),
             }
         )
+
+
+def _report_period(request) -> int:
+    try:
+        days = int(request.query_params.get("days", reports.DEFAULT_PERIOD))
+    except ValueError:
+        return reports.DEFAULT_PERIOD
+    return days if days in reports.PERIOD_CHOICES else reports.DEFAULT_PERIOD
+
+
+class ClassReportView(APIView):
+    """A class's progress report — per-student test/game averages and trend,
+    attendance, XP, weak subjects and a GOOD/WATCH/RISK status. Teachers see
+    the classes they lead or teach; the director sees every class."""
+
+    permission_classes: ClassVar[list[type[BasePermission]]] = [IsTeacher | IsDirector]
+
+    def get(self, request, pk):
+        school_class = get_object_or_404(reports.classes_visible_to(request.user), pk=pk)
+        return Response(reports.build_class_report(school_class, days=_report_period(request)))
+
+
+class ClassReportAISummaryView(APIView):
+    """An AI-written summary of the same report (students anonymized on the way
+    out). POST because it may spend an AI call; `refresh` skips the cache."""
+
+    permission_classes: ClassVar[list[type[BasePermission]]] = [IsTeacher | IsDirector]
+
+    def post(self, request, pk):
+        school_class = get_object_or_404(reports.classes_visible_to(request.user), pk=pk)
+        report = reports.build_class_report(school_class, days=_report_period(request))
+        summary = reports.ai_class_summary(report, refresh=bool(request.data.get("refresh")))
+        if summary is None:
+            return Response(
+                {"detail": "AI hozircha javob bera olmadi. Birozdan so'ng qayta urinib ko'ring."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response({"summary": summary, "generated_at": timezone.now()})
