@@ -157,7 +157,7 @@ function TopStudentCard({ entry }: { entry: StudentLeaderboardEntry }) {
         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Reyting yetakchisi</h2>
       </div>
       <div className="flex items-center gap-3">
-        <Avatar name={entry.name} size={44} />
+        <Avatar name={entry.name} src={entry.avatar_url} size={44} />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-50">{entry.name}</p>
           <p className="truncate text-xs text-slate-500 dark:text-slate-400">

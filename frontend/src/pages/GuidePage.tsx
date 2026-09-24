@@ -7,14 +7,20 @@ import {
   ClipboardCheck,
   ClipboardList,
   Compass,
+  Database,
   FileText,
   Flame,
+  Gamepad2,
   GraduationCap,
   LayoutDashboard,
   School,
   Send,
   Settings,
+  ShieldAlert,
+  Sparkles,
+  Swords,
   Trophy,
+  UserCircle,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -44,6 +50,40 @@ const STUDENT_SECTIONS: GuideSection[] = [
     ],
   },
   {
+    title: "Mening sinfim",
+    icon: Users,
+    summary: "Sinfdoshlaringiz va sinfingiz haqidagi umumiy ma'lumotlar shu yerda.",
+    points: [
+      "Sinfingizdagi barcha o'quvchilar ro'yxati, ularning hozirgi XP va darajasi ko'rinadi.",
+      "Sinf rahbari (klass jamoaviy boshqaruvchi) va sinfingizning umumiy reytingdagi o'rni ham shu yerda.",
+    ],
+  },
+  {
+    title: "Darslarim",
+    icon: BookOpen,
+    summary: "Haftalik dars jadvalingiz va har bir dars bo'yicha holat shu yerda ko'rinadi.",
+    points: [
+      "Har bir dars uchun fan, o'qituvchi va dars vaqti (boshlanishi va tugashi) ko'rsatilgan.",
+      "Dars tugagach, \"Davomatim\" bo'limida shu dars uchun davomat olinganmi yoki yo'q, alohida ko'rinadi.",
+      "Past natija ko'rsatgan mavzular bo'yicha yordam uchun AI (Obi) xizmatidan foydalanish tavsiya etiladi.",
+    ],
+  },
+  {
+    title: "Davomatim",
+    icon: ClipboardCheck,
+    summary: "Har bir dars uchun davomat holatini kuzatasiz — dars olinmagani ham aniq ko'rinadi.",
+    points: [
+      "\"Bugungi darslar\" bo'limida har dars rangli badge bilan belgilanadi:",
+      "Yashil \"Davomat olingan\" — o'qituvchi davomatni belgilab bo'lgan.",
+      "Qizil \"Davomat olinmagan\" — dars tugagan, lekin o'qituvchi davomatni belgilamagan.",
+      "Sariq \"Davomat kutilmoqda\" — dars hozir davom etmoqda, davomat hali belgilanmagan.",
+      "Kulrang \"Dars boshlanmadi\" — dars hali boshlanmagan.",
+      "O'qituvchi davomatni faqat dars boshlangach belgilay oladi; dars tugashi bilan davomat qulflanadi.",
+      "Dars tugashiga 10 daqiqa qolganda hali davomat belgilanmagan bo'lsa, o'qituvchiga avtomatik eslatma yuboriladi.",
+      "\"Tarix\" qismida sanani tanlab o'tgan darslardagi davomatingizni ko'rishingiz mumkin.",
+    ],
+  },
+  {
     title: "Testlar",
     icon: FileText,
     summary: "O'qituvchi e'lon qilgan testlarni shu yerdan ishlaysiz.",
@@ -51,6 +91,7 @@ const STUDENT_SECTIONS: GuideSection[] = [
       "Faqat \"E'lon qilingan\" testlar ochiq bo'ladi — qoralamalar ko'rinmaydi.",
       "Har bir testni faqat bir marta topshirish mumkin — qayta urinib bo'lmaydi.",
       "Ballingiz avtomatik hisoblanadi: XP = (to'g'ri javoblar %) × testning maksimal XP'si.",
+      "Test ishlash paytida \"Imtihon rejimi\" faollashadi — ekranni skrinshot qilish va nusxalash cheklanadi (pastda \"Imtihon rejimi\" bo'limiga qarang).",
     ],
   },
   {
@@ -60,6 +101,52 @@ const STUDENT_SECTIONS: GuideSection[] = [
     points: [
       "Javobingizni matn yoki fayl (masalan, daftar sahifasi rasmi) sifatida yuklashingiz mumkin.",
       "Topshiriqni o'qituvchi qo'lda baholaydi, natija va izoh keyin ko'rinadi.",
+    ],
+  },
+  {
+    title: "Duellar",
+    icon: Swords,
+    summary: "Sinfdoshingiz bilan bilim bellashuvi — kim tezroq va aniqroq javob bersa, g'olib.",
+    points: [
+      "\"+ Yangi duel\" tugmasi orqali sinfingizdagi biron o'quvchini duelga chaqirasiz.",
+      "Ikkalangizga bir xil 5 ta savol beriladi; savollar e'lon qilingan testlardan tasodifiy tanlanadi.",
+      "G'olibni javoblarning aniqligi va tezligi hal qiladi.",
+      "Har bir duel natijasiga ko'ra duelingiz uchun reyting ballari va daraja (tier) o'zgaradi.",
+      "\"Duel chempionlari\" ro'yxatida eng kuchli o'quvchilar ko'rinadi.",
+      "Duelda javob berish paytida ham \"Imtihon rejimi\" faol bo'ladi.",
+    ],
+  },
+  {
+    title: "O'yinlar",
+    icon: Gamepad2,
+    summary: "Bilimingizni o'yin orqali mustahkamlang — fanni tanlang va o'ynang.",
+    points: [
+      "Avval 1-fanni tanlaysiz, keyin 2-o'ynashni xohlagan o'yin turini.",
+      "Ba'zi o'yinlarda (Tower Defense, Neon Racing) 3-qadamda qiyinlik ham tanlanadi: Oson / O'rta / Qiyin.",
+      "Mavjud o'yinlar: Viktorina, Arqon tortish, Minora qurish, Kodni buzish, Xazina ovi, Jang maydoni, Tower Defense va Neon Racing.",
+      "Har to'g'ri javob o'yin mexanikasini yaxshilaydi (minoraga qavat, xaritada qadam va h.k.), natija foiz bilan baholanadi.",
+      "Past natija ko'rsatsangiz, mavzu bo'yicha AI (Obi) avtomatik yordamni taklif qiladi.",
+      "\"So'nggi o'yinlar\" ro'yxatida o'yin tarixingiz va natijalaringiz ko'rinadi.",
+      "O'yin paytida \"Imtihon rejimi\" faol bo'ladi — skrinshot va nusxalash cheklanadi.",
+    ],
+  },
+  {
+    title: "AI yordamchi (Obi)",
+    icon: Sparkles,
+    summary: "Tushunmagan mavzuyingizni AI sizga o'rgatib beradi.",
+    points: [
+      "Tavsiya etilgan yoki fanni o'rganish uchun boshlangan yordam mashg'ulotida AI avval mavzuni tushuntirib beradi.",
+      "Keyin \"Arqon tortish\" o'yini orqali bilimingiz tekshiriladi — har to'g'ri javob arqonni o'zingizga tortadi.",
+      "Agar natija past bo'lsa, AI mavzuni yana bir bor boshqa usulda tushuntiradi.",
+    ],
+  },
+  {
+    title: "Mening XP",
+    icon: Trophy,
+    summary: "Umumiy tajriba ochkolaringiz va darajangiz shu yerda.",
+    points: [
+      "XP test, topshiriq, o'yin va duellardan to'planadi.",
+      "Hozirgi daraja, keyingi darajagacha progress ham shu yerda ko'rinadi.",
     ],
   },
   {
@@ -83,8 +170,34 @@ const STUDENT_SECTIONS: GuideSection[] = [
   {
     title: "Bildirishnomalar",
     icon: Bell,
-    summary: "Yangi test, baholangan topshiriq va boshqa e'lonlar shu yerda to'planadi.",
-    points: ["Telegram botni ulasangiz, bildirishnomalar telefoningizga ham keladi (Profil bo'limida)."],
+    summary: "Yangi test, baholangan topshiriq, davomat eslatmalari va boshqa e'lonlar shu yerda.",
+    points: [
+      "O'qituvchilarga davomat eslatmalari, test e'lonlari va baholash natijalari haqida bildirishnoma keladi.",
+      "Telegram botni ulasangiz, bildirishnomalar telefoningizga ham keladi (Profil bo'limida).",
+    ],
+  },
+  {
+    title: "Profil",
+    icon: UserCircle,
+    summary: "Hisobingiz va ulanishlar shu yerda boshqariladi.",
+    points: [
+      "Fotosurat (avatar) va shaxsiy ma'lumotlaringizni yangilashingiz mumkin.",
+      "Telegram botni ulab, bildirishnomalarni telefoningizga olishingiz mumkin.",
+      "Parolingizni ham shu yerdan o'zgartirasiz.",
+    ],
+  },
+  {
+    title: "Imtihon rejimi",
+    icon: ShieldAlert,
+    summary: "Test, duel, o'yin va AI yordamchi paytida ishlaydigan skrinshot/nusxalash himoyasi.",
+    points: [
+      "Faqat \"ko'rinadigan\" sahifalarda emas — imtihon/yechish ekranlarida himoya yoqilgan.",
+      "Sahifani chop etish (PDF) va matnni nusxalash (Ctrl+C / o'ng-tugma) taqiqlangan.",
+      "DevTools (F12) ochilganini aniqlashsa, savollar darhol yashiriladi.",
+      "Boshqa oynaga yoki ilovaga o'tsangiz, savol yopiladi va faqat qaytishda ochiladi.",
+      "Ekranga diagonal suv belgisi (ismingiz va vaqt) joylanadi — olingan skrinshot bo'lsa ham, muallifi aniq ko'rinadi.",
+      "Muhim: bu to'liq blok emas, cheklovdir. Telefon yoki kompyuterning sistema darajasidagi skrinshotini brauzer 100% to'xtata olmaydi.",
+    ],
   },
 ];
 
@@ -93,7 +206,10 @@ const TEACHER_SECTIONS: GuideSection[] = [
     title: "Boshqaruv paneli",
     icon: LayoutDashboard,
     summary: "Bugungi darslaringiz va so'nggi o'quvchi natijalari bir joyda.",
-    points: ["Sinflaringiz, testlaringiz, topshiriqlaringiz va o'qilmagan xabarlar soni yuqorida ko'rinadi."],
+    points: [
+      "Sinflaringiz, testlaringiz, topshiriqlaringiz va o'qilmagan xabarlar soni yuqorida ko'rinadi.",
+      "Bugun uchun rejalashtirilgan darslaringiz ro'yxati ham shu yerda.",
+    ],
   },
   {
     title: "Sinflarim",
@@ -108,13 +224,23 @@ const TEACHER_SECTIONS: GuideSection[] = [
     title: "Darslarim",
     icon: BookOpen,
     summary: "Dars jadvalingiz bo'yicha rejalashtirilgan darslar ro'yxati.",
-    points: [],
+    points: [
+      "Har bir dars uchun fan, sinf, vaqt va davomat olinmaganligi holati ko'rinadi.",
+      "Ikkinchi (yordamchi) o'qituvchi tayinlangan darslarda ham siz tizimda ko'rsatilgansiz.",
+    ],
   },
   {
     title: "Davomat",
     icon: ClipboardCheck,
-    summary: "Dars uchun davomatni shu yerdan belgilaysiz.",
-    points: ["Har bir o'quvchiga: keldi, kechikdi, kelmadi yoki sababli belgisini qo'yasiz."],
+    summary: "Dars uchun davomatni shu yerdan belgilaysiz — qat'iy vaqt oynasi bor.",
+    points: [
+      "Davomatni dars boshlanmaganidan 5 daqiqa o'tgach, dars tugagunga qadar belgilash mumkin.",
+      "Dars tugashi bilan davomat qulflanadi — keyin tahrirlash (erkin rejimda) mumkin emas.",
+      "Har bir o'quvchiga: keldi, kechikdi, kelmadi yoki sababli belgisi qo'yiladi.",
+      "Agar dars tugashiga 10 daqiqa qolganda davomat hali belgilanmagan bo'lsa, sizga avtomatik eslatma yuboriladi (sayt + Telegram).",
+      "Eslatma faqat bir marta yuboriladi — davomatni belgilasangiz, o'quvchi va direktor \"davomat olingan\" holatini ko'radi.",
+      "Agar davomatni belgilamasangiz, dars «davomat olinmagan» bo'lib, o'quvchi va direktor qizil badge bilan buni ko'radi.",
+    ],
   },
   {
     title: "Testlar",
@@ -124,6 +250,7 @@ const TEACHER_SECTIONS: GuideSection[] = [
       "Savollarni bittalab qo'shasiz, har birida to'g'ri variantni belgilaysiz.",
       "Diqqat: haftasiga 2 martadan kam o'tiladigan fan uchun testda ko'pi bilan 10 ta savol bo'lishi mumkin.",
       "Tayyor bo'lgach \"E'lon qilish\" tugmasi bilan o'quvchilarga ochasiz.",
+      "Har bir test bo'yicha natijalarni va AI umumlashtiruvchi xulosani ko'rishingiz mumkin.",
     ],
   },
   {
@@ -133,10 +260,31 @@ const TEACHER_SECTIONS: GuideSection[] = [
     points: ["O'quvchi yuborgan javoblarni qo'lda baholaysiz, ball XP'ga avtomatik aylantiriladi."],
   },
   {
+    title: "Hisobotlar",
+    icon: BarChart3,
+    summary: "Sinf bo'yicha o'quvchilar progressi va AI xulosalar.",
+    points: ["Har bir o'quvchining test/topshiriq bo'yicha muvaffaqiyati va AI umumlashtiruv hisobot."],
+  },
+  {
     title: "Vazifalarim",
     icon: Send,
     summary: "Direktor tomonidan sizga yuborilgan ma'muriy vazifalar (yig'ilish, hisobot va h.k.).",
     points: ["Bajargach \"Bajarildi\" tugmasini bosasiz."],
+  },
+  {
+    title: "XP",
+    icon: Trophy,
+    summary: "O'quvchilarga beriladigan va to'plangan XP haqida ma'lumot.",
+    points: ["Test, topshiriq bahosi va o'yinlar orqali XP to'plash tizimini ko'rishingiz mumkin."],
+  },
+  {
+    title: "Bildirishnomalar / Profil",
+    icon: Bell,
+    summary: "Bildirishnomalar va hisob sozlamalari.",
+    points: [
+      "Davomat eslatmalari va yangi vazifalar haqida bu yerdan xabar boradi.",
+      "Profil bo'limida Telegram botni ulab, bildirishnomalarni telefoningizga olishingiz mumkin.",
+    ],
   },
 ];
 
@@ -145,31 +293,73 @@ const DIRECTOR_SECTIONS: GuideSection[] = [
     title: "Boshqaruv paneli",
     icon: LayoutDashboard,
     summary: "Maktab bo'yicha umumiy statistika: o'quvchilar, o'qituvchilar, sinflar, bugungi davomat.",
-    points: [],
+    points: [
+      "Faol o'quvchilar, o'qituvchilar, sinflar va bugungi davomat haqida umumiy raqamlar.",
+      "Eng faol o'quvchi va sinflar reytingi ham shu yerda ko'rinadi.",
+    ],
   },
   {
-    title: "O'quvchilar / O'qituvchilar",
+    title: "O'quvchilar",
+    icon: Users,
+    summary: "O'quvchi hisoblarini yaratish, tahrirlash va boshqarish.",
+    points: [
+      "Yangi o'quvchi yaratilganda email va parol beriladi; xato kelganda (band email) tekshirib olasiz.",
+      "O'quvchini sinfga biriktirish va faollashtirish/o'chirish ham shu yerda.",
+    ],
+  },
+  {
+    title: "O'qituvchilar",
     icon: GraduationCap,
-    summary: "Hisoblarni yaratish, tahrirlash va faollashtirish/o'chirish.",
-    points: [],
+    summary: "O'qituvchi hisoblarini yaratish va boshqarish.",
+    points: ["Yangi o'qituvchi qo'shish, tahrirlash va faollashtirish/o'chirish shu yerda amalga oshiriladi."],
   },
   {
     title: "Sinflar / Fanlar",
     icon: School,
     summary: "Sinflarga rahbar tayinlash, fanlar ro'yxatini boshqarish.",
-    points: [],
+    points: [
+      "Sinflar: yaratish, sinf rahbari tayinlash, ro'yxatdagi o'quvchilarni ko'rish.",
+      "Fanlar: qo'shish/o'chirish; fanning haftalik chastotasi testda savol chegarasini belgilaydi (haftasiga 2 martadan kam — maks. 10 savol).",
+    ],
+  },
+  {
+    title: "Darslar",
+    icon: ClipboardList,
+    summary: "Jadval asosida yaratilgan haqiqiy darslar ro'yxati.",
+    points: [
+      "Darslar dars jadvali shablonidan avtomatik yaratiladi; kerak bo'lsa qo'lda qo'shish ham mumkin.",
+      "Darsga qo'shimcha ikkinchi (yordamchi) o'qituvchi tayinlash mumkin — ikkala o'qituvchi ham tizimda ko'rinadi.",
+    ],
   },
   {
     title: "Dars jadvali",
     icon: CalendarDays,
     summary: "Haftalik jadval shabloni — shundan haqiqiy darslar avtomatik yaratiladi.",
-    points: [],
+    points: [
+      "Sinf, fan va o'qituvchini tanlab, haftalik shablonni tuzasiz.",
+      "\"Yaratish\" tugmasi bilan shu shablonga asosan haqiqiy darslar bir vaqtda yaratiladi.",
+    ],
   },
   {
     title: "Davomat",
     icon: ClipboardCheck,
     summary: "Har qanday sinf va sana bo'yicha davomat holatini ko'rasiz.",
-    points: [],
+    points: [
+      "\"Davomat olinmagan darslar\" bo'limi: dars tugab, davomat olinmagan bo'lsa qizil; dars davom etayotgan bo'lsa sariq badge bilan ko'rinadi.",
+      "Har bir dars o'qituvchisi va fani, vaqti bilan jadvalda chiqadi.",
+      "Direktor sifatida istalgan vaqtda davomatni tuzatish / to'ldirish (backfill) mumkin — o'qituvchilar uchun bu faqat dars vaqtida cheklangan.",
+      "Sana va sinf filtrlari bilan istalgan kun tarixini ko'rishingiz mumkin.",
+    ],
+  },
+  {
+    title: "Testlar",
+    icon: FileText,
+    summary: "Maktabdagi barcha testlar va ularning natijalari.",
+    points: [
+      "Har bir testning natijalarini o'quvchilar bo'yicha ko'rish mumkin.",
+      "\"AI bilan yaratish\": mavzu yozasiz — AI savollarni istalgan o'qituvchi nomidan, fan/sinf va savol sonini tanlab tuzib beradi.",
+      "AI testlari o'qituvchi hisobida ko'rinadi va o'sha o'qituvchi ularni e'lon qilishi mumkin.",
+    ],
   },
   {
     title: "Vazifa berish",
@@ -178,22 +368,49 @@ const DIRECTOR_SECTIONS: GuideSection[] = [
     points: ["Bitta o'qituvchiga yoki bir vaqtda hammasiga yuborish mumkin — kim bajarganini shu yerdan kuzatasiz."],
   },
   {
+    title: "Hisobotlar",
+    icon: BarChart3,
+    summary: "Sinf va o'quvchilar bo'yicha progress hisobotlari.",
+    points: ["Har bir o'quvchi muvaffaqiyati va AI tomonidan tayyorlangan umumlashtiruvchi xulosa ko'rinadi."],
+  },
+  {
     title: "XP va reyting",
     icon: Trophy,
     summary: "Maktab bo'yicha eng faol o'quvchi va sinflarni ko'rasiz.",
-    points: [],
+    points: ["Tanlangan davr va sinf bo'yicha o'sish grafigi ham shu yerda."],
   },
   {
     title: "Yutuqlar",
     icon: Award,
     summary: "O'quvchilar avtomatik qo'lga kiritadigan nishonlarni yaratasiz va sozlaysiz.",
-    points: [],
+    points: ["Yangi yutuq shartini (test, XP, seriya) belgilab qo'shishingiz mumkin."],
+  },
+  {
+    title: "Savollar ombori",
+    icon: Database,
+    summary: "AI tomonidan yaratilgan savollar zaxirasi.",
+    points: ["Testlar va o'yinlar uchun tayyor savollar ombori; kerakli savollarni tanlab ishlatish mumkin."],
+  },
+  {
+    title: "Bildirishnomalar",
+    icon: Bell,
+    summary: "Maktab bo'yicha barcha bildirishnomalarni ko'rasiz.",
+    points: ["Davomat eslatmalari va boshqa tizim xabarlari shu yerda to'planadi."],
+  },
+  {
+    title: "Profil",
+    icon: UserCircle,
+    summary: "Hisobingiz va ulanishlar.",
+    points: ["Profil ma'lumotlari, avatar va Telegram ulanish shu yerda boshqariladi."],
   },
   {
     title: "Sozlamalar",
     icon: Settings,
-    summary: "Maktab vaqti bo'yicha cheklovlar va boshqa umumiy sozlamalar.",
-    points: [],
+    summary: "Maktab vaqti asosidagi cheklovlar va umumiy sozlamalar.",
+    points: [
+      "Dars vaqtida o'quvchilarga platformani qisman/yopiq qiladigan soat cheklovlari shu yerdan boshqariladi.",
+      "Boshqa umumiy maktab sozlamalari ham shu bo'limda.",
+    ],
   },
 ];
 

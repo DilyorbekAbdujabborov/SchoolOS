@@ -376,6 +376,7 @@ export interface XPTransaction {
 export interface StudentLeaderboardEntry {
   rank: number;
   name: string;
+  avatar_url: string | null;
   school_class_name: string | null;
   total_xp: number;
 }

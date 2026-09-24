@@ -116,7 +116,7 @@ class DuelRating(TimeStampedModel):
     classmate duels; the tallies count every finished duel.
     """
 
-    DEFAULT_RATING = 1200
+    DEFAULT_RATING = 1000
 
     student = models.OneToOneField(
         "users.StudentProfile", verbose_name=_("student"), related_name="duel_rating", on_delete=models.CASCADE

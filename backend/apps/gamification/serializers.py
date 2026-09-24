@@ -30,16 +30,26 @@ class XPTransactionSerializer(serializers.ModelSerializer):
 
 class StudentLeaderboardSerializer(serializers.Serializer):
     """Takes `{"rank": int, "student": StudentProfile}` — deliberately exposes
-    only rank/name/class/xp, never email/phone (spec: don't leak private info).
+    only rank/name/avatar/class/xp, never email/phone (spec: don't leak private
+    info).
     """
 
     rank = serializers.IntegerField()
     name = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
     school_class_name = serializers.SerializerMethodField()
     total_xp = serializers.SerializerMethodField()
 
     def get_name(self, obj) -> str:
         return str(obj["student"])
+
+    def get_avatar_url(self, obj) -> str | None:
+        avatar = obj["student"].user.avatar
+        if not avatar:
+            return None
+        request = self.context.get("request")
+        url = avatar.url
+        return request.build_absolute_uri(url) if request else url
 
     def get_school_class_name(self, obj) -> str | None:
         school_class = obj["student"].school_class

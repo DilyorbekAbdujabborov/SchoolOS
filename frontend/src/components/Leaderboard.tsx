@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { api } from "../lib/api";
 import type { ClassLeaderboardEntry, StudentLeaderboardEntry } from "../types";
+import { Avatar } from "./Avatar";
 import { EmptyState, ErrorState, LoadingState } from "./states";
 
 const MEDAL_TONE: Record<number, string> = {
@@ -77,7 +78,12 @@ export function Leaderboard() {
                       <td className="px-4 py-3">
                         <RankBadge rank={entry.rank} />
                       </td>
-                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{entry.name}</td>
+                      <td className="px-4 py-3">
+                        <span className="flex items-center gap-3">
+                          <Avatar name={entry.name} src={entry.avatar_url} size={28} />
+                          <span className="font-medium text-slate-900 dark:text-slate-100">{entry.name}</span>
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{entry.school_class_name ?? "—"}</td>
                       <td className="px-4 py-3 text-right font-semibold text-brand-700 dark:text-brand-300">
                         {entry.total_xp}
