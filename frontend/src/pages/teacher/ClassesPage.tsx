@@ -115,9 +115,8 @@ function HomeroomClassCard({ cls }: { cls: SchoolClass }) {
           {roster && roster.length > 0 && (
             <ul className="space-y-1 text-sm">
               {roster.map((student) => (
-                <li key={student.id} className="flex justify-between text-slate-700 dark:text-slate-200">
-                  <span>{student.full_name}</span>
-                  <span className="text-slate-400 dark:text-slate-500">{student.email}</span>
+                <li key={student.id} className="text-slate-700 dark:text-slate-200">
+                  {student.full_name}
                 </li>
               ))}
             </ul>
@@ -195,9 +194,8 @@ export function TeacherClassesPage() {
                   {roster && roster.length > 0 && (
                     <ul className="space-y-1 text-sm">
                       {roster.map((student) => (
-                        <li key={student.id} className="flex justify-between text-slate-700 dark:text-slate-200">
-                          <span>{student.full_name}</span>
-                          <span className="text-slate-400 dark:text-slate-500">{student.email}</span>
+                        <li key={student.id} className="text-slate-700 dark:text-slate-200">
+                          {student.full_name}
                         </li>
                       ))}
                     </ul>

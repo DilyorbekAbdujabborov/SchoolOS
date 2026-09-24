@@ -346,10 +346,10 @@ function StudentTable({ rows }: { rows: StudentReportRow[] }) {
           <Th>O'quvchi</Th>
           <Th>Holat</Th>
           <Th>Test</Th>
-          <Th>O'yinlar</Th>
+          <Th className="hidden md:table-cell">O'yinlar</Th>
           <Th>Davomat</Th>
           <Th>XP</Th>
-          <Th>Zaif fanlar</Th>
+          <Th className="hidden md:table-cell">Zaif fanlar</Th>
         </Tr>
       </Thead>
       <Tbody>
@@ -364,7 +364,7 @@ function StudentTable({ rows }: { rows: StudentReportRow[] }) {
               <Trend value={row.test_trend} />
               <span className="block text-xs text-slate-400">{row.tests_taken} ta</span>
             </Td>
-            <Td className="whitespace-nowrap">
+            <Td className="hidden whitespace-nowrap md:table-cell">
               {pct(row.game_avg)}
               <span className="block text-xs text-slate-400">{row.games_played} ta</span>
             </Td>
@@ -377,7 +377,7 @@ function StudentTable({ rows }: { rows: StudentReportRow[] }) {
               )}
             </Td>
             <Td className="whitespace-nowrap text-amber-600 dark:text-amber-400">+{row.xp_gained}</Td>
-            <Td>
+            <Td className="hidden md:table-cell">
               {row.weak_subjects.length === 0 ? (
                 <span className="text-slate-400">—</span>
               ) : (

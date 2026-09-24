@@ -125,7 +125,7 @@ export function TimetablePage() {
         title="Dars jadvali"
         subtitle="Haftalik shablonni tuzing, keyin belgilangan haftaga real darslarni yarating."
         action={
-          <div className="flex items-end gap-2">
+          <div className="flex flex-wrap items-end gap-2">
             <Field label="Hafta boshlanishi (Dushanba)">
               <Input type="date" value={weekStart} onChange={(e) => setWeekStart(e.target.value)} />
             </Field>

@@ -45,7 +45,8 @@ class LessonSerializer(serializers.ModelSerializer):
 class TimetableSlotSerializer(serializers.ModelSerializer):
     subject_name = serializers.CharField(source="subject.name", read_only=True)
     school_class_name = serializers.CharField(source="school_class.name", read_only=True)
-    teacher_name = serializers.SerializerMethodField()
+    teacher_name = serializers.CharField(source="teacher_label", read_only=True)
+    secondary_teacher_name = serializers.CharField(source="secondary_teacher", read_only=True)
     day_of_week_display = serializers.CharField(source="get_day_of_week_display", read_only=True)
 
     class Meta:
@@ -58,6 +59,8 @@ class TimetableSlotSerializer(serializers.ModelSerializer):
             "subject_name",
             "teacher",
             "teacher_name",
+            "secondary_teacher",
+            "secondary_teacher_name",
             "day_of_week",
             "day_of_week_display",
             "period_number",

@@ -77,7 +77,6 @@ export function TeachersPage() {
           <Thead>
             <Tr>
               <Th>Ism</Th>
-              <Th>Email</Th>
               <Th>Telefon</Th>
               <Th>Holat</Th>
               <Th />
@@ -89,7 +88,6 @@ export function TeachersPage() {
                 <Td className="font-medium text-slate-900 dark:text-slate-50">
                   {teacher.first_name} {teacher.last_name}
                 </Td>
-                <Td className="text-slate-600 dark:text-slate-300">{teacher.email}</Td>
                 <Td className="text-slate-600 dark:text-slate-300">{teacher.phone_number || "—"}</Td>
                 <Td>
                   <Badge tone={teacher.is_active ? "emerald" : "slate"}>

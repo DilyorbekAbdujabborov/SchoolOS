@@ -158,9 +158,11 @@ function AttendanceForm({ lesson, onDone }: { lesson: Lesson; onDone: () => void
     <div className="space-y-3">
       <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
         {roster.map((student) => (
-          <div key={student.id} className="flex items-center justify-between gap-3 px-4 py-3">
-            <span className="text-sm font-medium text-slate-800 dark:text-slate-100">{student.full_name}</span>
-            <div className="flex gap-1">
+          <div key={student.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+              {student.full_name}
+            </span>
+            <div className="flex flex-wrap gap-1">
               {STATUS_OPTIONS.map((option) => (
                 <button
                   key={option.value}

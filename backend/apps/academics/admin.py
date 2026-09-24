@@ -20,9 +20,9 @@ class LessonAdmin(admin.ModelAdmin):
 
 @admin.register(TimetableSlot)
 class TimetableSlotAdmin(admin.ModelAdmin):
-    list_display = ("school_class", "day_of_week", "period_number", "subject", "teacher", "room")
+    list_display = ("school_class", "day_of_week", "period_number", "subject", "teacher", "secondary_teacher", "room")
     list_filter = ("day_of_week", "school_class", "subject")
-    autocomplete_fields = ("subject", "school_class", "teacher")
+    autocomplete_fields = ("subject", "school_class", "teacher", "secondary_teacher")
 
 
 @admin.register(LessonReminder)

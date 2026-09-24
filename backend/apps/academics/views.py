@@ -62,13 +62,16 @@ class TimetableSlotViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = TimetableSlot.objects.select_related("subject", "school_class", "teacher__user")
+        queryset = TimetableSlot.objects.select_related(
+            "subject", "school_class", "teacher__user", "secondary_teacher__user"
+        )
 
         if user.is_director:
             return queryset
         if user.is_teacher:
             return queryset.filter(
                 Q(teacher=user.teacher_profile)
+                | Q(secondary_teacher=user.teacher_profile)
                 | Q(school_class__class_teacher=user.teacher_profile)
             ).distinct()
         if user.is_student:

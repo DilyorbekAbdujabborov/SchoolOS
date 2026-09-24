@@ -47,3 +47,26 @@ class Attendance(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.student} — {self.lesson} — {self.status}"
+
+
+class AttendanceReminder(TimeStampedModel):
+    """Send-once guard for the "attendance was never taken" reminder a lesson's
+    teacher gets ~10 minutes before the lesson ends. Celery Beat re-runs the
+    scan every couple of minutes, so a lesson's reminder window can fall inside
+    more than one run — this row is what stops the same lesson being pinged twice.
+    """
+
+    lesson = models.OneToOneField(
+        "academics.Lesson",
+        verbose_name=_("lesson"),
+        related_name="attendance_reminder",
+        on_delete=models.CASCADE,
+    )
+    sent_at = models.DateTimeField(_("sent at"), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("unmarked attendance reminder")
+        verbose_name_plural = _("unmarked attendance reminders")
+
+    def __str__(self) -> str:
+        return f"Attendance reminder sent for {self.lesson}"

@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { Clock3, User } from "lucide-react";
+import { useEffect, useState } from "react";
 
+import { Badge } from "../../components/Badge";
 import { Field, Input } from "../../components/form";
 import { PageHeader } from "../../components/PageHeader";
 import { StatCard } from "../../components/StatCard";
@@ -8,7 +10,13 @@ import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
 import { api } from "../../lib/api";
 import { SCHOOL_WEEKDAYS } from "../../lib/schoolTime";
-import type { AttendanceRecord, AttendanceStatus, Paginated, StudentDashboard } from "../../types";
+import type {
+  AttendanceRecord,
+  AttendanceStatus,
+  LessonAttendanceStatus,
+  Paginated,
+  StudentDashboard,
+} from "../../types";
 
 /** Walks `?page=` until every page is collected — a plain `.get()` only
  * returns the first `PAGE_SIZE` (20) records, which can silently drop the
@@ -89,10 +97,86 @@ function WeeklyStrip() {
             const tone = worst ? DAY_TONE[worst] : DAY_TONE.NONE;
             return (
               <div key={day.value} className="flex flex-col items-center gap-1.5">
-                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{day.short}</span>
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  {day.short}
+                </span>
                 <span className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${tone}`}>
                   {date.getDate()}
                 </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A lesson's attendance state as a student should read it: marked, waiting,
+ * too early, or never taken — the last one is what a silent lesson used to be. */
+type LessonTone = "taken" | "upcoming" | "waiting" | "missed";
+
+function lessonStatus(lesson: LessonAttendanceStatus, now: number): { label: string; tone: LessonTone } {
+  if (lesson.attendance_marked) return { label: "Davomat olingan", tone: "taken" };
+  const start = new Date(`${lesson.date}T${lesson.start_time}`).getTime();
+  const end = new Date(`${lesson.date}T${lesson.end_time}`).getTime();
+  if (now < start) return { label: "Dars boshlanmadi", tone: "upcoming" };
+  if (now < end) return { label: "Davomat kutilmoqda", tone: "waiting" };
+  return { label: "Davomat olinmagan", tone: "missed" };
+}
+
+const TONE_BADGE: Record<LessonTone, "emerald" | "slate" | "amber" | "red"> = {
+  taken: "emerald",
+  upcoming: "slate",
+  waiting: "amber",
+  missed: "red",
+};
+
+/** Re-renders every 30 seconds so today's lesson statuses stay truthful. */
+function useNow() {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+function TodayLessonsSection() {
+  const now = useNow();
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["attendance", "lesson-status"],
+    queryFn: async () => (await api.get<LessonAttendanceStatus[]>("/attendance/lesson-summary/")).data,
+  });
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <p className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">Bugungi darslar</p>
+      {isLoading && <LoadingState label="Yuklanmoqda..." />}
+      {isError && <ErrorState message="Bugungi darslar yuklanmadi." />}
+      {data && data.length === 0 && <EmptyState title="Bugun darsingiz yo'q" />}
+      {data && data.length > 0 && (
+        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          {data.map((lesson) => {
+            const status = lessonStatus(lesson, now);
+            return (
+              <div key={lesson.id} className="flex flex-wrap items-center gap-2 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-slate-900 dark:text-slate-50">
+                    {lesson.subject_name}
+                  </p>
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
+                    <span className="inline-flex items-center gap-1">
+                      <Clock3 className="h-3.5 w-3.5" />
+                      {lesson.start_time.slice(0, 5)}–{lesson.end_time.slice(0, 5)}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <User className="h-3.5 w-3.5" />
+                      {lesson.teacher_name}
+                    </span>
+                  </p>
+                </div>
+                <Badge tone={TONE_BADGE[status.tone]}>{status.label}</Badge>
               </div>
             );
           })}
@@ -120,6 +204,27 @@ export function StudentAttendancePage() {
       ).data,
   });
 
+  const lessonsQuery = useQuery({
+    queryKey: ["attendance", "lesson-status", date],
+    enabled: Boolean(date),
+    queryFn: async () =>
+      (
+        await api.get<LessonAttendanceStatus[]>("/attendance/lesson-summary/", {
+          params: { date },
+        })
+      ).data,
+  });
+
+  // A picked day is shown lesson-by-lesson, so a lesson whose attendance was
+  // never taken appears as its own "davomat olinmagan" row instead of vanishing.
+  const mergedRows =
+    date && historyQuery.data && lessonsQuery.data
+      ? lessonsQuery.data.map((lesson) => ({
+          lesson,
+          status: historyQuery.data!.results.find((r) => r.lesson === lesson.id)?.status ?? null,
+        }))
+      : null;
+
   return (
     <div className="space-y-6">
       <PageHeader title="Mening davomatim" />
@@ -134,6 +239,8 @@ export function StudentAttendancePage() {
         </div>
       )}
 
+      <TodayLessonsSection />
+
       <WeeklyStrip />
 
       <Field label="Sana">
@@ -145,13 +252,13 @@ export function StudentAttendancePage() {
         />
       </Field>
 
-      {historyQuery.isLoading && <LoadingState />}
-      {historyQuery.isError && <ErrorState />}
-      {historyQuery.data && historyQuery.data.results.length === 0 && (
+      {!date && historyQuery.isLoading && <LoadingState />}
+      {!date && historyQuery.isError && <ErrorState />}
+      {!date && historyQuery.data && historyQuery.data.results.length === 0 && (
         <EmptyState title="Bu filtrga mos davomat yozuvi yo'q" />
       )}
 
-      {historyQuery.data && historyQuery.data.results.length > 0 && (
+      {!date && historyQuery.data && historyQuery.data.results.length > 0 && (
         <Table>
           <Thead>
             <Tr>
@@ -173,6 +280,43 @@ export function StudentAttendancePage() {
           </Tbody>
         </Table>
       )}
+
+      {date && (historyQuery.isLoading || lessonsQuery.isLoading) && <LoadingState />}
+      {date && (historyQuery.isError || lessonsQuery.isError) && <ErrorState />}
+      {date && mergedRows !== null && mergedRows.length === 0 && (
+        <EmptyState title="Bu kunda dars bo'lmagan" />
+      )}
+      {date && mergedRows !== null && mergedRows.length > 0 && (
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Fan</Th>
+                  <Th>Vaqti</Th>
+                  <Th>Holat</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {mergedRows.map(({ lesson, status }) => (
+                  <Tr key={lesson.id}>
+                    <Td className="text-slate-700 dark:text-slate-200">{lesson.subject_name}</Td>
+                    <Td className="text-slate-500 dark:text-slate-400">
+                      {lesson.start_time.slice(0, 5)}–{lesson.end_time.slice(0, 5)}
+                    </Td>
+                    <Td>
+                      {status ? (
+                        <Badge tone="slate">{STATUS_LABEL[status] ?? status}</Badge>
+                      ) : (
+                        (() => {
+                          const lessonBadge = lessonStatus(lesson, Date.now());
+                          return <Badge tone={TONE_BADGE[lessonBadge.tone]}>{lessonBadge.label}</Badge>;
+                        })()
+                      )}
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          )}
     </div>
   );
 }

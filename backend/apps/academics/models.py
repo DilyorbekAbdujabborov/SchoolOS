@@ -100,6 +100,14 @@ class TimetableSlot(TimeStampedModel):
         related_name="timetable_slots",
         on_delete=models.PROTECT,
     )
+    secondary_teacher = models.ForeignKey(
+        "users.TeacherProfile",
+        verbose_name=_("secondary teacher"),
+        related_name="secondary_timetable_slots",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+    )
     day_of_week = models.PositiveSmallIntegerField(_("day of week"), choices=DayOfWeek.choices)
     period_number = models.PositiveSmallIntegerField(_("period number"))
     room = models.CharField(_("room"), max_length=50, blank=True)
@@ -121,6 +129,11 @@ class TimetableSlot(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.school_class} — {self.get_day_of_week_display()} #{self.period_number}: {self.subject}"
+
+    def teacher_label(self) -> str:
+        if self.secondary_teacher_id:
+            return f"{self.teacher} / {self.secondary_teacher}"
+        return str(self.teacher)
 
 
 class LessonReminder(TimeStampedModel):

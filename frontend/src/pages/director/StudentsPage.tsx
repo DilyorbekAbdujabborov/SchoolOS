@@ -89,7 +89,6 @@ export function StudentsPage() {
           <Thead>
             <Tr>
               <Th>Ism</Th>
-              <Th>Email</Th>
               <Th>Sinf</Th>
               <Th>Holat</Th>
               <Th />
@@ -101,7 +100,6 @@ export function StudentsPage() {
                 <Td className="font-medium text-slate-900 dark:text-slate-50">
                   {student.first_name} {student.last_name}
                 </Td>
-                <Td className="text-slate-600 dark:text-slate-300">{student.email}</Td>
                 <Td className="text-slate-600 dark:text-slate-300">
                   {student.school_class_name ?? "—"}
                 </Td>

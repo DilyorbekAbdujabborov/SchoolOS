@@ -11,6 +11,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
+from apps.academics.models import Lesson
 from apps.common.permissions import IsDirector
 from apps.schools.models import SchoolClass
 from apps.schools.serializers import StudentRosterSerializer
@@ -111,13 +112,17 @@ class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
         counts = services.count_by_status(day_records)
 
         def _students_with_status(status: str):
-            student_ids = day_records.filter(status=status).values_list("student_id", flat=True).distinct()
+            student_ids = (
+                day_records.filter(status=status).values_list("student_id", flat=True).distinct()
+            )
             return StudentProfile.objects.filter(id__in=student_ids).select_related("user")
 
         # Only staff (teacher/director) see a parent's phone number here — a
         # student viewing their own class's summary must not see classmates'.
         is_staff_viewer = request.user.is_director or request.user.is_teacher
-        roster_serializer = AttendanceRosterSerializer if is_staff_viewer else StudentRosterSerializer
+        roster_serializer = (
+            AttendanceRosterSerializer if is_staff_viewer else StudentRosterSerializer
+        )
 
         return Response(
             {
@@ -136,6 +141,76 @@ class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
                     _students_with_status(Attendance.Status.LATE), many=True
                 ).data,
             }
+        )
+
+    @action(detail=False, methods=["get"], url_path="lesson-summary")
+    def lesson_summary(self, request):
+        """Per-lesson attendance state for a date — lets the student's and the
+        director's pages show a lesson as "davomat olinmagan" the moment its
+        attendance was never taken, instead of the lesson silently vanishing.
+        Scoped like the rest of the app: director sees every lesson, a teacher
+        their own/led class's, a student their own class's.
+        """
+        date_param = request.query_params.get("date")
+        target_date = parse_date(date_param) if date_param else timezone.localdate()
+        if target_date is None:
+            raise ValidationError({"date": "Use YYYY-MM-DD format."})
+
+        school_class_param = request.query_params.get("school_class")
+        if school_class_param:
+            try:
+                school_class_id = int(school_class_param)
+            except ValueError as exc:
+                raise ValidationError({"school_class": "Invalid class id."}) from exc
+        else:
+            school_class_id = None
+
+        user = request.user
+        queryset = (
+            Lesson.objects.filter(date=target_date)
+            .select_related("subject", "school_class", "teacher__user")
+            .annotate(
+                students_count=Count("school_class__students"),
+                marked_count=Count("attendance_records"),
+            )
+            .order_by("start_time")
+        )
+
+        if user.is_director:
+            pass
+        elif user.is_teacher:
+            profile = user.teacher_profile
+            queryset = queryset.filter(
+                Q(teacher=profile) | Q(school_class__class_teacher=profile)
+            ).distinct()
+        elif user.is_student:
+            profile = getattr(user, "student_profile", None)
+            if profile and profile.school_class_id:
+                queryset = queryset.filter(school_class_id=profile.school_class_id)
+            else:
+                queryset = queryset.none()
+        else:
+            queryset = queryset.none()
+
+        if school_class_id is not None:
+            queryset = queryset.filter(school_class_id=school_class_id)
+
+        return Response(
+            [
+                {
+                    "id": lesson.id,
+                    "subject_name": lesson.subject.name,
+                    "school_class_name": lesson.school_class.name,
+                    "teacher_name": str(lesson.teacher),
+                    "date": lesson.date,
+                    "start_time": lesson.start_time,
+                    "end_time": lesson.end_time,
+                    "students_count": lesson.students_count,
+                    "marked_count": lesson.marked_count,
+                    "attendance_marked": lesson.marked_count > 0,
+                }
+                for lesson in queryset
+            ]
         )
 
     @action(detail=False, methods=["get"], url_path="daily-summary")
@@ -168,7 +243,9 @@ class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
         rows = queryset.values("lesson__date", "status").annotate(count=Count("id"))
         by_date: dict = {}
         for row in rows:
-            day_counts = by_date.setdefault(row["lesson__date"], dict.fromkeys(Attendance.Status.values, 0))
+            day_counts = by_date.setdefault(
+                row["lesson__date"], dict.fromkeys(Attendance.Status.values, 0)
+            )
             day_counts[row["status"]] = row["count"]
 
         empty_day = dict.fromkeys(Attendance.Status.values, 0)

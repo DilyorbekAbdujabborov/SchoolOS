@@ -48,9 +48,8 @@ export function StudentClassPage() {
             {roster && roster.length > 0 && (
               <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
                 {roster.map((student) => (
-                  <li key={student.id} className="flex justify-between px-4 py-3 text-sm">
+                  <li key={student.id} className="px-4 py-3 text-sm">
                     <span className="text-slate-800 dark:text-slate-100">{student.full_name}</span>
-                    <span className="text-slate-400 dark:text-slate-500">{student.email}</span>
                   </li>
                 ))}
               </ul>

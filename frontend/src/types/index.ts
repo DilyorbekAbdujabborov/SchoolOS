@@ -127,6 +127,8 @@ export interface TimetableSlot {
   subject_name: string;
   teacher: number;
   teacher_name: string;
+  secondary_teacher: number | null;
+  secondary_teacher_name: string | null;
   day_of_week: number;
   day_of_week_display: string;
   period_number: number;
@@ -178,6 +180,22 @@ export interface AttendanceRecord {
   marked_by_name: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** One day's lessons with their attendance state, from `/attendance/lesson-summary/`.
+ * Lets students and the director recognize a lesson whose attendance was never
+ * taken ("davomat olinmagan") instead of the lesson silently disappearing. */
+export interface LessonAttendanceStatus {
+  id: number;
+  subject_name: string;
+  school_class_name: string;
+  teacher_name: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  students_count: number;
+  marked_count: number;
+  attendance_marked: boolean;
 }
 
 export interface RosterStudent {

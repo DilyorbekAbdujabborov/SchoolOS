@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Phone, X } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { AlertTriangle, BarChart3, CheckCircle2, Phone, X } from "lucide-react";
+import { lazy, Suspense, useEffect, useState } from "react";
 
 import { Badge } from "../../components/Badge";
 import { Field, Input, Select } from "../../components/form";
@@ -18,6 +18,7 @@ import type {
   AttendanceStatus,
   ClassAttendanceSummary,
   DirectorDashboard,
+  LessonAttendanceStatus,
   Paginated,
   SchoolClass,
 } from "../../types";
@@ -48,6 +49,25 @@ const STATUS_TONE: Record<AttendanceStatus, "emerald" | "amber" | "red" | "slate
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
+}
+
+/** Re-renders every 30 seconds so "davomat olinmagan" flips off the moment a
+ * lesson is marked, without a manual refresh. */
+function useNow() {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+function unmarkedLessonStatus(lesson: LessonAttendanceStatus, now: number) {
+  const end = new Date(`${lesson.date}T${lesson.end_time}`).getTime();
+  const start = new Date(`${lesson.date}T${lesson.start_time}`).getTime();
+  if (now < start) return null; // hasn't happened yet — nothing missing
+  if (now < end) return { label: "Kutilmoqda", tone: "amber" as const };
+  return { label: "Davomat olinmagan", tone: "red" as const };
 }
 
 type RosterFilter = "LATE" | "ABSENT" | null;
@@ -85,6 +105,7 @@ export function AttendancePage() {
   const [rosterFilter, setRosterFilter] = useState<RosterFilter>(null);
   const [dayRange, setDayRange] = useState(14);
   const [gradeFilter, setGradeFilter] = useState<number | "all">("all");
+  const now = useNow();
 
   const { data: classes } = useQuery({
     queryKey: ["classes"],
@@ -128,6 +149,22 @@ export function AttendancePage() {
         })
       ).data,
   });
+
+  const unmarkedQuery = useQuery({
+    queryKey: ["attendance", "lesson-status", selectedClass, date],
+    queryFn: async () =>
+      (
+        await api.get<LessonAttendanceStatus[]>("/attendance/lesson-summary/", {
+          params: { date: date || undefined, school_class: selectedClass || undefined },
+        })
+      ).data,
+  });
+
+  // Lessons that already happened (or are running) but never got attendance.
+  const unmarkedRows =
+    (unmarkedQuery.data ?? [])
+      .map((lesson) => ({ lesson, status: unmarkedLessonStatus(lesson, now) }))
+      .filter((row): row is { lesson: LessonAttendanceStatus; status: { label: string; tone: "amber" | "red" } } => row.status !== null);
 
   return (
     <div className="space-y-6">
@@ -248,6 +285,55 @@ export function AttendancePage() {
           )}
         </>
       )}
+
+      <div>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <AlertTriangle size={16} className="text-red-500" />
+            Davomat olinmagan darslar
+          </h2>
+          {unmarkedQuery.data && (
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              {unmarkedRows.length} ta dars
+            </span>
+          )}
+        </div>
+        {unmarkedQuery.isLoading && <LoadingState />}
+        {unmarkedQuery.isError && <ErrorState />}
+        {unmarkedQuery.data && (
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Vaqti</Th>
+                <Th>Sinf</Th>
+                <Th>Fan</Th>
+                <Th>O'qituvchi</Th>
+                <Th>Holat</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {unmarkedRows.map(({ lesson, status }) => (
+                  <Tr key={lesson.id}>
+                    <Td className="text-slate-500 dark:text-slate-400">
+                      {lesson.start_time.slice(0, 5)}–{lesson.end_time.slice(0, 5)}
+                    </Td>
+                    <Td className="text-slate-700 dark:text-slate-200">{lesson.school_class_name}</Td>
+                    <Td className="text-slate-700 dark:text-slate-200">{lesson.subject_name}</Td>
+                    <Td className="text-slate-700 dark:text-slate-200">{lesson.teacher_name}</Td>
+                    <Td>
+                      <Badge tone={status.tone}>{status.label}</Badge>
+                    </Td>
+                  </Tr>
+                ))}
+            </Tbody>
+          </Table>
+        )}
+        {unmarkedQuery.data && unmarkedRows.length === 0 && (
+          <p className="flex items-center gap-1.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+            <CheckCircle2 className="h-4 w-4" /> Tanlangan kun uchun barcha darslarning davomati olingan.
+          </p>
+        )}
+      </div>
 
       <div>
         <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">Tarix</h2>

@@ -16,8 +16,9 @@ from apps.common.testing import (
 )
 from apps.notifications.models import Notification
 
-from .models import Attendance
+from .models import Attendance, AttendanceReminder
 from .services import can_mark_attendance, is_attendance_window_open, mark_lesson_attendance
+from .tasks import remind_unmarked_attendance
 
 
 class AttendanceUniqueConstraintTests(TestCase):
@@ -247,27 +248,35 @@ class BulkMarkAttendanceWindowAPITests(APITestCase):
     def test_teacher_blocked_within_grace_period(self):
         lesson = self._lesson(minutes_ago=2)
         self.client.force_authenticate(self.teacher_user)
-        response = self.client.post("/api/attendance/bulk-mark/", self._payload(lesson), format="json")
+        response = self.client.post(
+            "/api/attendance/bulk-mark/", self._payload(lesson), format="json"
+        )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Attendance.objects.filter(lesson=lesson).count(), 0)
 
     def test_teacher_blocked_after_lesson_ends(self):
         lesson = self._lesson(minutes_ago=60)
         self.client.force_authenticate(self.teacher_user)
-        response = self.client.post("/api/attendance/bulk-mark/", self._payload(lesson), format="json")
+        response = self.client.post(
+            "/api/attendance/bulk-mark/", self._payload(lesson), format="json"
+        )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Attendance.objects.filter(lesson=lesson).count(), 0)
 
     def test_teacher_allowed_after_grace_period(self):
         lesson = self._lesson(minutes_ago=11)
         self.client.force_authenticate(self.teacher_user)
-        response = self.client.post("/api/attendance/bulk-mark/", self._payload(lesson), format="json")
+        response = self.client.post(
+            "/api/attendance/bulk-mark/", self._payload(lesson), format="json"
+        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_director_bypasses_grace_period(self):
         lesson = self._lesson(minutes_ago=0)
         self.client.force_authenticate(self.director)
-        response = self.client.post("/api/attendance/bulk-mark/", self._payload(lesson), format="json")
+        response = self.client.post(
+            "/api/attendance/bulk-mark/", self._payload(lesson), format="json"
+        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
@@ -332,7 +341,9 @@ class ClassSummaryAPITests(APITestCase):
         self.client.force_authenticate(self.teacher_user)
         response = self._get()
 
-        self.assertEqual(response.data["absent_students"][0]["parent_phone_number"], "+998901234567")
+        self.assertEqual(
+            response.data["absent_students"][0]["parent_phone_number"], "+998901234567"
+        )
 
     def test_director_sees_parent_phone_number_in_roster(self):
         self.student_b.parent_phone_number = "+998901234567"
@@ -341,7 +352,9 @@ class ClassSummaryAPITests(APITestCase):
         self.client.force_authenticate(make_director())
         response = self._get()
 
-        self.assertEqual(response.data["absent_students"][0]["parent_phone_number"], "+998901234567")
+        self.assertEqual(
+            response.data["absent_students"][0]["parent_phone_number"], "+998901234567"
+        )
 
     def test_student_does_not_see_parent_phone_number_in_roster(self):
         self.student_b.parent_phone_number = "+998901234567"
@@ -380,8 +393,12 @@ class AttendanceDailySummaryAPITests(APITestCase):
     def test_counts_are_grouped_by_day_across_the_whole_school(self):
         lesson_today = self._lesson(self.class_6a, self.today)
         lesson_yesterday = self._lesson(self.class_9b, self.yesterday)
-        Attendance.objects.create(lesson=lesson_today, student=self.student_6a, status=Attendance.Status.PRESENT)
-        Attendance.objects.create(lesson=lesson_yesterday, student=self.student_9b, status=Attendance.Status.ABSENT)
+        Attendance.objects.create(
+            lesson=lesson_today, student=self.student_6a, status=Attendance.Status.PRESENT
+        )
+        Attendance.objects.create(
+            lesson=lesson_yesterday, student=self.student_9b, status=Attendance.Status.ABSENT
+        )
 
         self.client.force_authenticate(self.director)
         response = self.client.get("/api/attendance/daily-summary/", {"days": 7})
@@ -397,8 +414,12 @@ class AttendanceDailySummaryAPITests(APITestCase):
     def test_grade_filter_only_counts_matching_classes(self):
         lesson_6a = self._lesson(self.class_6a, self.today, start_time=time(9, 0))
         lesson_9b = self._lesson(self.class_9b, self.today, start_time=time(10, 0))
-        Attendance.objects.create(lesson=lesson_6a, student=self.student_6a, status=Attendance.Status.PRESENT)
-        Attendance.objects.create(lesson=lesson_9b, student=self.student_9b, status=Attendance.Status.PRESENT)
+        Attendance.objects.create(
+            lesson=lesson_6a, student=self.student_6a, status=Attendance.Status.PRESENT
+        )
+        Attendance.objects.create(
+            lesson=lesson_9b, student=self.student_9b, status=Attendance.Status.PRESENT
+        )
 
         self.client.force_authenticate(self.director)
         response = self.client.get("/api/attendance/daily-summary/", {"days": 1, "grade": "6"})
@@ -414,3 +435,150 @@ class AttendanceDailySummaryAPITests(APITestCase):
         self.client.force_authenticate(self.director)
         response = self.client.get("/api/attendance/daily-summary/", {"days": 9999})
         self.assertEqual(len(response.data), 60)
+
+
+class AttendanceReminderTaskTests(TestCase):
+    """The lesson's teacher gets one nudge ~10 minutes before the lesson ends
+    when its attendance was never taken — and only once per lesson."""
+
+    def setUp(self):
+        self.subject = make_subject()
+        self.teacher_user, self.teacher = make_teacher()
+        self.school_class = make_school_class()
+        self.student_user, self.student = make_student(self.school_class)
+
+    def _lesson_ending_at(self, minutes_from_now: int):
+        end = timezone.localtime() + timedelta(minutes=minutes_from_now)
+        start = end - timedelta(minutes=45)
+        return make_lesson(
+            school_class=self.school_class,
+            subject=self.subject,
+            teacher=self.teacher,
+            lesson_date=end.date(),
+            start_time=start.time(),
+            end_time=end.time(),
+        )
+
+    def test_lesson_about_to_end_unmarked_notifies_teacher_once(self):
+        # Ends ~11 minutes from now — safely inside the [10, 15) minute window
+        # even if the task's `now` ticks a couple of seconds past the test's.
+        lesson = self._lesson_ending_at(11)
+
+        self.assertEqual(remind_unmarked_attendance(), 1)
+        self.assertEqual(AttendanceReminder.objects.filter(lesson=lesson).count(), 1)
+        notifications = Notification.objects.filter(recipient=self.teacher_user)
+        self.assertEqual(notifications.count(), 1)
+        self.assertEqual(notifications.get().category, Notification.Category.ATTENDANCE)
+
+        now_count = Notification.objects.count()
+        self.assertEqual(remind_unmarked_attendance(), 0)
+        self.assertEqual(Notification.objects.count(), now_count)
+
+    def test_lesson_with_attendance_taken_gets_no_reminder(self):
+        lesson = self._lesson_ending_at(11)
+        Attendance.objects.create(
+            lesson=lesson, student=self.student, status=Attendance.Status.PRESENT
+        )
+
+        self.assertEqual(remind_unmarked_attendance(), 0)
+        self.assertEqual(Notification.objects.count(), 0)
+
+    def test_lesson_outside_reminder_window_gets_no_reminder(self):
+        # Already ended half an hour ago.
+        self._lesson_ending_at(-30)
+        # Still an hour away — the reminder only fires in the last 10 minutes.
+        self._lesson_ending_at(60)
+
+        self.assertEqual(remind_unmarked_attendance(), 0)
+        self.assertEqual(Notification.objects.count(), 0)
+
+    def test_lesson_without_students_gets_no_reminder(self):
+        other_class = make_school_class()
+        end = timezone.localtime() + timedelta(minutes=11)
+        start = end - timedelta(minutes=45)
+        make_lesson(
+            school_class=other_class,
+            subject=self.subject,
+            teacher=self.teacher,
+            lesson_date=end.date(),
+            start_time=start.time(),
+            end_time=end.time(),
+        )
+
+        self.assertEqual(remind_unmarked_attendance(), 0)
+        self.assertEqual(Notification.objects.count(), 0)
+
+
+class LessonSummaryAPITests(APITestCase):
+    def setUp(self):
+        self.director = make_director()
+        self.teacher_user, self.teacher = make_teacher()
+        self.teacher_user_b, _ = make_teacher()
+        self.class_6a = make_school_class(name="6-A", class_teacher=self.teacher)
+        self.class_9d = make_school_class(name="9-D")
+        self.subject = make_subject()
+        self.student_user, self.student = make_student(self.class_6a)
+        self.today = timezone.localdate()
+
+        self.lesson_6a = make_lesson(
+            school_class=self.class_6a,
+            subject=self.subject,
+            teacher=self.teacher,
+            lesson_date=self.today,
+            start_time=time(9, 0),
+            end_time=time(9, 45),
+        )
+        self.lesson_9d = make_lesson(
+            school_class=self.class_9d,
+            subject=self.subject,
+            teacher=self.teacher,
+            lesson_date=self.today,
+            start_time=time(10, 0),
+            end_time=time(10, 45),
+        )
+        Attendance.objects.create(
+            lesson=self.lesson_6a, student=self.student, status=Attendance.Status.PRESENT
+        )
+
+    def _get(self, **params):
+        return self.client.get("/api/attendance/lesson-summary/", params)
+
+    def test_director_sees_every_lesson_with_attendance_flags(self):
+        self.client.force_authenticate(self.director)
+        response = self._get(date=self.today.isoformat())
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        by_id = {row["id"]: row for row in response.data}
+        self.assertTrue(by_id[self.lesson_6a.id]["attendance_marked"])
+        self.assertEqual(by_id[self.lesson_6a.id]["marked_count"], 1)
+        self.assertFalse(by_id[self.lesson_9d.id]["attendance_marked"])
+        self.assertEqual(by_id[self.lesson_9d.id]["marked_count"], 0)
+
+    def test_director_filters_by_class(self):
+        self.client.force_authenticate(self.director)
+        response = self._get(date=self.today.isoformat(), school_class=self.class_6a.id)
+        self.assertEqual([row["id"] for row in response.data], [self.lesson_6a.id])
+
+    def test_student_only_sees_own_class_lessons(self):
+        self.client.force_authenticate(self.student_user)
+        response = self._get(date=self.today.isoformat())
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([row["id"] for row in response.data], [self.lesson_6a.id])
+        self.assertTrue(response.data[0]["attendance_marked"])
+
+    def test_teacher_sees_own_and_led_class_lessons(self):
+        self.client.force_authenticate(self.teacher_user)
+        response = self._get(date=self.today.isoformat())
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        lesson_ids = {row["id"] for row in response.data}
+        self.assertIn(self.lesson_6a.id, lesson_ids)
+        self.assertIn(self.lesson_9d.id, lesson_ids)
+        # An unrelated teacher sees nothing.
+        self.client.force_authenticate(self.teacher_user_b)
+        self.assertEqual(self._get(date=self.today.isoformat()).data, [])
+
+    def test_default_date_is_today(self):
+        self.client.force_authenticate(self.director)
+        self.assertEqual(len(self._get().data), 2)

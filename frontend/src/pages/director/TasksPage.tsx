@@ -175,7 +175,7 @@ export function DirectorTasksPage() {
                     <option key={teacher.id} value={teacher.id}>
                       {teacher.first_name || teacher.last_name
                         ? `${teacher.first_name} ${teacher.last_name}`.trim()
-                        : teacher.email}
+                        : `O'qituvchi №${teacher.id}`}
                     </option>
                   ))}
                 </Select>

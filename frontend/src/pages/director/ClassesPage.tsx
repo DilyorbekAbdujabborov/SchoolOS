@@ -90,9 +90,8 @@ export function ClassesPage() {
                   {roster && roster.length > 0 && (
                     <ul className="space-y-1 text-sm">
                       {roster.map((student) => (
-                        <li key={student.id} className="flex justify-between text-slate-700 dark:text-slate-200">
-                          <span>{student.full_name}</span>
-                          <span className="text-slate-400 dark:text-slate-500">{student.email}</span>
+                        <li key={student.id} className="text-slate-700 dark:text-slate-200">
+                          {student.full_name}
                         </li>
                       ))}
                     </ul>
@@ -124,7 +123,7 @@ export function ClassesPage() {
                 <option value="">— tanlanmagan —</option>
                 {teachers?.results.map((teacher) => (
                   <option key={teacher.id} value={teacher.id}>
-                    {teacher.first_name} {teacher.last_name} ({teacher.email})
+                    {teacher.first_name} {teacher.last_name}
                   </option>
                 ))}
               </Select>
