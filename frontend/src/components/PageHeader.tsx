@@ -1,30 +1,45 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-/** The title row every non-dashboard page opens with — one place to keep
- * every page's heading, icon and optional subtitle/action visually
- * consistent instead of each page hand-rolling its own `<h1>`. */
+import { TONE_CHIP, type Tone } from "../lib/tones";
+
+/**
+ * The title row every non-dashboard page opens with.
+ *
+ * The icon sits in a tone-tinted chip rather than being painted blue inline —
+ * a page's accent comes from its subject (violet for gamification, emerald for
+ * attendance, amber for planning), which is one small change that stops every
+ * page header from looking identical and blue.
+ */
 export function PageHeader({
   icon: Icon,
   title,
   subtitle,
   action,
+  tone = "brand",
 }: {
   icon?: LucideIcon;
   title: string;
   subtitle?: string;
   action?: ReactNode;
+  tone?: Tone;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold text-slate-900 dark:text-slate-50">
-          {Icon && <Icon className="text-brand-600 dark:text-brand-400" size={20} />}
-          {title}
-        </h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>}
+    <header className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-3">
+        {Icon && (
+          <span
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${TONE_CHIP[tone]}`}
+          >
+            <Icon size={19} />
+          </span>
+        )}
+        <div className="min-w-0">
+          <h1 className="page-title truncate">{title}</h1>
+          {subtitle && <p className="mt-0.5 text-sm text-ink-muted">{subtitle}</p>}
+        </div>
       </div>
-      {action}
-    </div>
+      {action && <div className="flex flex-wrap items-center gap-2">{action}</div>}
+    </header>
   );
 }

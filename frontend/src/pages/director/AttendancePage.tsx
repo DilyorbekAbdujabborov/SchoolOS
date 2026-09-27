@@ -1,16 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, BarChart3, CheckCircle2, Phone, X } from "lucide-react";
+import { AlertTriangle, BarChart3, CalendarDays, CheckCircle2, ClipboardCheck, History, Phone, Users, X } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 
 import { Badge } from "../../components/Badge";
 import { Field, Input, Select } from "../../components/form";
 import { FilterPills } from "../../components/FilterPills";
 import { PageHeader } from "../../components/PageHeader";
+import { Card, Section } from "../../components/Surface";
 import { StatCard } from "../../components/StatCard";
-import { EmptyState, ErrorState, LoadingState } from "../../components/states";
+import { EmptyState, ErrorState, Legend, LoadingState, TableSkeleton } from "../../components/states";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
 import { api } from "../../lib/api";
 import { distinctGrades } from "../../lib/classGrade";
+import type { Tone } from "../../lib/tones";
 import type {
   AttendanceDailyCount,
   AttendanceRecord,
@@ -40,10 +42,10 @@ const STATUS_LABEL: Record<string, string> = {
   EXCUSED: "Sababli",
 };
 
-const STATUS_TONE: Record<AttendanceStatus, "emerald" | "amber" | "red" | "slate"> = {
+const STATUS_TONE: Record<AttendanceStatus, Tone> = {
   PRESENT: "emerald",
   LATE: "amber",
-  ABSENT: "red",
+  ABSENT: "rose",
   EXCUSED: "slate",
 };
 
@@ -62,12 +64,14 @@ function useNow() {
   return now;
 }
 
-function unmarkedLessonStatus(lesson: LessonAttendanceStatus, now: number) {
+type LessonStatus = { label: string; tone: Tone };
+
+function unmarkedLessonStatus(lesson: LessonAttendanceStatus, now: number): LessonStatus | null {
   const end = new Date(`${lesson.date}T${lesson.end_time}`).getTime();
   const start = new Date(`${lesson.date}T${lesson.start_time}`).getTime();
   if (now < start) return null; // hasn't happened yet — nothing missing
-  if (now < end) return { label: "Kutilmoqda", tone: "amber" as const };
-  return { label: "Davomat olinmagan", tone: "red" as const };
+  if (now < end) return { label: "Kutilmoqda", tone: "amber" };
+  return { label: "Davomat olinmagan", tone: "rose" };
 }
 
 type RosterFilter = "LATE" | "ABSENT" | null;
@@ -77,14 +81,14 @@ function StudentRosterList({ students }: { students: AttendanceRosterStudent[] }
     return <p className="px-5 py-4 text-sm text-slate-400 dark:text-slate-500">Ro'yxat bo'sh.</p>;
   }
   return (
-    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+    <div className="divide-y divide-line-soft">
       {students.map((student) => (
         <div key={student.id} className="flex items-center justify-between gap-3 px-5 py-3">
-          <span className="font-medium text-slate-800 dark:text-slate-100">{student.full_name}</span>
+          <span className="font-medium text-ink">{student.full_name}</span>
           {student.parent_phone_number ? (
             <a
               href={`tel:${student.parent_phone_number}`}
-              className="flex items-center gap-1.5 text-sm text-brand-600 hover:underline dark:text-brand-400"
+              className="flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
             >
               <Phone className="h-3.5 w-3.5" /> {student.parent_phone_number}
             </a>
@@ -164,31 +168,39 @@ export function AttendancePage() {
   const unmarkedRows =
     (unmarkedQuery.data ?? [])
       .map((lesson) => ({ lesson, status: unmarkedLessonStatus(lesson, now) }))
-      .filter((row): row is { lesson: LessonAttendanceStatus; status: { label: string; tone: "amber" | "red" } } => row.status !== null);
+      .filter((row): row is { lesson: LessonAttendanceStatus; status: LessonStatus } => row.status !== null);
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Davomat" />
+      <PageHeader
+        title="Davomat"
+        icon={ClipboardCheck}
+        tone="emerald"
+        subtitle="Maktab bo'yicha kelish, kechikish va kelmaslik holati"
+      />
 
-      <section>
-        <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">Bugungi davomat</h2>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-          <StatCard label="Jami o'quvchilar" value={dashboard?.total_students ?? "—"} />
+      <Section eyebrow="Bugun" title="Maktab bo'yicha davomat" icon={CalendarDays} iconTone="brand">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <StatCard
+            label="Jami o'quvchilar"
+            value={dashboard?.total_students ?? "—"}
+            icon={Users}
+            tone="brand"
+          />
           <StatCard label="Keldi" value={dashboard?.today_attendance.present ?? "—"} tone="emerald" />
           <StatCard label="Kechikdi" value={dashboard?.today_attendance.late ?? "—"} tone="amber" />
           <StatCard label="Kelmadi" value={dashboard?.today_attendance.absent ?? "—"} tone="rose" />
-          <StatCard label="Sababli" value={dashboard?.today_attendance.excused ?? "—"} tone="brand" />
+          <StatCard label="Sababli" value={dashboard?.today_attendance.excused ?? "—"} tone="slate" />
         </div>
-      </section>
+      </Section>
 
-      <section>
-        <div className="mb-3 flex items-center gap-2">
-          <BarChart3 size={16} className="text-brand-600 dark:text-brand-400" />
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-            Kunlik davomat — maktab bo'yicha necha o'quvchi darsga keldi
-          </h2>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <Section
+        eyebrow="Tahlil"
+        title="Kunlik davomat — necha o'quvchi darsga keldi"
+        icon={BarChart3}
+        iconTone="brand"
+      >
+        <Card className="p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <FilterPills value={dayRange} onChange={setDayRange} options={DAY_RANGE_OPTIONS} />
             <FilterPills
@@ -203,12 +215,22 @@ export function AttendancePage() {
           {dailyQuery.isLoading && <LoadingState />}
           {dailyQuery.isError && <ErrorState />}
           {dailyQuery.data && (
-            <Suspense fallback={<LoadingState label="Yuklanmoqda..." />}>
+            <Suspense fallback={<LoadingState />}>
               <AttendanceDailyChart data={dailyQuery.data} />
             </Suspense>
           )}
+        </Card>
+        <div className="mt-3">
+          <Legend
+            items={[
+              { label: "Keldi", tone: "emerald" },
+              { label: "Kechikdi", tone: "amber" },
+              { label: "Kelmadi", tone: "rose" },
+              { label: "Sababli", tone: "slate" },
+            ]}
+          />
         </div>
-      </section>
+      </Section>
 
       <div className="flex flex-wrap gap-3">
         <Field label="Sinf">
@@ -245,32 +267,39 @@ export function AttendancePage() {
       {selectedClass && summaryQuery.isError && <ErrorState />}
       {selectedClass && summaryQuery.data && (
         <>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-            <StatCard label="Jami o'quvchi" value={summaryQuery.data.total_students} />
-            <StatCard label="Keldi" value={summaryQuery.data.present} />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+            <StatCard label="Jami o'quvchi" value={summaryQuery.data.total_students} tone="brand" />
+            <StatCard
+              label="Keldi"
+              value={summaryQuery.data.present}
+              tone="emerald"
+              onClick={() => setRosterFilter(rosterFilter === "LATE" ? null : "LATE")}
+              hint="Ro'yxatni ochish uchun bosing"
+            />
             <StatCard
               label="Kechikdi"
               value={summaryQuery.data.late}
+              tone="amber"
               onClick={() => setRosterFilter(rosterFilter === "LATE" ? null : "LATE")}
+              hint="Kechikkanlarni ko'rish"
             />
             <StatCard
               label="Kelmadi"
               value={summaryQuery.data.absent}
+              tone="rose"
               onClick={() => setRosterFilter(rosterFilter === "ABSENT" ? null : "ABSENT")}
+              hint="Kelmaganlarni ko'rish"
             />
-            <StatCard label="Sababli" value={summaryQuery.data.excused} />
+            <StatCard label="Sababli" value={summaryQuery.data.excused} tone="slate" />
           </div>
 
           {rosterFilter && (
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-slate-800">
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <Card tone={rosterFilter === "LATE" ? "amber" : "rose"} className="overflow-hidden">
+              <div className="flex items-center justify-between border-b border-line-soft px-5 py-3">
+                <h3 className="text-sm font-semibold text-ink">
                   {rosterFilter === "LATE" ? "Kechikkanlar" : "Kelmaganlar"}
                 </h3>
-                <button
-                  onClick={() => setRosterFilter(null)}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                >
+                <button onClick={() => setRosterFilter(null)} className="btn-icon -mr-2" aria-label="Yopish">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -281,23 +310,22 @@ export function AttendancePage() {
                     : summaryQuery.data.absent_students
                 }
               />
-            </div>
+            </Card>
           )}
         </>
       )}
 
-      <div>
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-            <AlertTriangle size={16} className="text-red-500" />
-            Davomat olinmagan darslar
-          </h2>
-          {unmarkedQuery.data && (
-            <span className="text-xs text-slate-400 dark:text-slate-500">
-              {unmarkedRows.length} ta dars
-            </span>
-          )}
-        </div>
+      <Section
+        eyebrow="Nazorat"
+        title="Davomat olinmagan darslar"
+        icon={AlertTriangle}
+        iconTone="rose"
+        action={
+          unmarkedQuery.data ? (
+            <span className="tabular text-xs text-ink-subtle">{unmarkedRows.length} ta dars</span>
+          ) : undefined
+        }
+      >
         {unmarkedQuery.isLoading && <LoadingState />}
         {unmarkedQuery.isError && <ErrorState />}
         {unmarkedQuery.data && (
@@ -314,12 +342,12 @@ export function AttendancePage() {
             <Tbody>
               {unmarkedRows.map(({ lesson, status }) => (
                   <Tr key={lesson.id}>
-                    <Td className="text-slate-500 dark:text-slate-400">
+                    <Td className="tabular">
                       {lesson.start_time.slice(0, 5)}–{lesson.end_time.slice(0, 5)}
                     </Td>
-                    <Td className="text-slate-700 dark:text-slate-200">{lesson.school_class_name}</Td>
-                    <Td className="text-slate-700 dark:text-slate-200">{lesson.subject_name}</Td>
-                    <Td className="text-slate-700 dark:text-slate-200">{lesson.teacher_name}</Td>
+                    <Td>{lesson.school_class_name}</Td>
+                    <Td>{lesson.subject_name}</Td>
+                    <Td>{lesson.teacher_name}</Td>
                     <Td>
                       <Badge tone={status.tone}>{status.label}</Badge>
                     </Td>
@@ -329,15 +357,17 @@ export function AttendancePage() {
           </Table>
         )}
         {unmarkedQuery.data && unmarkedRows.length === 0 && (
-          <p className="flex items-center gap-1.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
-            <CheckCircle2 className="h-4 w-4" /> Tanlangan kun uchun barcha darslarning davomati olingan.
-          </p>
+          <Card tone="emerald" className="flex items-center gap-2.5 px-5 py-4">
+            <CheckCircle2 size={17} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <span className="text-sm font-medium text-ink">
+              Tanlangan kun uchun barcha darslarning davomati olingan.
+            </span>
+          </Card>
         )}
-      </div>
+      </Section>
 
-      <div>
-        <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">Tarix</h2>
-        {historyQuery.isLoading && <LoadingState />}
+      <Section eyebrow="Arxiv" title="Davomat tarixi" icon={History} iconTone="slate">
+        {historyQuery.isLoading && <TableSkeleton rows={6} cols={5} />}
         {historyQuery.isError && <ErrorState />}
         {historyQuery.data && historyQuery.data.results.length === 0 && (
           <EmptyState title="Bu filtrga mos davomat yozuvi yo'q" />
@@ -370,7 +400,7 @@ export function AttendancePage() {
             </Tbody>
           </Table>
         )}
-      </div>
+      </Section>
     </div>
   );
 }

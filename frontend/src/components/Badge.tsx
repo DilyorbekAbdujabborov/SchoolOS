@@ -1,30 +1,40 @@
 import type { ReactNode } from "react";
 
-type BadgeTone = "brand" | "amber" | "emerald" | "red" | "slate";
+import { TONE_CHIP, TONE_DOT, type Tone } from "../lib/tones";
 
-const TONE_CLASS: Record<BadgeTone, string> = {
-  brand: "bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300",
-  amber: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  emerald: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-  red: "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300",
-  slate: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
-};
-
+/**
+ * The status pill. One shape, one radius, one type size — colour is the only
+ * variable, and it always means the same thing (see `lib/tones.ts`).
+ */
 export function Badge({
   tone = "slate",
-  className,
+  dot = false,
+  className = "",
   children,
 }: {
-  tone?: BadgeTone;
+  tone?: Tone;
+  /** A small solid dot before the label — reads faster in dense tables. */
+  dot?: boolean;
   className?: string;
   children: ReactNode;
 }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${TONE_CLASS[tone]}${
-        className ? ` ${className}` : ""
-      }`}
-    >
+    <span className={`chip ${TONE_CHIP[tone]} ${className}`}>
+      {dot && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[tone]}`} />}
+      {children}
+    </span>
+  );
+}
+
+/**
+ * A status rendered without a background: coloured text plus a dot. Used in
+ * dense contexts (table cells, inline stats) where a filled pill per row would
+ * out-shout the data itself.
+ */
+export function StatusDot({ tone, children }: { tone: Tone; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-ink">
+      <span className={`h-2 w-2 shrink-0 rounded-full ${TONE_DOT[tone]}`} />
       {children}
     </span>
   );

@@ -1,6 +1,6 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
-import { useTheme } from "../../lib/theme";
+import { AXIS_PROPS, useChartTheme } from "../../lib/chartTheme";
 import type { XPTransaction } from "../../types";
 
 const DAYS_TO_SHOW = 7;
@@ -34,36 +34,44 @@ function buildDailySeries(transactions: XPTransaction[]): DayPoint[] {
 }
 
 function ChartTooltip({ active, payload }: { active?: boolean; payload?: { payload: DayPoint }[] }) {
+  const theme = useChartTheme();
   if (!active || !payload || payload.length === 0) return null;
   const point = payload[0].payload;
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <p className="font-medium text-slate-700 dark:text-slate-200">{point.label}</p>
-      <p className="text-amber-600 dark:text-amber-400">+{point.xp} XP</p>
+    <div className={theme.tooltip.content}>
+      <p className={theme.tooltip.label}>{point.label}</p>
+      <p className="font-semibold text-amber-600 dark:text-amber-400">+{point.xp} XP</p>
     </div>
   );
 }
 
+/** XP earned per day. Amber is reserved for XP everywhere in the app. */
 export function XpHistoryChart({ transactions }: { transactions: XPTransaction[] }) {
-  const { theme } = useTheme();
+  const theme = useChartTheme();
   const data = buildDailySeries(transactions);
   const hasAny = data.some((d) => d.xp > 0);
-  const gridColor = theme === "dark" ? "#1c212c" : "#e1e4ea";
-  const tickColor = theme === "dark" ? "#6b7280" : "#98a0b3";
-  const cursorColor = theme === "dark" ? "#78350f" : "#fef3c7";
-  const barColor = theme === "dark" ? "#f59e0b" : "#d97706";
 
   if (!hasAny) {
-    return <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">So'nggi 7 kunda XP tarixi yo'q</p>;
+    return <p className="py-10 text-center text-sm text-ink-subtle">So'nggi 7 kunda XP tarixi yo'q</p>;
   }
 
   return (
-    <ResponsiveContainer width="100%" height={140}>
-      <BarChart data={data} barCategoryGap="30%">
-        <CartesianGrid vertical={false} stroke={gridColor} />
-        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: tickColor }} />
-        <Tooltip content={<ChartTooltip />} cursor={{ fill: cursorColor }} />
-        <Bar dataKey="xp" fill={barColor} radius={[6, 6, 6, 6]} maxBarSize={22} />
+    <ResponsiveContainer width="100%" height={150}>
+      <BarChart data={data} barCategoryGap="30%" margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+        <CartesianGrid vertical={false} stroke={theme.grid} />
+        <XAxis
+          dataKey="label"
+          {...AXIS_PROPS}
+          tick={{ ...AXIS_PROPS.tick, fill: theme.axis }}
+        />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: theme.cursor }} />
+        <Bar
+          dataKey="xp"
+          fill={theme.tone("amber")}
+          radius={[6, 6, 6, 6]}
+          maxBarSize={24}
+          className="chart-enter"
+        />
       </BarChart>
     </ResponsiveContainer>
   );

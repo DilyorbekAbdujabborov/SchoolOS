@@ -153,7 +153,7 @@ export function TimetablePage() {
       {classId && isError && <ErrorState />}
 
       {classId && slots && (
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <div className="overflow-x-auto card">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>

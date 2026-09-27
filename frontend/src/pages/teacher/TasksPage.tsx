@@ -34,7 +34,7 @@ export function TeacherTasksPage() {
           {data.results.map((assignment) => (
             <div
               key={assignment.id}
-              className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+              className="card p-5"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-start gap-3">

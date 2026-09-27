@@ -33,8 +33,8 @@ export function NotificationsPage() {
               key={notification.id}
               className={`rounded-2xl border p-4 ${
                 notification.is_read
-                  ? "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
-                  : "border-brand-200 bg-brand-50 dark:border-brand-500/30 dark:bg-brand-500/10"
+                  ? "border-line bg-surface"
+                  : "border-brand-200 bg-brand-50/70 dark:border-brand-400/35 dark:bg-brand-500/10"
               }`}
             >
               <div className="flex items-start justify-between gap-4">

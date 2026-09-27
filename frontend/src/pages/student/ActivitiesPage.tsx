@@ -67,7 +67,7 @@ function SubmissionForm({ activityId, onDone }: { activityId: number; onDone: ()
         onChange={(e) => setContent(e.target.value)}
         placeholder="Javobingizni shu yerga yozing..."
         rows={3}
-        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        className="field-input"
       />
       <input
         type="file"
@@ -134,7 +134,7 @@ export function StudentActivitiesPage() {
           {activities.results.map((activity) => {
             const submission = submissionByActivity.get(activity.id);
             return (
-              <div key={activity.id} className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+              <div key={activity.id} className="card p-5">
                 <p className="text-xs font-medium uppercase tracking-wide text-brand-600 dark:text-brand-400">
                   {TYPE_LABEL[activity.activity_type]} · {activity.subject_name}
                 </p>

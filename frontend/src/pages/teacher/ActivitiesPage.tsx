@@ -229,7 +229,7 @@ export function TeacherActivitiesPage() {
       {activities && activities.results.length > 0 && (
         <div className="space-y-3">
           {activities.results.map((activity) => (
-            <div key={activity.id} className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+            <div key={activity.id} className="card">
               <button
                 onClick={() => setExpandedId(expandedId === activity.id ? null : activity.id)}
                 className="flex w-full items-center justify-between px-5 py-4 text-left"

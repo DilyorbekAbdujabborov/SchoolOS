@@ -19,7 +19,8 @@ import {
   GameStepProgress,
 } from "../../components/games/GameUI";
 import { PrimaryButton } from "../../components/form";
-import { ErrorState, LoadingState } from "../../components/states";
+import { EmptyState, ErrorState, LoadingState } from "../../components/states";
+import { isNoQuestionsError, NO_QUESTIONS_HINT, NO_QUESTIONS_TITLE } from "../../lib/gameErrors";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import type { GameQuestion, GameSession } from "../../types";
@@ -117,7 +118,10 @@ function QuizGame({ session }: { session: GameSession }) {
       <GameStepProgress index={questionIndex} total={total || 1} />
 
       {questionsQuery.isLoading && <LoadingState label="O'yin tayyorlanmoqda..." />}
-      {questionsQuery.isError && (
+      {questionsQuery.isError && isNoQuestionsError(questionsQuery.error) && (
+        <EmptyState title={NO_QUESTIONS_TITLE} description={NO_QUESTIONS_HINT} />
+      )}
+      {questionsQuery.isError && !isNoQuestionsError(questionsQuery.error) && (
         <div className="space-y-3">
           <GameInlineError>Savollar hozircha tayyor emas. Birozdan so'ng qayta urinib ko'ring.</GameInlineError>
           <PrimaryButton onClick={() => questionsQuery.refetch()}>Qayta urinish</PrimaryButton>

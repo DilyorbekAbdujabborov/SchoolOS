@@ -283,7 +283,7 @@ function TodayPeriodCard({
 
   if (!entry.lesson) {
     return (
-      <div className="flex items-center gap-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/30">
+      <div className="card-inset flex items-center gap-4 border-dashed px-5 py-4">
         <PeriodBadgeNumber n={entry.periodNumber} tone="empty" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-slate-400 dark:text-slate-500">Darsingiz yo'q</p>
@@ -299,7 +299,7 @@ function TodayPeriodCard({
   const lesson = entry.lesson;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+    <div className="card">
       <button type="button" onClick={onToggle} className="flex w-full items-center gap-4 px-5 py-4 text-left">
         <PeriodBadgeNumber n={entry.periodNumber} tone={status.tone} />
         <div className="min-w-0 flex-1">
@@ -343,7 +343,7 @@ function TodayPeriodCard({
 function TomorrowPreviewCard({ slot, config }: { slot: TimetableSlot; config: SchoolTimeConfig | undefined }) {
   const time = config ? periodTimes(slot.period_number, config) : null;
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900">
+    <div className="flex items-center gap-4 card px-5 py-4">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
         {slot.period_number}
       </span>

@@ -58,6 +58,7 @@ export function CodeBreakerGame({ session }: { session: GameSession }) {
         session={session}
         loading={game.questionsQuery.isLoading}
         error={game.questionsQuery.isError}
+        unavailable={game.questionsUnavailable}
         resuming={session.answered_count > 0}
         onStart={game.start}
       />
@@ -222,12 +223,14 @@ function StartScreen({
   session,
   loading,
   error,
+  unavailable,
   resuming,
   onStart,
 }: {
   session: GameSession;
   loading: boolean;
   error: boolean;
+  unavailable: boolean;
   resuming: boolean;
   onStart: () => void;
 }) {
@@ -272,6 +275,7 @@ function StartScreen({
       <GameStartActions
         loading={loading}
         error={error}
+        unavailable={unavailable}
         resuming={resuming}
         onStart={onStart}
         label="Buzishni boshlash"

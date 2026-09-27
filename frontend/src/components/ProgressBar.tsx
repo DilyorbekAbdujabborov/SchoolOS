@@ -1,28 +1,19 @@
-type ProgressBarTone = "brand" | "amber" | "emerald";
-
-const TRACK_TONE: Record<ProgressBarTone, string> = {
-  brand: "bg-brand-100 dark:bg-brand-500/15",
-  amber: "bg-amber-100 dark:bg-amber-500/15",
-  emerald: "bg-emerald-100 dark:bg-emerald-500/15",
-};
-
-const FILL_TONE: Record<ProgressBarTone, string> = {
-  brand: "bg-brand-600",
-  amber: "bg-amber-500",
-  emerald: "bg-emerald-600",
-};
+import { TONE_BAR, TONE_TRACK, type Tone } from "../lib/tones";
 
 export function ProgressBar({
   value,
   tone = "brand",
-  className,
+  size = "md",
+  className = "",
 }: {
   /** 0-100. Values outside that range are clamped. */
   value: number;
-  tone?: ProgressBarTone;
+  tone?: Tone;
+  size?: "sm" | "md" | "lg";
   className?: string;
 }) {
   const clamped = Math.min(100, Math.max(0, value));
+  const height = size === "sm" ? "h-1.5" : size === "lg" ? "h-3" : "h-2";
 
   return (
     <div
@@ -30,10 +21,10 @@ export function ProgressBar({
       aria-valuenow={Math.round(clamped)}
       aria-valuemin={0}
       aria-valuemax={100}
-      className={`h-2.5 w-full overflow-hidden rounded-full ${TRACK_TONE[tone]} ${className ?? ""}`}
+      className={`${height} w-full overflow-hidden rounded-full ${TONE_TRACK[tone]} ${className}`}
     >
       <div
-        className={`h-full rounded-full ${FILL_TONE[tone]} transition-[width] duration-700 ease-out`}
+        className={`h-full rounded-full ${TONE_BAR[tone]} transition-[width] duration-700 ease-out`}
         style={{ width: `${clamped}%` }}
       />
     </div>

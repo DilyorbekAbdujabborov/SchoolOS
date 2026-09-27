@@ -172,6 +172,7 @@ export function BattleArenaGame({ session }: { session: GameSession }) {
         }}
         loading={game.questionsQuery.isLoading}
         error={game.questionsQuery.isError}
+        unavailable={game.questionsUnavailable}
         resuming={session.answered_count > 0}
         onStart={game.start}
       />
@@ -606,6 +607,7 @@ function FighterSelect({
   onSelect,
   loading,
   error,
+  unavailable,
   resuming,
   onStart,
 }: {
@@ -615,6 +617,7 @@ function FighterSelect({
   onSelect: (fighter: Fighter) => void;
   loading: boolean;
   error: boolean;
+  unavailable: boolean;
   resuming: boolean;
   onStart: () => void;
 }) {
@@ -706,7 +709,7 @@ function FighterSelect({
           To'g'ri javob: raqibga −{rules.hit_damage} HP · Xato javob: sizga −{rules.miss_damage} HP. Raqibning HP'si
           tugasa — g'alaba!
         </p>
-        <GameStartActions loading={loading} error={error} resuming={resuming} onStart={onStart} label="Jangga kirish" />
+        <GameStartActions loading={loading} error={error} unavailable={unavailable} resuming={resuming} onStart={onStart} label="Jangga kirish" />
       </div>
     </div>
   );

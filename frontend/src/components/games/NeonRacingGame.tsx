@@ -226,6 +226,7 @@ export function NeonRacingGame({ session }: { session: GameSession }) {
             }}
             loading={game.questionsQuery.isLoading}
             error={game.questionsQuery.isError}
+            unavailable={game.questionsUnavailable}
             resuming={session.answered_count > 0}
             onStart={beginCountdown}
           />
@@ -542,6 +543,7 @@ function Lobby({
   onTrack,
   loading,
   error,
+  unavailable,
   resuming,
   onStart,
 }: {
@@ -553,6 +555,7 @@ function Lobby({
   onTrack: (track: TrackTheme) => void;
   loading: boolean;
   error: boolean;
+  unavailable: boolean;
   resuming: boolean;
   onStart: () => void;
 }) {
@@ -650,7 +653,7 @@ function Lobby({
           Har savol — trekning bir bo'lagi. To'g'ri javob tezlashtiradi va nitroni to'ldiradi, xato — sekinlashtiradi.
           Nitro tayyor bo'lsa, N tugmasi bilan yoqing. ~{minutes} daqiqa.
         </p>
-        <GameStartActions loading={loading} error={error} resuming={resuming} onStart={onStart} label="START RACE" />
+        <GameStartActions loading={loading} error={error} unavailable={unavailable} resuming={resuming} onStart={onStart} label="START RACE" />
       </div>
     </div>
   );

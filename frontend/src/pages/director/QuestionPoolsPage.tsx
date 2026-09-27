@@ -62,7 +62,7 @@ export function QuestionPoolsPage() {
         }
       />
 
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex flex-wrap items-end gap-3 card p-5">
         <Field label="Sinf">
           <Select value={schoolClass} onChange={(e) => setSchoolClass(e.target.value)} className="min-w-[160px]">
             <option value="">— tanlang —</option>

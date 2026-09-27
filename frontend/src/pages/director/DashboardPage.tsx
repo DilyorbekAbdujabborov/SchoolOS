@@ -1,16 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Award,
+  BarChart3,
   BookOpen,
   CalendarDays,
   CheckCircle2,
-  ChevronRight,
   ClipboardCheck,
   ClipboardList,
   Clock,
   FileText,
   GraduationCap,
-  Medal,
+  HelpCircle,
   School,
   Settings,
   TrendingUp,
@@ -23,24 +23,23 @@ import { Link } from "react-router-dom";
 import { ClassGrowthGrid } from "../../components/ClassGrowthGrid";
 import { DashboardHero } from "../../components/DashboardHero";
 import { StatCard } from "../../components/StatCard";
-import { EmptyState, ErrorState, LoadingState } from "../../components/states";
+import { Card, CardTitle, Section, SectionLink } from "../../components/Surface";
+import { EmptyState, ErrorState, LoadingState, StatSkeletonGrid } from "../../components/states";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { shortName } from "../../lib/names";
+import { TONE_DOT, TONE_TEXT, TONE_WELL, type Tone } from "../../lib/tones";
 import type { ClassGrowthSeries, ClassLeaderboardEntry, DirectorDashboard } from "../../types";
 
-const MEDAL_TONE: Record<number, string> = {
-  1: "text-amber-500",
-  2: "text-slate-400",
-  3: "text-orange-600",
-};
-
-const QUICK_LINKS = [
-  { to: "/director/attendance", label: "Davomat hisoboti", icon: ClipboardCheck },
-  { to: "/director/rankings", label: "XP va reyting", icon: Trophy },
-  { to: "/director/achievements", label: "Yutuqlar", icon: Award },
-  { to: "/director/settings", label: "Sozlamalar", icon: Settings },
-];
-
+/**
+ * The director view.
+ *
+ * Deliberately the calmest of the three dashboards: a neutral canvas, no
+ * tinted hero, no game mechanics. Colour is spent on two things only —
+ * attendance health (green/amber/red, because a director reads the day's
+ * attendance as a traffic light) and leadership indicators. Everything else is
+ * type, weight and spacing, so the numbers look like a report.
+ */
 export function DirectorDashboardPage() {
   const { user } = useAuth();
   const { data, isLoading, isError } = useQuery({
@@ -57,55 +56,137 @@ export function DirectorDashboardPage() {
   });
 
   const allClasses = classLeaderboard ?? [];
+  const attendanceTotal = data
+    ? data.today_attendance.present +
+      data.today_attendance.late +
+      data.today_attendance.absent +
+      data.today_attendance.excused
+    : 0;
+  const attendanceRate =
+    attendanceTotal > 0 ? Math.round((data!.today_attendance.present / attendanceTotal) * 100) : null;
 
   return (
     <div className="space-y-8">
       <DashboardHero
-        name={user?.first_name || user?.username || ""}
+        name={shortName(user)}
         avatarSrc={user?.avatar_url}
+        greeting="Xush kelibsiz"
         subtitle="Maktabingizning bugungi holati."
+        tone="slate"
         chips={
           data
             ? [
-                { label: `${data.total_students} o'quvchi`, tone: "brand" },
-                { label: `${data.total_teachers} o'qituvchi`, tone: "violet" },
-                { label: `Bugun ${data.today_lessons} ta dars`, tone: "slate" },
+                { label: `${data.total_students} o'quvchi`, tone: "brand" as const },
+                { label: `${data.total_teachers} o'qituvchi`, tone: "violet" as const },
+                { label: `Bugun ${data.today_lessons} ta dars`, tone: "slate" as const },
               ]
             : []
         }
       />
 
-      {isLoading && <LoadingState />}
+      {isLoading && <StatSkeletonGrid count={4} />}
       {isError && <ErrorState />}
 
       {data && (
         <>
-          <section>
-            <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">Maktab statistikasi</h2>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <StatCard label="Jami o'quvchilar" value={data.total_students} to="/director/students" icon={Users} tone="brand" />
-              <StatCard label="Jami o'qituvchilar" value={data.total_teachers} to="/director/teachers" icon={GraduationCap} tone="violet" />
-              <StatCard label="Jami sinflar" value={data.total_classes} to="/director/classes" icon={School} tone="amber" />
-              <StatCard label="Bugungi darslar" value={data.today_lessons} to="/director/lessons" icon={CalendarDays} tone="emerald" />
+          {/* ── School size ──────────────────────────────────────────── */}
+          <Section eyebrow="Maktab" title="Umumiy statistika" icon={School} iconTone="brand">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <StatCard
+                label="O'quvchilar"
+                value={data.total_students}
+                to="/director/students"
+                icon={Users}
+                tone="brand"
+              />
+              <StatCard
+                label="O'qituvchilar"
+                value={data.total_teachers}
+                to="/director/teachers"
+                icon={GraduationCap}
+                tone="violet"
+              />
+              <StatCard
+                label="Sinflar"
+                value={data.total_classes}
+                to="/director/classes"
+                icon={School}
+                tone="amber"
+              />
+              <StatCard
+                label="Bugungi darslar"
+                value={data.today_lessons}
+                to="/director/lessons"
+                icon={CalendarDays}
+                tone="emerald"
+              />
             </div>
-          </section>
+          </Section>
 
-          <section>
-            <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">Bugungi davomat</h2>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <StatCard label="Keldi" value={data.today_attendance.present} icon={CheckCircle2} tone="emerald" />
-              <StatCard label="Kechikdi" value={data.today_attendance.late} icon={Clock} tone="amber" />
-              <StatCard label="Kelmadi" value={data.today_attendance.absent} icon={UserX} tone="rose" />
-              <StatCard label="Sababli" value={data.today_attendance.excused} icon={ClipboardCheck} tone="brand" />
-            </div>
-          </section>
+          {/* ── Attendance health, as one readable strip ─────────────── */}
+          <Section eyebrow="Bugun" title="Davomat holati" icon={ClipboardCheck} iconTone="emerald">
+            <Card className="overflow-hidden">
+              <div className="grid grid-cols-2 divide-line-soft sm:grid-cols-4 sm:divide-x">
+                {(
+                  [
+                    { label: "Keldi", value: data.today_attendance.present, tone: "emerald" as const, icon: CheckCircle2 },
+                    { label: "Kechikdi", value: data.today_attendance.late, tone: "amber" as const, icon: Clock },
+                    { label: "Kelmadi", value: data.today_attendance.absent, tone: "rose" as const, icon: UserX },
+                    { label: "Sababli", value: data.today_attendance.excused, tone: "slate" as const, icon: ClipboardCheck },
+                  ] as const
+                ).map((item) => (
+                  <div key={item.label} className="flex items-center gap-3 px-4 py-4 sm:px-5">
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${TONE_WELL[item.tone]}`}
+                    >
+                      <item.icon size={17} className={TONE_TEXT[item.tone]} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="tabular text-xl font-bold leading-none text-ink">{item.value}</p>
+                      <p className="mt-1 truncate text-xs text-ink-subtle">{item.label}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
-          <section>
-            <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">O'quv faolligi</h2>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              {attendanceRate !== null && (
+                <div className="flex items-center gap-3 border-t border-line-soft bg-surface-raised px-4 py-3 sm:px-5">
+                  <span className="text-xs font-medium text-ink-muted">Davomat darajasi</span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-sunken">
+                    <div
+                      className={`h-full rounded-full transition-[width] duration-700 ease-out ${
+                        attendanceRate >= 90
+                          ? "bg-emerald-500"
+                          : attendanceRate >= 75
+                            ? "bg-amber-500"
+                            : "bg-rose-500"
+                      }`}
+                      style={{ width: `${attendanceRate}%` }}
+                    />
+                  </div>
+                  <span className="tabular text-sm font-bold text-ink">{attendanceRate}%</span>
+                </div>
+              )}
+            </Card>
+          </Section>
+
+          {/* ── Academic activity ────────────────────────────────────── */}
+          <Section eyebrow="O'quv faolligi" title="Testlar, topshiriqlar va XP" icon={BarChart3} iconTone="violet">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <StatCard label="Jami testlar" value={data.total_tests} icon={FileText} tone="brand" />
-              <StatCard label="Jami topshiriqlar" value={data.total_activities} icon={ClipboardList} tone="violet" />
-              <StatCard label="Berilgan XP" value={data.total_xp_awarded} to="/director/rankings" icon={Trophy} tone="amber" />
+              <StatCard
+                label="Jami topshiriqlar"
+                value={data.total_activities}
+                icon={ClipboardList}
+                tone="violet"
+              />
+              <StatCard
+                label="Berilgan XP"
+                value={data.total_xp_awarded}
+                to="/director/rankings"
+                icon={Trophy}
+                tone="amber"
+              />
               <StatCard
                 label="Yetakchi sinf"
                 value={data.top_class ? data.top_class.name : "—"}
@@ -115,69 +196,121 @@ export function DirectorDashboardPage() {
                 tone="emerald"
               />
             </div>
-          </section>
+          </Section>
 
-          <section>
-            <div className="mb-3 flex items-center gap-2">
-              <TrendingUp size={16} className="text-brand-600 dark:text-brand-400" />
-              <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                O'sish — har bir sinfning so'nggi 14 kunlik XP o'sishi
-              </h2>
-            </div>
-            {classGrowth ? <ClassGrowthGrid series={classGrowth} /> : <LoadingState label="Yuklanmoqda..." />}
-          </section>
+          <Section
+            eyebrow="Tahlil"
+            title="Sinflar o'sishi — so'nggi 14 kun"
+            icon={TrendingUp}
+            iconTone="emerald"
+          >
+            {classGrowth ? <ClassGrowthGrid series={classGrowth} /> : <LoadingState />}
+          </Section>
 
-          <section>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Sinflar reytingi</h2>
-              <Link
-                to="/director/rankings"
-                className="inline-flex items-center gap-0.5 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <Section
+                eyebrow="Reyting"
+                title="Sinflar reytingi"
+                action={<SectionLink to="/director/rankings">Batafsil</SectionLink>}
               >
-                Batafsil <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
+                {allClasses.length === 0 ? (
+                  <EmptyState
+                    title="Hali XP ma'lumoti yo'q"
+                    description="O'quvchilar XP to'plaganda reyting shu yerda shakllanadi."
+                    icon={Trophy}
+                  />
+                ) : (
+                  <Card className="overflow-hidden">
+                    {allClasses.map((entry, i) => {
+                      const top = allClasses[0]?.total_xp || 1;
+                      const pct = Math.max(2, Math.round((entry.total_xp / top) * 100));
+                      return (
+                        <Link
+                          key={entry.rank}
+                          to="/director/rankings"
+                          className="flex items-center gap-4 border-b border-line-soft px-4 py-3 transition-colors last:border-0 hover:bg-surface-raised/60 sm:px-5"
+                        >
+                          <span
+                            className={`tabular flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
+                              entry.rank <= 3
+                                ? "bg-amber-500/12 text-amber-700 dark:text-amber-300"
+                                : "bg-surface-raised text-ink-subtle"
+                            }`}
+                          >
+                            {entry.rank}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-ink">
+                              {entry.name}
+                            </span>
+                            <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-surface-sunken">
+                              <span
+                                className={`block h-full rounded-full ${
+                                  entry.rank === 1 ? "bg-emerald-500" : "bg-brand-500"
+                                } transition-[width] duration-700 ease-out`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </span>
+                          </span>
+                          <span className="tabular shrink-0 text-sm font-semibold text-ink">
+                            {entry.total_xp} <span className="text-xs text-ink-subtle">XP</span>
+                          </span>
+                          {i === 0 && (
+                            <span className={`hidden h-2 w-2 rounded-full sm:block ${TONE_DOT.emerald}`} />
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </Card>
+                )}
+              </Section>
             </div>
-            {allClasses.length === 0 ? (
-              <EmptyState title="Hali XP ma'lumoti yo'q" />
-            ) : (
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-                {allClasses.map((entry) => (
-                  <div
-                    key={entry.rank}
-                    className="flex items-center justify-between border-b border-slate-100 px-5 py-3 last:border-0 dark:border-slate-800"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="flex w-6 justify-center text-slate-500 dark:text-slate-400">
-                        {MEDAL_TONE[entry.rank] ? (
-                          <Medal className={`h-4 w-4 ${MEDAL_TONE[entry.rank]}`} />
-                        ) : (
-                          entry.rank
-                        )}
-                      </span>
-                      <span className="font-medium text-slate-800 dark:text-slate-100">{entry.name}</span>
-                    </div>
-                    <span className="font-semibold text-brand-700 dark:text-brand-400">{entry.total_xp} XP</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
 
-          <section>
-            <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">Tezkor havolalar</h2>
-            <div className="flex flex-wrap gap-2">
-              {QUICK_LINKS.map((link) => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  <link.icon size={15} />
-                  {link.label}
-                </Link>
-              ))}
+            <div>
+              <Section eyebrow="Navigatsiya" title="Tezkor havolalar">
+                <Card className="p-2">
+                  {[
+                    { to: "/director/attendance", label: "Davomat hisoboti", icon: ClipboardCheck, tone: "emerald" },
+                    { to: "/director/rankings", label: "XP va reyting", icon: Trophy, tone: "amber" },
+                    { to: "/director/achievements", label: "Yutuqlar", icon: Award, tone: "violet" },
+                    { to: "/director/reports", label: "Hisobotlar", icon: BarChart3, tone: "brand" },
+                    { to: "/director/settings", label: "Sozlamalar", icon: Settings, tone: "slate" },
+                    { to: "/director/guide", label: "Qo'llanma", icon: HelpCircle, tone: "slate" },
+                  ].map((link) => (
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      className="hover-card flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors"
+                    >
+                      <span
+                        className={`h-2 w-2 shrink-0 rounded-full ${TONE_DOT[link.tone as Tone]}`}
+                      />
+                      <link.icon size={16} className="shrink-0 text-ink-muted" />
+                      <span className="truncate text-sm font-medium text-ink">{link.label}</span>
+                    </Link>
+                  ))}
+                </Card>
+              </Section>
+
+              <div className="mt-6">
+                <Section eyebrow="Boshqaruv" title="Maktab amaliyoti">
+                  <Card className="p-5">
+                    <CardTitle icon={School} tone="brand">
+                      {data.total_classes} ta sinf
+                    </CardTitle>
+                    <p className="text-sm text-ink-muted">
+                      Har bir sinf o'quvchilari, o'qituvchilari va o'sish ko'rsatkichlari bo'yicha
+                      alohida tahlil qilinadi.
+                    </p>
+                    <Link to="/director/classes" className="btn btn-secondary btn-sm mt-4 w-full">
+                      Sinflarni ko'rish
+                    </Link>
+                  </Card>
+                </Section>
+              </div>
             </div>
-          </section>
+          </div>
         </>
       )}
     </div>

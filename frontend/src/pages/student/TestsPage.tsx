@@ -35,7 +35,7 @@ export function StudentTestsPage() {
             const attempt = attemptByTest.get(test.id);
             const isDone = attempt?.status === "SUBMITTED";
             return (
-              <div key={test.id} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+              <div key={test.id} className="flex flex-col card p-5">
                 <p className="text-xs font-medium uppercase tracking-wide text-brand-600 dark:text-brand-400">
                   {test.subject_name}
                 </p>

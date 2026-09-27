@@ -60,7 +60,7 @@ export function SubjectsPage() {
       {data && data.results.length === 0 && <EmptyState title="Hali fan yo'q" />}
 
       {data && data.results.length > 0 && (
-        <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
+        <ul className="divide-y divide-slate-100 card">
           {data.results.map((subject) => (
             <li key={subject.id} className="flex items-center justify-between px-4 py-3">
               <span className="text-slate-800 dark:text-slate-100">{subject.name}</span>

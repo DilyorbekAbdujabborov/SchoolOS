@@ -7,6 +7,7 @@ import { Avatar } from "../components/Avatar";
 import { Logo } from "../components/Logo";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { useAuth } from "../lib/auth";
+import { publicName } from "../lib/names";
 import { todayLabel } from "../lib/schoolTime";
 import { useStudentTopStats } from "../lib/useStudentTopStats";
 
@@ -31,22 +32,27 @@ const ROLE_LABEL: Record<string, string> = {
   STUDENT: "O'quvchi",
 };
 
+/**
+ * One nav row. Inactive rows are muted neutral text on hover; the active row
+ * is the only place the sidebar spends colour — a soft brand wash, brand text,
+ * and a 3px accent bar on the leading edge. That single accent is what makes
+ * the sidebar feel deliberate rather than a list of blue links.
+ */
 function NavLinkRow({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
   return (
     <NavLink
       to={item.to}
       end={item.end}
       onClick={onNavigate}
-      className={({ isActive }) =>
-        `flex items-center gap-3 rounded-lg border-l-2 px-3 py-2 text-sm font-medium transition-colors ${
-          isActive
-            ? "border-brand-600 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-500/10 dark:text-brand-300"
-            : "hover-glow border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100"
-        }`
-      }
+      className={({ isActive }) => `nav-item ${isActive ? "nav-item-active" : ""}`}
     >
-      <item.icon size={17} className="shrink-0" />
-      <span className="truncate">{item.label}</span>
+      {({ isActive }) => (
+        <>
+          {isActive && <span aria-hidden className="nav-active-bar" />}
+          <item.icon size={17} className="shrink-0" />
+          <span className="truncate">{item.label}</span>
+        </>
+      )}
     </NavLink>
   );
 }
@@ -69,10 +75,14 @@ function NavSection({ group, onNavigate }: { group: NavGroup; onNavigate?: () =>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+        aria-expanded={open}
+        className="flex w-full items-center justify-between rounded-md px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-subtle transition-colors hover:text-ink-muted"
       >
         {group.label}
-        <ChevronDown size={13} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
+        <ChevronDown
+          size={13}
+          className={`transition-transform duration-200 ${open ? "" : "-rotate-90"}`}
+        />
       </button>
       {open && (
         <div className="mt-1 space-y-1">
@@ -85,31 +95,43 @@ function NavSection({ group, onNavigate }: { group: NavGroup; onNavigate?: () =>
   );
 }
 
-function SidebarContent({ navGroups, brand, onNavigate }: { navGroups: NavGroup[]; brand: string; onNavigate?: () => void }) {
+function SidebarContent({
+  navGroups,
+  brand,
+  onNavigate,
+}: {
+  navGroups: NavGroup[];
+  brand: string;
+  onNavigate?: () => void;
+}) {
   const { user, logout } = useAuth();
-  const displayName = user ? `${user.first_name || user.username} ${user.last_name || ""}`.trim() : "";
+  const displayName = publicName(user);
 
   return (
     <>
-      <div className="border-b border-slate-200 px-5 py-5 dark:border-slate-800">
+      <div className="flex h-16 shrink-0 items-center border-b border-line px-5">
         <Logo subtitle={brand} />
       </div>
-      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
+
+      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-5">
         {navGroups.map((group, i) => (
           <NavSection key={group.label ?? i} group={group} onNavigate={onNavigate} />
         ))}
       </nav>
-      <div className="border-t border-slate-200 p-4 dark:border-slate-800">
-        <div className="flex items-center gap-3">
+
+      <div className="shrink-0 border-t border-line p-3">
+        <div className="flex items-center gap-3 rounded-xl px-2 py-2">
           <Avatar name={displayName || "?"} src={user?.avatar_url} size={36} />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{displayName}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{user && ROLE_LABEL[user.role]}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-ink">{displayName}</p>
+            <p className="truncate text-xs text-ink-subtle">
+              {user && ROLE_LABEL[user.role]}
+            </p>
           </div>
         </div>
         <button
           onClick={logout}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-white/5"
+          className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-medium text-ink-muted transition-colors duration-150 hover:border-line-strong hover:bg-surface-raised hover:text-rose-600 dark:hover:text-rose-400"
         >
           <LogOut size={15} />
           Chiqish
@@ -119,48 +141,49 @@ function SidebarContent({ navGroups, brand, onNavigate }: { navGroups: NavGroup[
   );
 }
 
+/**
+ * The top bar: identity on the left (or the drawer trigger on mobile), the
+ * student's live XP/streak/level in the middle, and controls on the right.
+ * The stat pills use violet / orange / amber because those *are* XP, streak
+ * and level everywhere else in the app.
+ */
 function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
   const { user } = useAuth();
   const stats = useStudentTopStats();
   const notificationsPath = user ? `/${user.role.toLowerCase()}/notifications` : "/login";
 
   return (
-    <header className="flex items-center justify-between border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur md:px-6 dark:border-slate-800 dark:bg-slate-950/80">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onMenuClick}
-          aria-label="Menyuni ochish"
-          className="rounded-md p-2 text-slate-600 hover:bg-slate-100 md:hidden dark:text-slate-300 dark:hover:bg-slate-800"
-        >
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-line bg-surface/85 px-4 backdrop-blur-md md:px-6">
+      <div className="flex min-w-0 items-center gap-2">
+        <button onClick={onMenuClick} aria-label="Menyuni ochish" className="btn-icon md:hidden">
           <Menu size={20} />
         </button>
-        <p className="text-lg font-bold text-brand-700 md:hidden dark:text-brand-400">SchoolOS</p>
+        <p className="truncate text-base font-bold tracking-tight text-ink md:hidden">SchoolOS</p>
+        <p className="hidden text-sm text-ink-subtle md:block">{todayLabel()}</p>
       </div>
 
-      <div className="flex items-center gap-2 md:gap-3">
+      <div className="flex shrink-0 items-center gap-2">
         {stats ? (
-          <div className="hidden items-center gap-2 sm:flex">
-            <span className="flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">
+          <div className="hidden items-center gap-1.5 sm:flex">
+            <span className="chip bg-violet-500/12 text-violet-700 dark:text-violet-300">
               {stats.level}-daraja
             </span>
-            <span className="flex items-center gap-1.5 rounded-full bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 dark:bg-orange-500/10 dark:text-orange-300">
-              <Flame size={14} />
-              {stats.currentStreak}
+            <span className="chip bg-orange-500/12 text-orange-700 dark:text-orange-300">
+              <Flame size={13} />
+              <span className="tabular">{stats.currentStreak}</span>
             </span>
-            <span className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
-              <Trophy size={14} />
-              {stats.totalXp} XP
+            <span className="chip bg-amber-500/12 text-amber-700 dark:text-amber-300">
+              <Trophy size={13} />
+              <span className="tabular">{stats.totalXp}</span> XP
             </span>
           </div>
         ) : (
-          <span className="hidden rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 sm:inline dark:bg-slate-800 dark:text-slate-300">
-            {todayLabel()}
-          </span>
+          <span className="chip bg-surface-raised text-ink-muted">{todayLabel()}</span>
         )}
         <ThemeToggle />
         <NavLink
           to={notificationsPath}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          className="btn-icon border border-line"
           aria-label="Bildirishnomalar"
         >
           <Bell size={17} />
@@ -190,47 +213,56 @@ export function DashboardLayout({
   }, [location.pathname]);
 
   return (
-    <div
-      className={`min-h-screen md:flex ${
-        // A faint, single-hue brand wash for the student experience — kept
-        // subtle so it reads as "livelier," not "a different color scheme."
-        vibrant ? "bg-gradient-to-b from-brand-50/70 to-slate-50 dark:from-brand-900/20 dark:to-slate-950" : "bg-slate-50 dark:bg-slate-950"
-      }`}
-    >
+    <div className="min-h-screen bg-canvas md:flex">
       {/* Mobile drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <button
             aria-label="Yopish"
             onClick={() => setMobileOpen(false)}
-            className="absolute inset-0 bg-slate-900/40 dark:bg-black/60"
+            className="animate-fade absolute inset-0 bg-slate-950/45 dark:bg-black/70"
           />
-          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-white shadow-sm dark:bg-slate-950">
-            <div className="flex items-center justify-end px-3 pt-3">
+          <aside className="slide-left absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-line bg-surface">
+            <div className="flex items-center justify-between border-b border-line px-3 py-2">
+              <Logo subtitle={brand} />
               <button
                 onClick={() => setMobileOpen(false)}
                 aria-label="Yopish"
-                className="rounded-md p-2 text-slate-400 hover:bg-slate-100 dark:text-slate-500 dark:hover:bg-white/5"
+                className="btn-icon"
               >
                 <X size={18} />
               </button>
             </div>
-            <SidebarContent navGroups={navGroups} brand={brand} onNavigate={() => setMobileOpen(false)} />
+            <SidebarContent
+              navGroups={navGroups}
+              brand={brand}
+              onNavigate={() => setMobileOpen(false)}
+            />
           </aside>
         </div>
       )}
 
-      {/* Desktop sidebar — follows the app theme: white + blue accent in light
-          mode, near-black + blue accent in dark mode (never a mechanical
-          inversion of the main content area, which sits one shade lighter). */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white md:flex dark:border-slate-800 dark:bg-slate-950">
+      {/* Desktop sidebar — a surface distinct from the page behind it, so the
+          nav never competes with the content it frames. */}
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-line bg-surface md:flex">
         <SidebarContent navGroups={navGroups} brand={brand} />
       </aside>
 
-      <div className="flex min-h-screen flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <TopBar onMenuClick={() => setMobileOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <Outlet />
+        {/*
+          The content plane sits one step above the page background in the
+          student experience only (a whisper of brand at the very top), and
+          the whole <Outlet/> is keyed by pathname so each route animates in
+          once on navigation instead of re-animating on every re-render.
+        */}
+        <main
+          key={location.pathname}
+          className={`fade flex-1 p-4 md:p-6 lg:p-8 ${vibrant ? "shell-vibrant" : ""}`}
+        >
+          <div className="mx-auto w-full max-w-[1400px]">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

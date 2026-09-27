@@ -27,7 +27,7 @@ function DuelStatusBadge({ duel }: { duel: DuelListItem }) {
     );
   }
   if (duel.result === "DRAW") return <Badge tone="slate">Durang</Badge>;
-  return duel.i_won ? <Badge tone="emerald">G'alaba</Badge> : <Badge tone="red">Mag'lubiyat</Badge>;
+  return duel.i_won ? <Badge tone="emerald">G'alaba</Badge> : <Badge tone="rose">Mag'lubiyat</Badge>;
 }
 
 function CreateDuelModal({ onClose }: { onClose: () => void }) {
@@ -114,7 +114,7 @@ export function StudentDuelsPage() {
       />
 
       {rating && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div className="card p-5">
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
               <Shield size={20} />
@@ -138,7 +138,7 @@ export function StudentDuelsPage() {
         {!leaderboard && <LoadingState label="Yuklanmoqda..." />}
         {leaderboard && leaderboard.length === 0 && <EmptyState title="Reyting hali bo'sh" />}
         {leaderboard && leaderboard.length > 0 && (
-          <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
+          <div className="divide-y divide-slate-100 card">
             {leaderboard.slice(0, 10).map((entry, index) => (
               <div key={entry.student_name} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="flex items-center gap-3">

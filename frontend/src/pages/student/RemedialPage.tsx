@@ -96,7 +96,7 @@ export function StudentRemedialPage() {
       </div>
 
       {phase === "explaining" && !session.explanation && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-900">
+        <div className="card p-8 text-center">
           <LoadingState label="AI mavzuni tushuntirmoqda..." />
         </div>
       )}
@@ -156,7 +156,7 @@ export function StudentRemedialPage() {
             </div>
           )}
           {gameQuery.data?.[questionIndex] && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+            <div className="card p-5">
               <p className="font-medium text-slate-900 dark:text-slate-50">{gameQuery.data[questionIndex].text}</p>
               <div className="mt-3 space-y-2">
                 {gameQuery.data[questionIndex].options.map((option, optionIndex) => (

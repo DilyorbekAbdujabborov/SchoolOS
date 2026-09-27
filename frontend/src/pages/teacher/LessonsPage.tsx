@@ -35,7 +35,7 @@ export function TeacherLessonsPage() {
       {data && slots.length === 0 && <EmptyState title="Bu kunga dars belgilanmagan" />}
 
       {data && slots.length > 0 && (
-        <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
+        <div className="divide-y divide-slate-100 card">
           {slots.map((slot) => {
             const time = config ? periodTimes(slot.period_number, config) : null;
             return (

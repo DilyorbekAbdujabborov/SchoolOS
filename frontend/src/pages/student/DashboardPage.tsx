@@ -5,31 +5,34 @@ import {
   Bell,
   CalendarDays,
   CheckCircle2,
-  ChevronRight,
   Circle,
   ClipboardList,
-  Crown,
   FileText,
   Flame,
   Medal,
+  Sparkles,
   Target,
+  Trophy,
 } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 
-import { Avatar } from "../../components/Avatar";
 import { CircularProgress } from "../../components/CircularProgress";
 import { DashboardHero } from "../../components/DashboardHero";
 import { GradientActionCard } from "../../components/GradientActionCard";
+import { LeaderboardPodium } from "../../components/Leaderboard";
 import { LessonList } from "../../components/LessonList";
 import { ProgressBar } from "../../components/ProgressBar";
 import { StatCard } from "../../components/StatCard";
+import { Card, CardTitle, Section, SectionLink } from "../../components/Surface";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { AchievementIcon } from "../../lib/achievementIcons";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { getLevelInfo } from "../../lib/gamification";
+import { fullName } from "../../lib/names";
 import { useCountUp } from "../../lib/useCountUp";
+import { TONE_CHIP, TONE_DOT, type Tone } from "../../lib/tones";
 import type {
   Achievement,
   ActivitySummary,
@@ -47,49 +50,64 @@ const XpHistoryChart = lazy(() =>
   import("../../components/charts/XpHistoryChart").then((m) => ({ default: m.XpHistoryChart })),
 );
 
-function XpHeroCard({ totalXp }: { totalXp: number }) {
+/**
+ * Level and XP. The one card on this page allowed a tinted plane, because XP
+ * is the metric the whole student experience is built around. Amber carries XP
+ * consistently — top bar, history chart, task list.
+ */
+function XpHeroCard({ totalXp, xpToNextLevel }: { totalXp: number; xpToNextLevel: number | null }) {
   const animatedXp = useCountUp(totalXp);
   const { level, xpIntoLevel, xpForNextLevel, progressPercent } = getLevelInfo(totalXp);
-  const xpToGo = xpForNextLevel - xpIntoLevel;
 
   return (
-    <div className="rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 to-white p-6 lg:col-span-2 dark:border-brand-500/20 dark:from-brand-500/10 dark:to-slate-900">
+    <Card tone="amber" className="relative overflow-hidden p-5 sm:p-6 lg:col-span-2">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-400">
-            {level}-daraja
-          </p>
-          <p className="mt-1 text-4xl font-bold tabular-nums text-slate-900 dark:text-slate-50">
-            {animatedXp} <span className="text-lg font-medium text-slate-400 dark:text-slate-500">XP</span>
+        <div className="min-w-0">
+          <p className="section-eyebrow">Umumiy XP</p>
+          <p className="mt-1.5 flex items-baseline gap-2">
+            <span className="tabular text-4xl font-bold leading-none tracking-tight text-ink">
+              {animatedXp}
+            </span>
+            <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">XP</span>
           </p>
         </div>
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xl font-bold text-white shadow-sm">
-          {level}
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-xl font-bold text-white shadow-raise">
+            {level}
+          </div>
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">
+            daraja
+          </span>
         </div>
       </div>
+
       <div className="mt-5">
-        <div className="mb-1.5 flex justify-between text-xs text-slate-500 dark:text-slate-400">
-          <span>
+        <div className="mb-1.5 flex flex-wrap justify-between gap-x-3 text-xs text-ink-muted">
+          <span className="tabular">
             {xpIntoLevel} / {xpForNextLevel} XP
           </span>
-          <span>{level + 1}-darajagacha {xpToGo} XP qoldi</span>
+          {xpToNextLevel !== null && (
+            <span className="tabular">{level + 1}-darajagacha {xpToNextLevel} XP qoldi</span>
+          )}
         </div>
-        <ProgressBar value={progressPercent} tone="brand" />
+        <ProgressBar value={progressPercent} tone="amber" size="lg" />
       </div>
-    </div>
+    </Card>
   );
 }
 
 function StreakCard({ streak }: { streak: Streak | undefined }) {
+  const current = streak?.current_streak ?? 0;
+  const best = streak?.longest_streak ?? 0;
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50 to-white p-6 text-center dark:border-amber-500/20 dark:from-amber-500/10 dark:to-slate-900">
-      <Flame className="h-10 w-10 text-amber-500" strokeWidth={1.75} />
-      <p className="mt-1 text-3xl font-bold tabular-nums text-amber-700 dark:text-amber-400">{streak?.current_streak ?? 0}</p>
-      <p className="text-xs font-medium text-amber-700 dark:text-amber-400">kunlik faollik seriyasi</p>
-      {streak && streak.longest_streak > streak.current_streak && (
-        <p className="mt-1 text-xs text-amber-500 dark:text-amber-500/80">Eng uzuni: {streak.longest_streak} kun</p>
-      )}
-    </div>
+    <Card tone="orange" className="flex flex-col items-center justify-center p-5 text-center sm:p-6">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-500/12">
+        <Flame size={24} className="text-orange-500" strokeWidth={1.9} />
+      </div>
+      <p className="tabular mt-2 text-3xl font-bold leading-none text-ink">{current}</p>
+      <p className="mt-1.5 text-xs font-medium text-ink-muted">kunlik seriya</p>
+      {best > current && <p className="tabular mt-1 text-[11px] text-ink-subtle">Rekor: {best} kun</p>}
+    </Card>
   );
 }
 
@@ -106,72 +124,120 @@ function TaskChecklistCard({ entries }: { entries: ChecklistEntry[] }) {
   const totalXp = entries.reduce((sum, entry) => sum + entry.maxXp, 0);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-      <div className="mb-3 flex items-center gap-2">
-        <Target size={16} className="text-brand-600 dark:text-brand-400" />
-        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Yaqin vazifalar</h2>
-      </div>
+    <Card className="p-5">
+      <CardTitle icon={Target} tone="violet">Yaqin vazifalar</CardTitle>
       {entries.length === 0 ? (
-        <EmptyState title="Hozircha yangi vazifa yo'q" />
+        <EmptyState
+          title="Hozircha yangi vazifa yo'q"
+          description="Yangi test yoki topshiriq qo'shilsa, shu yerda ko'rinadi."
+        />
       ) : (
         <>
-          <ul className="space-y-2">
+          <ul className="space-y-1.5">
             {entries.map((entry) => (
               <li key={entry.key}>
                 <Link
                   to={entry.to}
-                  className="hover-glow flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-3 py-2.5 dark:border-slate-800"
+                  className="hover-card flex items-center justify-between gap-3 rounded-xl border border-transparent px-2.5 py-2 hover:border-line hover:bg-surface-raised/60"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <Circle size={16} className="shrink-0 text-slate-300 dark:text-slate-600" />
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                      <entry.icon size={15} />
-                    </span>
+                    <Circle size={15} className="shrink-0 text-ink-subtle" />
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{entry.title}</p>
-                      <p className="truncate text-xs text-slate-500 dark:text-slate-400">{entry.subtitle}</p>
+                      <p className="truncate text-sm font-medium text-ink">{entry.title}</p>
+                      <p className="truncate text-xs text-ink-subtle">{entry.subtitle}</p>
                     </div>
                   </div>
-                  <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-                    +{entry.maxXp} XP
+                  <span className="chip shrink-0 bg-amber-500/12 text-amber-700 dark:text-amber-300">
+                    <span className="tabular">+{entry.maxXp}</span> XP
                   </span>
                 </Link>
               </li>
             ))}
           </ul>
-          <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-            {entries.length} ta vazifa qoldi — bajarib, jami{" "}
-            <span className="font-semibold text-brand-600 dark:text-brand-400">{totalXp} XP</span> to'plashingiz mumkin.
+          <p className="mt-3 border-t border-line-soft pt-3 text-xs text-ink-subtle">
+            <span className="tabular font-semibold text-ink-muted">{entries.length}</span> ta vazifa
+            qoldi — jami{" "}
+            <span className="tabular font-semibold text-amber-600 dark:text-amber-400">
+              {totalXp} XP
+            </span>{" "}
+            to'plashingiz mumkin.
           </p>
         </>
       )}
+    </Card>
+  );
+}
+
+function TopStudentsCard({ entries }: { entries: StudentLeaderboardEntry[] }) {
+  return (
+    <Card className="p-5">
+      <CardTitle
+        icon={Trophy}
+        tone="amber"
+        action={
+          <Link to="/student/leaderboard" className="link-more">
+            Reyting
+          </Link>
+        }
+      >
+        Reyting yetakchilari
+      </CardTitle>
+      <LeaderboardPodium entries={entries} />
+    </Card>
+  );
+}
+
+function AchievementsRow({ items }: { items: Achievement[] }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      {items.map((achievement, i) => (
+        <div
+          key={achievement.id}
+          className="rise card flex items-center gap-3 p-3.5"
+          style={{ "--i": i } as React.CSSProperties}
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/12">
+            <AchievementIcon icon={achievement.icon} className="h-[18px] w-[18px] text-amber-500" />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-ink">{achievement.name}</p>
+            {achievement.unlocked_at && (
+              <p className="text-[11px] text-ink-subtle">
+                {new Date(achievement.unlocked_at).toLocaleDateString("uz-UZ")}
+              </p>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
 
-function TopStudentCard({ entry }: { entry: StudentLeaderboardEntry }) {
+/** Rank/trophies block — violet, because ranking is the student's own progress. */
+function RankCard({
+  label,
+  value,
+  hint,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  icon: typeof Medal;
+  tone: Tone;
+}) {
   return (
-    <div className="rounded-2xl border border-amber-200/60 bg-gradient-to-br from-amber-50 via-white to-white p-5 dark:border-amber-500/20 dark:from-amber-500/10 dark:via-slate-900 dark:to-slate-900">
-      <div className="mb-3 flex items-center gap-2">
-        <Crown size={16} className="text-amber-500" />
-        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Reyting yetakchisi</h2>
+    <Card className="p-4">
+      <div className="flex items-center gap-2">
+        <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${TONE_CHIP[tone]}`}>
+          <Icon size={15} />
+        </span>
+        <p className="text-xs font-medium text-ink-muted">{label}</p>
       </div>
-      <div className="flex items-center gap-3">
-        <Avatar name={entry.name} src={entry.avatar_url} size={44} />
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-50">{entry.name}</p>
-          <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-            {entry.school_class_name ?? "Sinfsiz"} · {entry.total_xp} XP
-          </p>
-        </div>
-      </div>
-      <Link
-        to="/student/leaderboard"
-        className="mt-4 flex items-center justify-center gap-1 rounded-xl border border-amber-200 py-2 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-50 dark:border-amber-500/30 dark:text-amber-300 dark:hover:bg-amber-500/10"
-      >
-        To'liq reytingni ko'rish <ChevronRight className="h-3.5 w-3.5" />
-      </Link>
-    </div>
+      <p className="tabular mt-2 text-2xl font-bold leading-none text-ink">{value}</p>
+      {hint && <p className="mt-1.5 text-[11px] text-ink-subtle">{hint}</p>}
+    </Card>
   );
 }
 
@@ -251,65 +317,81 @@ export function StudentDashboardPage() {
     })),
   ].slice(0, 5);
 
+  const { xpIntoLevel, xpForNextLevel } = getLevelInfo(user?.total_xp ?? 0);
+
   return (
     <div className="space-y-6">
       <DashboardHero
-        name={user?.first_name || user?.username || ""}
+        name={fullName(user)}
         avatarSrc={user?.avatar_url}
         subtitle="Bugun ham bilim sari bir qadam."
+        tone="violet"
         chips={[
           ...(data?.school_class ? [{ label: data.school_class, tone: "slate" as const }] : []),
-          ...(attendancePercent !== null ? [{ label: `Davomat ${attendancePercent}%`, tone: "emerald" as const }] : []),
+          ...(attendancePercent !== null
+            ? [{ label: `Davomat ${attendancePercent}%`, tone: "emerald" as const }]
+            : []),
+          ...(streak?.current_streak
+            ? [{ label: `${streak.current_streak} kunlik seriya`, tone: "amber" as const }]
+            : []),
         ]}
       />
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}
 
+      {/* Row 1 — the number that matters, plus the daily streak and ranks. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <XpHeroCard totalXp={user?.total_xp ?? 0} />
+        <XpHeroCard
+          totalXp={user?.total_xp ?? 0}
+          xpToNextLevel={xpForNextLevel > xpIntoLevel ? xpForNextLevel - xpIntoLevel : null}
+        />
         <StreakCard streak={streak} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <RankCard
           label="Sinf reytingi"
           value={rank?.class_rank ? `#${rank.class_rank}` : "—"}
           hint={rank ? `${rank.total_classes} sinfdan` : undefined}
           icon={Medal}
           tone="violet"
         />
-        <StatCard
+        <RankCard
           label="Umumiy reyting"
           value={rank?.rank ? `#${rank.rank}` : "—"}
           hint={rank ? `${rank.total_students} o'quvchidan` : undefined}
           icon={BarChart3}
           tone="brand"
         />
-        <StatCard label="Bajarilgan testlar" value={completedTestCount} icon={CheckCircle2} tone="emerald" />
-        <StatCard label="O'qilmagan xabarlar" value={data?.unread_notifications ?? 0} icon={Bell} tone="amber" />
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard label="Testlar" value={`${completedTestCount}/${totalTestCount}`} icon={CheckCircle2} tone="emerald" />
+          <StatCard label="Xabarlar" value={data?.unread_notifications ?? 0} icon={Bell} tone="amber" />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {upcomingTests.length > 0 && (
-          <GradientActionCard
-            icon={FileText}
-            title={`Sizda ${upcomingTests.length} ta ochiq test bor`}
-            subtitle="Hoziroq ishlab, natijangizni oshiring"
-            to="/student/tests"
-            tone="brand"
-          />
-        )}
-        {data && data.today_lessons.length > 0 && (
-          <GradientActionCard
-            icon={CalendarDays}
-            title={`Bugun ${data.today_lessons.length} ta darsingiz bor`}
-            subtitle="Dars jadvalini ko'rib chiqing"
-            to="/student/lessons"
-            tone="amber"
-          />
-        )}
-      </div>
+      {(upcomingTests.length > 0 || (data && data.today_lessons.length > 0)) && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {upcomingTests.length > 0 && (
+            <GradientActionCard
+              icon={FileText}
+              title={`${upcomingTests.length} ta ochiq test bor`}
+              subtitle="Hoziroq ishlab, natijangizni oshiring"
+              to="/student/tests"
+              tone="brand"
+            />
+          )}
+          {data && data.today_lessons.length > 0 && (
+            <GradientActionCard
+              icon={CalendarDays}
+              title={`Bugun ${data.today_lessons.length} ta dars`}
+              subtitle="Dars jadvalini ko'rib chiqing"
+              to="/student/lessons"
+              tone="violet"
+            />
+          )}
+        </div>
+      )}
 
       {data && !data.school_class && (
         <EmptyState
@@ -321,82 +403,79 @@ export function StudentDashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           {data && data.school_class && (
-            <section>
-              <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">Bugungi darslar</h2>
+            <Section title="Bugungi darslar" eyebrow="Jadval" icon={CalendarDays} iconTone="emerald">
               <LessonList lessons={data.today_lessons} />
-            </section>
+            </Section>
           )}
 
-          <section>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">So'nggi yutuqlar</h2>
-              <Link
-                to="/student/achievements"
-                className="inline-flex items-center gap-0.5 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
-              >
-                Hammasi <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
+          <Section
+            title="So'nggi yutuqlar"
+            eyebrow="Yutuqlar"
+            icon={Award}
+            iconTone="amber"
+            action={<SectionLink to="/student/achievements">Hammasi</SectionLink>}
+          >
             {unlockedAchievements.length === 0 ? (
               <EmptyState
                 title="Hali yutuqlar yo'q"
                 description="Test yoki topshiriqni bajarib birinchi yutuqingizni oching."
+                icon={Sparkles}
+                tone="violet"
               />
             ) : (
-              <div className="flex flex-wrap gap-3">
-                {unlockedAchievements.map((achievement) => (
-                  <div
-                    key={achievement.id}
-                    className="flex items-center gap-3 rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3 dark:border-amber-500/20 dark:bg-amber-500/10"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
-                      <AchievementIcon icon={achievement.icon} className="h-4 w-4" />
-                    </span>
-                    <div>
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{achievement.name}</p>
-                      {achievement.unlocked_at && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {new Date(achievement.unlocked_at).toLocaleDateString("uz-UZ")}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <AchievementsRow items={unlockedAchievements} />
             )}
-          </section>
+          </Section>
 
-          <section>
-            <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">XP tarixi (so'nggi 7 kun)</h2>
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <Section title="XP tarixi" eyebrow="So'nggi 7 kun" icon={Trophy} iconTone="amber">
+            <Card className="p-4">
               {xpHistory ? (
-                <Suspense fallback={<LoadingState label="Yuklanmoqda..." />}>
+                <Suspense fallback={<LoadingState />}>
                   <XpHistoryChart transactions={xpHistory.results} />
                 </Suspense>
               ) : (
-                <LoadingState label="Yuklanmoqda..." />
+                <LoadingState />
               )}
-            </div>
-          </section>
+            </Card>
+          </Section>
         </div>
 
         <div className="space-y-6">
-          {topStudents && topStudents.length > 0 && <TopStudentCard entry={topStudents[0]} />}
+          {topStudents && topStudents.length > 0 && <TopStudentsCard entries={topStudents} />}
 
           <TaskChecklistCard entries={checklistEntries} />
 
           {totalTestCount > 0 && (
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-5 text-center dark:border-slate-800 dark:bg-slate-900">
-              <div className="mb-1 flex items-center gap-2 self-start">
-                <Award size={16} className="text-brand-600 dark:text-brand-400" />
-                <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">O'zlashtirish</h2>
-              </div>
-              <CircularProgress value={completionPercent} label="testlar" />
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {completedTestCount} / {totalTestCount} test bajarildi
-              </p>
-            </div>
+            <Card className="flex flex-col items-center gap-3 p-5 text-center">
+              <h3 className="mb-0 flex w-full items-center gap-2 text-sm font-semibold text-ink">
+                <Target size={16} className={TONE_DOT.brand} />
+                Testlar
+              </h3>
+              <CircularProgress value={completionPercent} size={112} strokeWidth={10}>
+                <span className="tabular text-2xl font-bold leading-none text-ink">
+                  {completedTestCount}
+                </span>
+                <span className="mt-0.5 text-[10px] text-ink-subtle">/{totalTestCount} test</span>
+              </CircularProgress>
+              <p className="text-xs text-ink-muted">Testlarni o'zlashtirish darajasi</p>
+            </Card>
           )}
+
+          {/* Next milestone — a quiet, non-numeric goal. */}
+          <Card accent="violet" className="p-5">
+            <CardTitle icon={Sparkles} tone="violet">
+              Keyingi maqsad
+            </CardTitle>
+            <p className="text-sm text-ink-muted">
+              {rank?.class_rank === 1
+                ? "Siz sinfda birinchisiz. Reytingni saqlash uchun kunlik faollikni davom ettiring."
+                : "Har kuni kamida bitta test yoki topshiriq bajaring — XP reytingni tez ko'taradi."}
+            </p>
+            <div className="mt-3 flex items-center gap-2 text-xs text-ink-subtle">
+              <span className={`h-1.5 w-1.5 rounded-full ${TONE_DOT.violet}`} />
+              Kunlik seriya: <span className="tabular font-semibold text-ink">{streak?.current_streak ?? 0}</span> kun
+            </div>
+          </Card>
         </div>
       </div>
     </div>

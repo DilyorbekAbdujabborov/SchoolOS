@@ -5,6 +5,36 @@ export default {
   theme: {
     extend: {
       colors: {
+        /* Semantic tokens. These read from CSS variables set in `index.css`,
+         * which are redefined under `.dark` — so `bg-surface`, `border-line`
+         * and `text-ink-muted` are theme-correct everywhere with no `dark:`
+         * twin. Alpha modifiers (`bg-surface/60`) work because the variables
+         * hold bare RGB channels.
+         *
+         * The four neutral steps carry the layout:
+         *   canvas  — the page plane
+         *   surface — cards, panels, tables
+         *   raised  — insets and hovered rows
+         *   sunken  — wells, tracks, disabled fills
+         */
+        canvas: "rgb(var(--c-canvas) / <alpha-value>)",
+        surface: {
+          DEFAULT: "rgb(var(--c-surface) / <alpha-value>)",
+          raised: "rgb(var(--c-raised) / <alpha-value>)",
+          sunken: "rgb(var(--c-sunken) / <alpha-value>)",
+        },
+        line: {
+          DEFAULT: "rgb(var(--c-line) / <alpha-value>)",
+          soft: "rgb(var(--c-line-soft) / <alpha-value>)",
+          strong: "rgb(var(--c-line-strong) / <alpha-value>)",
+        },
+        ink: {
+          DEFAULT: "rgb(var(--c-ink) / <alpha-value>)",
+          muted: "rgb(var(--c-ink-muted) / <alpha-value>)",
+          subtle: "rgb(var(--c-ink-subtle) / <alpha-value>)",
+          inverse: "rgb(var(--c-ink-inverse) / <alpha-value>)",
+        },
+
         // The app's single accent — a clean, vivid blue. Used sparingly (primary
         // actions, active nav, key stats), never as a page-wide wash — see the
         // design-system brief this palette implements.
@@ -42,7 +72,49 @@ export default {
           950: "#08090d",
         },
       },
+      fontFamily: {
+        // A modern system stack: no webfont request, so the UI renders
+        // identically offline and never flashes while a font loads.
+        sans: [
+          "Inter var",
+          "Inter",
+          "ui-sans-serif",
+          "system-ui",
+          "-apple-system",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "Noto Sans",
+          "Arial",
+          "sans-serif",
+        ],
+        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
+      },
+
+      boxShadow: {
+        // The app's only three depths — soft and neutral, never a blue glow.
+        card: "var(--shadow-card)",
+        raise: "var(--shadow-raise)",
+        pop: "var(--shadow-pop)",
+      },
+
+      borderRadius: {
+        // One radius ladder for the whole app, tuned slightly rounder than
+        // Tailwind's defaults: 12px controls, 18px cards. Consistency here
+        // does more for the "designed product" feel than any single colour.
+        DEFAULT: "0.5rem",
+        md: "0.625rem",
+        lg: "0.75rem",
+        xl: "0.875rem",
+        "2xl": "1.125rem",
+        "3xl": "1.5rem",
+      },
+
       keyframes: {
+        shimmer: {
+          "0%": { backgroundPosition: "200% 0" },
+          "100%": { backgroundPosition: "-200% 0" },
+        },
         "pop-in": {
           "0%": { opacity: "0", transform: "scale(0.85) translateY(4px)" },
           "60%": { opacity: "1", transform: "scale(1.04) translateY(0)" },
@@ -229,6 +301,7 @@ export default {
         },
       },
       animation: {
+        shimmer: "shimmer 1.4s linear infinite",
         "pop-in": "pop-in 0.4s cubic-bezier(0.34,1.56,0.64,1) both",
         wave: "wave 2.4s ease-in-out infinite",
         "floor-drop": "floor-drop 0.6s cubic-bezier(0.22,1,0.36,1) both",

@@ -261,6 +261,7 @@ export function TowerDefenseGame({ session }: { session: GameSession }) {
           wide={wide}
           loading={game.questionsQuery.isLoading}
           error={game.questionsQuery.isError}
+          unavailable={game.questionsUnavailable}
           resuming={session.answered_count > 0}
           onStart={() => {
             game.start();
@@ -852,6 +853,7 @@ function Briefing({
   wide,
   loading,
   error,
+  unavailable,
   resuming,
   onStart,
 }: {
@@ -860,6 +862,7 @@ function Briefing({
   wide: boolean;
   loading: boolean;
   error: boolean;
+  unavailable: boolean;
   resuming: boolean;
   onStart: () => void;
 }) {
@@ -915,6 +918,7 @@ function Briefing({
         <GameStartActions
           loading={loading}
           error={error}
+          unavailable={unavailable}
           resuming={resuming}
           onStart={onStart}
           label="Mudofaani boshlash"

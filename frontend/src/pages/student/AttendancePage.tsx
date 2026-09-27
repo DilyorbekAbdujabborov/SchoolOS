@@ -9,6 +9,7 @@ import { StatCard } from "../../components/StatCard";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
 import { api } from "../../lib/api";
+import type { Tone } from "../../lib/tones";
 import { SCHOOL_WEEKDAYS } from "../../lib/schoolTime";
 import type {
   AttendanceRecord,
@@ -82,7 +83,7 @@ function WeeklyStrip() {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+    <div className="card p-5">
       <p className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">Bu hafta</p>
       {isLoading && <LoadingState label="Yuklanmoqda..." />}
       {isError && <ErrorState message="Haftalik davomat yuklanmadi." />}
@@ -125,11 +126,11 @@ function lessonStatus(lesson: LessonAttendanceStatus, now: number): { label: str
   return { label: "Davomat olinmagan", tone: "missed" };
 }
 
-const TONE_BADGE: Record<LessonTone, "emerald" | "slate" | "amber" | "red"> = {
+const TONE_BADGE: Record<LessonTone, Tone> = {
   taken: "emerald",
   upcoming: "slate",
   waiting: "amber",
-  missed: "red",
+  missed: "rose",
 };
 
 /** Re-renders every 30 seconds so today's lesson statuses stay truthful. */
@@ -150,13 +151,13 @@ function TodayLessonsSection() {
   });
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+    <div className="card p-5">
       <p className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">Bugungi darslar</p>
       {isLoading && <LoadingState label="Yuklanmoqda..." />}
       {isError && <ErrorState message="Bugungi darslar yuklanmadi." />}
       {data && data.length === 0 && <EmptyState title="Bugun darsingiz yo'q" />}
       {data && data.length > 0 && (
-        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+        <div className="divide-y divide-line-soft">
           {data.map((lesson) => {
             const status = lessonStatus(lesson, now);
             return (

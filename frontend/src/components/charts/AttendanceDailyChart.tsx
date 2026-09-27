@@ -1,6 +1,14 @@
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
-import { useTheme } from "../../lib/theme";
+import { AXIS_PROPS, useChartTheme } from "../../lib/chartTheme";
 import type { AttendanceDailyCount } from "../../types";
 
 // "kun.oy" (e.g. "21.09") rather than a 3-letter month name — Uzbek month
@@ -16,43 +24,50 @@ interface Row extends AttendanceDailyCount {
 }
 
 function ChartTooltip({ active, payload }: { active?: boolean; payload?: { payload: Row }[] }) {
+  const theme = useChartTheme();
   if (!active || !payload || payload.length === 0) return null;
   const point = payload[0].payload;
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <p className="mb-1.5 font-semibold text-slate-800 dark:text-slate-100">{point.label}</p>
-      <p className="text-emerald-600 dark:text-emerald-400">Keldi: {point.present}</p>
-      <p className="text-amber-600 dark:text-amber-400">Kechikdi: {point.late}</p>
-      <p className="text-red-600 dark:text-red-400">Kelmadi: {point.absent}</p>
-      <p className="text-slate-500 dark:text-slate-400">Sababli: {point.excused}</p>
+    <div className={theme.tooltip.content}>
+      <p className={theme.tooltip.label}>{point.label}</p>
+      <p className="font-semibold text-emerald-600 dark:text-emerald-400">Keldi: {point.present}</p>
+      <p className="font-semibold text-amber-600 dark:text-amber-400">Kechikdi: {point.late}</p>
+      <p className="font-semibold text-rose-600 dark:text-rose-400">Kelmadi: {point.absent}</p>
+      <p className={theme.tooltip.value}>Sababli: {point.excused}</p>
     </div>
   );
 }
 
+/**
+ * Daily attendance. The bars encode the thing you actually scan for — how many
+ * were present — in brand blue; the absence/lateness breakdown lives in the
+ * tooltip and in the red/amber lines beside the chart, so the plot itself
+ * stays monochrome and calm.
+ */
 export function AttendanceDailyChart({ data }: { data: AttendanceDailyCount[] }) {
-  const { theme } = useTheme();
-  const gridColor = theme === "dark" ? "#1c212c" : "#e1e4ea";
-  const tickColor = theme === "dark" ? "#6b7280" : "#98a0b3";
-  const barColor = theme === "dark" ? "#3b82f6" : "#2563eb";
-  const cursorColor = theme === "dark" ? "rgba(59,130,246,0.10)" : "rgba(37,99,235,0.06)";
-
+  const theme = useChartTheme();
   const rows: Row[] = data.map((d) => ({ ...d, label: shortDateLabel(d.date) }));
 
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={rows} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-        <CartesianGrid vertical={false} stroke={gridColor} />
+      <BarChart data={rows} margin={{ top: 8, right: 8, left: -14, bottom: 0 }} barCategoryGap="18%">
+        <CartesianGrid vertical={false} stroke={theme.grid} />
         <XAxis
           dataKey="label"
-          axisLine={false}
-          tickLine={false}
-          tick={{ fontSize: 11, fill: tickColor }}
+          {...AXIS_PROPS}
+          tick={{ ...AXIS_PROPS.tick, fill: theme.axis }}
           interval="preserveStartEnd"
-          minTickGap={16}
+          minTickGap={18}
         />
-        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: tickColor }} width={36} />
-        <Tooltip content={<ChartTooltip />} cursor={{ fill: cursorColor }} />
-        <Bar dataKey="present" fill={barColor} radius={[6, 6, 0, 0]} maxBarSize={36} />
+        <YAxis {...AXIS_PROPS} tick={{ ...AXIS_PROPS.tick, fill: theme.axis }} width={40} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: theme.cursor }} />
+        <Bar
+          dataKey="present"
+          fill={theme.tone("brand")}
+          radius={[6, 6, 0, 0]}
+          maxBarSize={34}
+          className="chart-enter"
+        />
       </BarChart>
     </ResponsiveContainer>
   );

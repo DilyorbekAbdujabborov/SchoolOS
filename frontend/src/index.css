@@ -2,45 +2,427 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-slate-50 text-slate-900 antialiased transition-colors duration-200 dark:bg-slate-950 dark:text-slate-100;
+/* ═══════════════════════════════════════════════════════════════════════════
+   SchoolOS design system
+   ───────────────────────────────────────────────────────────────────────────
+   One token set drives every surface, border and text colour in the app, so
+   a component can be written once and read correctly in both themes without
+   a `dark:` twin. The palette is deliberately *neutral-first*: blue is the
+   brand accent, not the interface. Four neutral steps (canvas → surface →
+   raised → line) carry the whole layout; the accents below are rationed out
+   per data type (see `lib/tones.ts` and `lib/chartTheme.ts`).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  :root {
+    /* Surfaces — light: soft off-white canvas, pure-white cards, so a border
+       is a nicety rather than the only thing separating two planes. */
+    --c-canvas: 246 247 249; /* page background (slate-50) */
+    --c-surface: 255 255 255; /* cards, panels, tables */
+    --c-raised: 241 243 247; /* insets: table heads, chips, hovered rows */
+    --c-sunken: 236 239 244; /* wells, tracks, disabled fills */
+
+    --c-line: 225 228 234; /* default hairline */
+    --c-line-soft: 240 242 246; /* inner dividers between rows */
+    --c-line-strong: 199 204 214; /* inputs, emphasised borders */
+
+    --c-ink: 17 21 28; /* primary text */
+    --c-ink-muted: 88 96 112; /* secondary text, labels */
+    --c-ink-subtle: 138 146 165; /* tertiary text, hints, axis ticks */
+    --c-ink-inverse: 255 255 255; /* text on a solid accent fill */
+
+    /* Shadows are neutral and very soft — depth, not glow. */
+    --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.05);
+    --shadow-raise: 0 2px 4px rgb(16 24 40 / 0.04), 0 10px 24px -12px rgb(16 24 40 / 0.16);
+    --shadow-pop: 0 12px 32px -8px rgb(16 24 40 / 0.22), 0 4px 8px -4px rgb(16 24 40 / 0.1);
+  }
+
+  .dark {
+    /* Surfaces — dark: near-black page, graphite cards, one step up for
+       raised fills, so cards read as lifted rather than as holes. */
+    --c-canvas: 8 9 13;
+    --c-surface: 20 24 33;
+    --c-raised: 28 33 44;
+    --c-sunken: 13 16 22;
+
+    --c-line: 38 44 57;
+    --c-line-soft: 30 35 46;
+    --c-line-strong: 54 62 79;
+
+    --c-ink: 240 243 248;
+    --c-ink-muted: 158 166 183;
+    --c-ink-subtle: 108 116 132;
+    --c-ink-inverse: 255 255 255;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  /* One focus treatment for the entire app: a 2px accent ring with a small
+     offset, so keyboard focus is always obvious and never relies on hover. */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    @apply outline-none ring-2 ring-brand-500/70 ring-offset-2 ring-offset-canvas;
+  }
+
+  /* Numerals line up in tables, stat tiles and count-up animations. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    @apply bg-brand-500/25;
+  }
+
+  /* Slim scrollbars, so long nav lists and wide tables don't shout. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--c-line-strong) / 0.7) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    @apply rounded-full;
+    background-color: rgb(var(--c-line-strong) / 0.55);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--c-line-strong) / 0.85);
+  }
 }
 
-/* Shared card/tile/menu-item hover language — one definition, applied via the
- * `.hover-card` (cards, stat tiles, game tiles: border + glow + lift) and
- * `.hover-glow` (compact list/menu rows: border + glow, no lift, so it
- * doesn't jostle tightly-stacked siblings) classes below.
- *
- * Gated on `(hover: hover)` so touch devices never get a "stuck" hover state
- * after a tap — the effect simply doesn't exist there, not just disabled.
- */
-@media (hover: hover) and (pointer: fine) {
-  .hover-card,
-  .hover-glow {
-    transition:
-      transform 200ms ease-out,
-      border-color 200ms ease-out,
-      box-shadow 200ms ease-out;
+@layer components {
+  /* ── Surfaces ─────────────────────────────────────────────────────────── */
+
+  /* The one card recipe: hairline border, soft shadow, generous radius. */
+  .card {
+    @apply rounded-2xl border border-line bg-surface shadow-card;
   }
 
-  .hover-card:hover {
-    transform: translateY(-2px);
+  .card-quiet {
+    @apply rounded-2xl border border-line bg-surface;
   }
 
-  .hover-card:hover,
-  .hover-glow:hover {
-    border-color: #93c5fd; /* brand-300 — a light, soft blue, never neon */
-    box-shadow:
-      0 0 0 1px rgba(37, 99, 235, 0.06),
-      0 12px 24px -10px rgba(37, 99, 235, 0.18);
+  .card-inset {
+    @apply rounded-xl border border-line bg-surface-raised;
   }
 
-  /* A touch more visible against dark surfaces, per the brief — still soft. */
-  .dark .hover-card:hover,
-  .dark .hover-glow:hover {
-    border-color: rgba(96, 165, 250, 0.5); /* brand-400/50 */
-    box-shadow:
-      0 0 0 1px rgba(59, 130, 246, 0.15),
-      0 14px 28px -10px rgba(59, 130, 246, 0.35);
+  /* Interactive cards, list rows and menu items share one hover treatment:
+     a small lift (cards only, so tightly-stacked rows don't jostle) plus a
+     hairline that picks up the surface's own accent. Gated on a fine pointer
+     so a touch device never keeps a "stuck" hover state after a tap — the
+     effect simply doesn't exist there, not just disabled. */
+  @media (hover: hover) and (pointer: fine) {
+    .hover-card,
+    .hover-glow {
+      transition:
+        transform 200ms ease-out,
+        border-color 200ms ease-out,
+        box-shadow 200ms ease-out;
+    }
+
+    .hover-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .hover-card:hover,
+    .hover-glow:hover {
+      border-color: rgb(var(--c-line-strong));
+      box-shadow: var(--shadow-raise);
+    }
+
+    .dark .hover-card:hover,
+    .dark .hover-glow:hover {
+      border-color: rgb(96 165 250 / 0.35);
+      box-shadow: var(--shadow-raise);
+    }
+  }
+
+  /* A hairline divider that matches the card it lives in. */
+  .divider {
+    @apply border-line-soft;
+  }
+
+  /* ── Type scale ───────────────────────────────────────────────────────── */
+
+  .page-title {
+    @apply text-2xl font-bold leading-tight tracking-tight text-ink sm:text-[28px];
+  }
+
+  .section-title {
+    @apply text-sm font-semibold tracking-tight text-ink;
+  }
+
+  .section-eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-subtle;
+  }
+
+  .label {
+    @apply text-sm font-medium text-ink-muted;
+  }
+
+  .meta {
+    @apply text-xs text-ink-subtle;
+  }
+
+  .stat-value {
+    @apply tabular text-2xl font-bold leading-none tracking-tight text-ink;
+  }
+
+  /* ── Buttons ──────────────────────────────────────────────────────────── */
+
+  /* Shared geometry so primary, secondary, ghost and danger buttons line up
+     on the same baseline and in the same row at every size. */
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg
+           text-sm font-semibold transition-[background-color,border-color,color,box-shadow,transform]
+           duration-150 ease-out disabled:pointer-events-none disabled:opacity-55;
+  }
+
+  .btn-md {
+    @apply h-9 px-3.5;
+  }
+
+  .btn-lg {
+    @apply h-11 px-5 text-[15px];
+  }
+
+  .btn-sm {
+    @apply h-8 px-3 text-[13px];
+  }
+
+  .btn-primary {
+    @apply bg-brand-600 text-white shadow-sm hover:bg-brand-700 active:translate-y-px;
+  }
+
+  .btn-secondary {
+    @apply border border-line-strong bg-surface text-ink-muted shadow-sm
+           hover:border-ink-subtle hover:bg-surface-raised hover:text-ink active:translate-y-px;
+  }
+
+  .btn-success {
+    @apply bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 active:translate-y-px;
+  }
+
+  .btn-danger {
+    @apply bg-rose-600 text-white shadow-sm hover:bg-rose-700 active:translate-y-px;
+  }
+
+  .btn-ghost {
+    @apply text-ink-muted hover:bg-surface-raised hover:text-ink;
+  }
+
+  .btn-link {
+    @apply h-auto px-0 text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300;
+  }
+
+  /* Square icon-only button (top bar, table rows, card corners). */
+  .btn-icon {
+    @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg
+           text-ink-subtle transition-colors duration-150 hover:bg-surface-raised hover:text-ink;
+  }
+
+  /* ── Form controls ────────────────────────────────────────────────────── */
+
+  .field-input {
+    @apply w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink
+           transition-[border-color,box-shadow] duration-150
+           placeholder:text-ink-subtle
+           focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25
+           disabled:cursor-not-allowed disabled:bg-surface-raised disabled:text-ink-subtle;
+  }
+
+  /* ── Misc primitives ──────────────────────────────────────────────────── */
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1
+           text-xs font-medium;
+  }
+
+  .nav-active-bar {
+    @apply absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-600 dark:bg-brand-400;
+  }
+
+  /* Quiet inline link used for "see all" affordances at the end of a section. */
+  .link-more {
+    @apply inline-flex items-center gap-0.5 rounded text-xs font-semibold text-brand-600
+           transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300;
+  }
+
+  .skeleton {
+    @apply animate-shimmer rounded-md bg-surface-raised;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--c-raised)) 0%,
+      rgb(var(--c-line-soft)) 40%,
+      rgb(var(--c-raised)) 80%
+    );
+    background-size: 200% 100%;
+  }
+
+  /* Loading spinner shared by every async action. */
+  .spinner {
+    @apply inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current
+           border-t-transparent opacity-70;
+  }
+
+  /* The student shell's ambient wash: one very soft brand glow anchored to the
+     top of the content plane, fading to nothing by mid-screen. It gives the
+     student experience a lift in energy without tinting the whole page blue. */
+  .shell-vibrant {
+    background-image: radial-gradient(
+      110% 55% at 50% -5%,
+      rgb(37 99 235 / 0.07) 0%,
+      rgb(124 58 237 / 0.04) 40%,
+      transparent 75%
+    );
+  }
+
+  .dark .shell-vibrant {
+    background-image: radial-gradient(
+      110% 55% at 50% -5%,
+      rgb(96 165 250 / 0.1) 0%,
+      rgb(167 139 250 / 0.05) 40%,
+      transparent 75%
+    );
+  }
+
+  /* Sidebar/nav: the one place the active item spends brand colour. */
+  .nav-item {
+    @apply relative flex items-center gap-3 rounded-lg py-2 pl-3 pr-2 text-sm font-medium
+           text-ink-muted transition-colors duration-150 hover:bg-surface-raised hover:text-ink;
+  }
+
+  .nav-item-active {
+    @apply bg-brand-50 text-brand-700 hover:bg-brand-50 hover:text-brand-700 dark:bg-brand-500/10 dark:text-brand-300;
+  }
+}
+
+@layer utilities {
+  /* Staggered entrance for lists/grids — set `style={{ "--i": n }}` per child. */
+  .rise {
+    animation: rise 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--i, 0) * 45ms);
+  }
+
+  .fade {
+    animation: rise 260ms ease-out both;
+  }
+
+  .pop {
+    animation: pop 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .slide-left {
+    animation: slide-left 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .slide-up {
+    animation: slide-up 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Staggered bar/column entrance for charts. */
+  .chart-enter {
+    animation: chart-enter 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+/* ── Motion ───────────────────────────────────────────────────────────────
+   Short, decelerating, never bouncy: the app should feel fast, not busy. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes slide-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes chart-enter {
+  from {
+    opacity: 0;
+    transform: scaleY(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* The ambient background wash used on the login page and the student
+   shell — a slow drift so a large neutral plane never looks dead. */
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, -3%, 0) scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

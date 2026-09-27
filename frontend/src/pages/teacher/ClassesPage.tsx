@@ -6,14 +6,15 @@ import { Badge } from "../../components/Badge";
 import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
+import { TONE_TEXT, type Tone } from "../../lib/tones";
 import type { ClassAttendanceSummary, Paginated, RosterStudent, SchoolClass } from "../../types";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function NameList({ title, tone, students }: { title: string; tone: "amber" | "red"; students: RosterStudent[] }) {
-  const toneClass = tone === "red" ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400";
+function NameList({ title, tone, students }: { title: string; tone: Tone; students: RosterStudent[] }) {
+  const toneClass = TONE_TEXT[tone];
   return (
     <div>
       <p className={`mb-1.5 text-xs font-semibold uppercase tracking-wide ${toneClass}`}>
@@ -94,7 +95,7 @@ function HomeroomClassCard({ cls }: { cls: SchoolClass }) {
               <p className="text-sm text-slate-400 dark:text-slate-500">Bugun hali davomat belgilanmagan.</p>
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <NameList title="Kelmaganlar" tone="red" students={summary.absent_students} />
+                <NameList title="Kelmaganlar" tone="rose" students={summary.absent_students} />
                 <NameList title="Kechikkanlar" tone="amber" students={summary.late_students} />
               </div>
             )}
@@ -169,7 +170,7 @@ export function TeacherClassesPage() {
             <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Dars beradigan sinflarim</h2>
           )}
           {otherClasses.map((cls) => (
-            <div key={cls.id} className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+            <div key={cls.id} className="card">
               <button
                 onClick={() => setExpandedId(expandedId === cls.id ? null : cls.id)}
                 className="flex w-full items-center justify-between px-5 py-4 text-left"

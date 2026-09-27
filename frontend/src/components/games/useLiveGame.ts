@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { api } from "../../lib/api";
+import { isNoQuestionsError } from "../../lib/gameErrors";
 import type { GameQuestion, GameSession, LiveAnswerResult } from "../../types";
 import type { GameOptionState } from "./GameUI";
 
@@ -186,6 +187,9 @@ export function useLiveGame(
     phase,
     start,
     questionsQuery,
+    /** The session's subject has no questions in the bank — an empty state to
+     * show, not a failure to retry. See `lib/gameErrors`. */
+    questionsUnavailable: isNoQuestionsError(questionsQuery.error),
     question: questionsQuery.data?.[questionIndex],
     questionIndex,
     /** Questions answered so far, counting the one whose feedback is showing. */

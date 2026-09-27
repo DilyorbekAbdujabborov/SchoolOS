@@ -22,6 +22,7 @@ import { StatCard } from "../components/StatCard";
 import { EmptyState, ErrorState, LoadingState } from "../components/states";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../components/table";
 import { api } from "../lib/api";
+import type { Tone } from "../lib/tones";
 import type {
   ClassReport,
   ClassReportAISummary,
@@ -39,9 +40,9 @@ const PERIODS = [
 
 const STATUS_META: Record<
   StudentReportStatus,
-  { label: string; tone: "red" | "amber" | "emerald" | "slate"; rank: number }
+  { label: string; tone: Tone; rank: number }
 > = {
-  RISK: { label: "Xavf", tone: "red", rank: 0 },
+  RISK: { label: "Xavf", tone: "rose", rank: 0 },
   WATCH: { label: "E'tibor", tone: "amber", rank: 1 },
   GOOD: { label: "Yaxshi", tone: "emerald", rank: 2 },
   NO_DATA: { label: "Ma'lumot yo'q", tone: "slate", rank: 3 },
@@ -300,7 +301,7 @@ function barTone(avg: number): string {
 
 function SubjectBars({ subjects }: { subjects: ClassReport["subjects"] }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+    <div className="card p-5">
       <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Fanlar bo'yicha o'rtacha natija</h2>
       <div className="mt-4 space-y-3">
         {subjects.map((subject) => (
@@ -383,7 +384,7 @@ function StudentTable({ rows }: { rows: StudentReportRow[] }) {
               ) : (
                 <div className="flex flex-wrap gap-1">
                   {row.weak_subjects.map((weak) => (
-                    <Badge key={weak.subject} tone="red">
+                    <Badge key={weak.subject} tone="rose">
                       {weak.subject} {Math.round(weak.avg)}%
                     </Badge>
                   ))}

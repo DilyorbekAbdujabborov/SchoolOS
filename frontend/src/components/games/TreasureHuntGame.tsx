@@ -77,6 +77,7 @@ export function TreasureHuntGame({ session }: { session: GameSession }) {
         needed={needed}
         loading={game.questionsQuery.isLoading}
         error={game.questionsQuery.isError}
+        unavailable={game.questionsUnavailable}
         resuming={session.answered_count > 0}
         onStart={game.start}
       />
@@ -346,6 +347,7 @@ function StartScreen({
   needed,
   loading,
   error,
+  unavailable,
   resuming,
   onStart,
 }: {
@@ -353,6 +355,7 @@ function StartScreen({
   needed: number;
   loading: boolean;
   error: boolean;
+  unavailable: boolean;
   resuming: boolean;
   onStart: () => void;
 }) {
@@ -387,6 +390,7 @@ function StartScreen({
         <GameStartActions
           loading={loading}
           error={error}
+          unavailable={unavailable}
           resuming={resuming}
           onStart={onStart}
           label="Sayohatni boshlash"

@@ -86,7 +86,7 @@ export function DirectorTasksPage() {
       {tasks && tasks.results.length > 0 && (
         <div className="space-y-3">
           {tasks.results.map((task) => (
-            <div key={task.id} className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+            <div key={task.id} className="card p-5">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-semibold text-slate-900 dark:text-slate-50">{task.title}</p>

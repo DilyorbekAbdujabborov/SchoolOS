@@ -1,8 +1,10 @@
-import { Bot, Check, ChevronRight, X, Zap, type LucideIcon, Trophy } from "lucide-react";
+import { Bot, BookOpen, Check, ChevronRight, X, Zap, type LucideIcon, Trophy } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
+import { NO_QUESTIONS_HINT, NO_QUESTIONS_TITLE } from "../../lib/gameErrors";
 import { useCountUp } from "../../lib/useCountUp";
+import { EmptyState } from "../states";
 
 /** Shared visual language for every gameplay screen (Arqon tortish, Viktorina,
  * Duel) — one HUD, one option-button anatomy, one result screen — so a
@@ -402,20 +404,43 @@ export function GameAnswerFeedback({
   );
 }
 
-/** A start screen's "pool not ready" note + primary start button. */
+/** A start screen's "pool not ready" note + primary start button.
+ *
+ * `unavailable` is the honest empty state — this subject has no questions in
+ * the bank at all. It's separated from `error` on purpose: there is nothing to
+ * retry, so retrying would only spin the student in circles with a message
+ * that never resolves. */
 export function GameStartActions({
   loading,
   error,
+  unavailable = false,
   resuming,
   onStart,
   label = "Boshlash",
 }: {
   loading: boolean;
   error: boolean;
+  unavailable?: boolean;
   resuming: boolean;
   onStart: () => void;
   label?: string;
 }) {
+  if (unavailable) {
+    return (
+      <EmptyState
+        icon={BookOpen}
+        title={NO_QUESTIONS_TITLE}
+        description={NO_QUESTIONS_HINT}
+        action={
+          <Link to="/student/games" className="btn-ghost mt-2">
+            <ChevronRight size={16} />
+            Boshqa fanni tanlash
+          </Link>
+        }
+      />
+    );
+  }
+
   return (
     <>
       {error && (

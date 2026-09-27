@@ -18,8 +18,9 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "../../components/Badge";
 import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
+import { NO_QUESTIONS_HINT, NO_QUESTIONS_TITLE } from "../../lib/gameErrors";
 import { api } from "../../lib/api";
-import type { GameDifficulty, GameSession, GameType, Paginated, Subject } from "../../types";
+import type { GameDifficulty, GameSession, GameType, Paginated, Subject, SubjectCoverage } from "../../types";
 
 const GAME_OPTIONS: { type: GameType; label: string; description: string; icon: typeof Swords }[] = [
   {
@@ -107,12 +108,22 @@ export function StudentGamesPage() {
     queryFn: async () => (await api.get<Paginated<Subject>>("/subjects/")).data,
   });
 
+  const { data: coverage } = useQuery({
+    queryKey: ["games", "subjects", "coverage"],
+    queryFn: async () => (await api.get<SubjectCoverage[]>("/games/subjects/")).data,
+  });
+
   const { data: history } = useQuery({
     queryKey: ["games"],
     queryFn: async () => (await api.get<Paginated<GameSession>>("/games/")).data,
   });
 
   const [levelFor, setLevelFor] = useState<GameType | null>(null);
+
+  /** The picked subject has nothing in the question bank — show the empty state
+   * up front instead of letting the student start a game that can't fill. */
+  const selectedSubjectIsEmpty =
+    coverage !== undefined && coverage.some((row) => row.id === selectedSubject && row.question_count === 0);
 
   const startGame = useMutation({
     mutationFn: async ({ game_type, difficulty }: { game_type: GameType; difficulty?: GameDifficulty }) =>
@@ -138,7 +149,7 @@ export function StudentGamesPage() {
                 className={`flex flex-col items-center gap-2 rounded-2xl border p-4 text-center transition-colors ${
                   selectedSubject === subject.id
                     ? "border-brand-500 bg-brand-50 dark:border-brand-400 dark:bg-brand-500/10"
-                    : "hover-card border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+                    : "hover-card border-line bg-surface"
                 }`}
               >
                 <span
@@ -157,7 +168,20 @@ export function StudentGamesPage() {
         )}
       </div>
 
-      {selectedSubject && (
+      {selectedSubjectIsEmpty && (
+        <EmptyState
+          icon={BookOpen}
+          title={NO_QUESTIONS_TITLE}
+          description={NO_QUESTIONS_HINT}
+          action={
+            <button type="button" onClick={() => setSelectedSubject(null)} className="btn-ghost mt-2">
+              Boshqa fanni tanlash
+            </button>
+          }
+        />
+      )}
+
+      {selectedSubject && !selectedSubjectIsEmpty && (
         <div>
           <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">2. O'yinni tanlang</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -168,7 +192,7 @@ export function StudentGamesPage() {
                   LEVELS[option.type] ? setLevelFor(option.type) : startGame.mutate({ game_type: option.type })
                 }
                 disabled={startGame.isPending}
-                className="hover-card flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-left disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900"
+                className="card flex items-start gap-3 p-5 text-left disabled:opacity-60 hover-card"
               >
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
                   <option.icon size={20} />
@@ -181,7 +205,7 @@ export function StudentGamesPage() {
             ))}
           </div>
           {levelFor && (
-            <div className="mt-4 animate-pop-in rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+            <div className="mt-4 animate-pop-in card p-5">
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">3. Qiyinlikni tanlang</h3>
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {DIFFICULTY_OPTIONS.map((level) => (
@@ -208,7 +232,7 @@ export function StudentGamesPage() {
       {history && history.results.length > 0 && (
         <div>
           <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">So'nggi o'yinlar</h2>
-          <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
+          <div className="divide-y divide-slate-100 card">
             {history.results.slice(0, 8).map((session) => (
               <div key={session.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div>

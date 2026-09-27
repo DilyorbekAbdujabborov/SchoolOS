@@ -229,7 +229,7 @@ export function DirectorTestsPage() {
       {tests && tests.results.length > 0 && (
         <div className="space-y-3">
           {tests.results.map((test) => (
-            <div key={test.id} className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+            <div key={test.id} className="card">
               <button
                 onClick={() => setExpandedId(expandedId === test.id ? null : test.id)}
                 className="flex w-full items-center justify-between px-5 py-4 text-left"

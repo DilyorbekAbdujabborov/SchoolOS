@@ -104,6 +104,15 @@ export interface Subject {
   name: string;
 }
 
+/** `GET /games/subjects/` — a subject with how many questions its shared bank
+ * currently holds, so the client can flag an unstocked subject before a game
+ * session is started. */
+export interface SubjectCoverage {
+  id: number;
+  name: string;
+  question_count: number;
+}
+
 export interface Lesson {
   id: number;
   subject: number;

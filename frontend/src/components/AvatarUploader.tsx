@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { publicName } from "../lib/names";
 import type { CurrentUser } from "../types";
 import { Avatar } from "./Avatar";
 import { SecondaryButton } from "./form";
@@ -15,7 +16,7 @@ export function AvatarUploader() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const displayName = user ? `${user.first_name || user.username} ${user.last_name || ""}`.trim() : "";
+  const displayName = user ? publicName(user) : "";
 
   const upload = useMutation({
     mutationFn: async (file: File) => {

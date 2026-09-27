@@ -67,7 +67,7 @@ export function ClassesPage() {
       {data && data.results.length > 0 && (
         <div className="space-y-3">
           {data.results.map((cls) => (
-            <div key={cls.id} className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+            <div key={cls.id} className="card">
               <button
                 onClick={() => setExpandedId(expandedId === cls.id ? null : cls.id)}
                 className="flex w-full items-center justify-between px-5 py-4 text-left"

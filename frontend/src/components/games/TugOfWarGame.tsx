@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { isNoQuestionsError, NO_QUESTIONS_HINT, NO_QUESTIONS_TITLE } from "../../lib/gameErrors";
+import { EmptyState } from "../states";
 import type { GameQuestion, GameSession } from "../../types";
 import {
   AnimatedNumber,
@@ -208,7 +210,10 @@ export function TugOfWarGame({ session }: { session: GameSession }) {
       {questionsQuery.isLoading && (
         <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">O'yin tayyorlanmoqda...</p>
       )}
-      {questionsQuery.isError && (
+      {questionsQuery.isError && isNoQuestionsError(questionsQuery.error) && (
+        <EmptyState title={NO_QUESTIONS_TITLE} description={NO_QUESTIONS_HINT} />
+      )}
+      {questionsQuery.isError && !isNoQuestionsError(questionsQuery.error) && (
         <GameInlineError>Savollar hozircha tayyor emas. Birozdan so'ng qayta urinib ko'ring.</GameInlineError>
       )}
 

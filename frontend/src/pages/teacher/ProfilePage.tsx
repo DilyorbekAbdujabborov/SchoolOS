@@ -8,6 +8,7 @@ import { StatCard } from "../../components/StatCard";
 import { TelegramConnect } from "../../components/TelegramConnect";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { shortName } from "../../lib/names";
 import type { ActivitySummary, Paginated, TeacherDashboard, TestSummary } from "../../types";
 
 export function TeacherProfilePage() {
@@ -26,7 +27,7 @@ export function TeacherProfilePage() {
     queryFn: async () => (await api.get<Paginated<ActivitySummary>>("/activities/")).data,
   });
 
-  const displayName = user ? `${user.first_name || user.username} ${user.last_name || ""}`.trim() : "";
+  const displayName = user ? shortName(user) : "";
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -46,7 +47,7 @@ export function TeacherProfilePage() {
       />
 
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="card p-6">
           <h2 className="mb-3 font-semibold text-slate-900 dark:text-slate-50">Hisob ma'lumotlari</h2>
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between gap-4">
@@ -60,13 +61,13 @@ export function TeacherProfilePage() {
           </dl>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="card p-6">
           <h2 className="mb-3 font-semibold text-slate-900 dark:text-slate-50">Parolni o'zgartirish</h2>
           <ChangePasswordForm />
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+      <div className="card p-6">
         <h2 className="mb-3 font-semibold text-slate-900 dark:text-slate-50">Telegram</h2>
         <TelegramConnect />
       </div>

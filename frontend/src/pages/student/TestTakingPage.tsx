@@ -154,7 +154,7 @@ export function StudentTestTakingPage() {
         className="space-y-5"
       >
         {test.questions.map((question, index) => (
-          <div key={question.id} className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <div key={question.id} className="card p-5">
             <p className="font-medium text-slate-900 dark:text-slate-50">
               {index + 1}. {question.text}
             </p>

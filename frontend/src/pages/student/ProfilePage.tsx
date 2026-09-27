@@ -10,6 +10,7 @@ import { StatCard } from "../../components/StatCard";
 import { TelegramConnect } from "../../components/TelegramConnect";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { fullName } from "../../lib/names";
 import { getLevelInfo } from "../../lib/gamification";
 import type { MyRank, Streak } from "../../types";
 
@@ -25,7 +26,7 @@ export function StudentProfilePage() {
     queryFn: async () => (await api.get<MyRank>("/leaderboard/me/")).data,
   });
 
-  const displayName = user ? `${user.first_name || user.username} ${user.last_name || ""}`.trim() : "";
+  const displayName = user ? fullName(user) : "";
   const { level, xpIntoLevel, xpForNextLevel, progressPercent } = getLevelInfo(user?.total_xp ?? 0);
 
   return (
@@ -50,7 +51,7 @@ export function StudentProfilePage() {
         }
       />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+      <div className="card p-6">
         <div className="mb-2 flex items-center justify-between text-sm">
           <span className="font-semibold text-slate-700 dark:text-slate-200">{level}-daraja</span>
           <span className="text-slate-500 dark:text-slate-400">
@@ -61,7 +62,7 @@ export function StudentProfilePage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="card p-6">
           <h2 className="mb-3 font-semibold text-slate-900 dark:text-slate-50">Hisob ma'lumotlari</h2>
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between gap-4">
@@ -79,18 +80,18 @@ export function StudentProfilePage() {
           </dl>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="card p-6">
           <h2 className="mb-3 font-semibold text-slate-900 dark:text-slate-50">Parolni o'zgartirish</h2>
           <ChangePasswordForm />
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+      <div className="card p-6">
         <h2 className="mb-3 font-semibold text-slate-900 dark:text-slate-50">Telegram</h2>
         <TelegramConnect />
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+      <div className="card p-6">
         <h2 className="mb-3 font-semibold text-slate-900 dark:text-slate-50">Ota-onani Telegramga ulash</h2>
         <ParentTelegramConnect />
       </div>
