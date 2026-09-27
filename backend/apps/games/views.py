@@ -8,7 +8,7 @@ from rest_framework.response import Response
 
 from apps.common.permissions import IsDirector, IsStudent
 
-from . import services
+from . import question_service, services
 from .models import GameSession
 from .serializers import (
     GameAnswerCheckSerializer,
@@ -19,7 +19,11 @@ from .serializers import (
     PoolRefillSerializer,
 )
 
-POOL_NOT_READY_DETAIL = "Bu fan va sinf uchun savollar hali tayyorlanmagan. Birozdan so'ng qayta urinib ko'ring."
+POOL_NOT_READY_DETAIL = "Bu fan uchun savollar hali kiritilmagan."
+# A machine-readable companion to the message above, so the client can show a
+# proper empty state ("no questions for this subject yet") and tell it apart
+# from a transport/server failure — without either side guessing.
+POOL_NOT_READY_CODE = "no_questions_for_subject"
 
 
 class GameSessionViewSet(
@@ -47,12 +51,25 @@ class GameSessionViewSet(
         session = serializer.save()
         return Response(GameSessionSerializer(session).data, status=status.HTTP_201_CREATED)
 
+    @action(detail=False, methods=["get"])
+    def subjects(self, request):
+        """Every subject with its current question-bank size, so a client can
+        show a real empty state ("no questions for this subject yet") *before*
+        a session is started rather than only when its questions are requested.
+        """
+        return Response(question_service.subject_availability())
+
     @action(detail=True, methods=["get"])
     def questions(self, request, pk=None):
         session = self.get_object()
         game_questions = services.pick_session_questions(session)
         if game_questions is None:
-            return Response({"detail": POOL_NOT_READY_DETAIL}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            # The session's subject has nothing in the bank — an empty state to
+            # show, not an error to retry. `code` is what the client keys off.
+            return Response(
+                {"detail": POOL_NOT_READY_DETAIL, "code": POOL_NOT_READY_CODE, "subject": session.subject_id},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         return Response(GameQuestionSerializer(game_questions, many=True).data)
 
     @action(detail=True, methods=["post"])

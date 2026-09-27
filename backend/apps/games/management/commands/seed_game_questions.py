@@ -1,14 +1,19 @@
 """Qo'lda yozilgan savollar bankini o'yinlar omboriga (PooledQuestion) joylaydi.
 
-"Arqon tortish" (TUG_OF_WAR) va "Viktorina" (QUIZ) o'yinlari har (fan, sinf)
-juftligi uchun Gemini orqali to'ldiriladigan `PooledQuestion` omboridan savol
-oladi. Bu command AI'siz ham har bir sinf/fan uchun hazir savol bermoqchi
-bo'lgan hollarda pool'ni qo'lda to'ldirish uchun yozilgan.
+O'yinlar va duellar savollarni bitta `PooledQuestion` omboridan oladi, shuning
+uchun bu command bankni qo'lda to'ldirish uchun yozilgan.
+
+Sinf biriktirilmagan (`school_class=None`) savollar — bu fanning umumiy banki:
+shu fanni o'qituvchi har bir sinf va har bir o'yin shundan o'z savolini oladi.
+Shuning uchun default shu tarzda ishlaydi — bir marta yozilgan savol butun
+fanning o'quvchilariga xizmat qiladi, o'z-o'zidan takrorlanmaydi va hech qanday
+sinfga bog'lanmaydi. Maxsus sinf uchun savol kerak bo'lsa `--school-class`
+beriladi va faqat o'sha sinfga qo'shiladi.
 
 Ishlatish:
-    python manage.py seed_game_questions
-    python manage.py seed_game_questions --subject Matematika --subject Fizika
-    python manage.py seed_game_questions --school-class "9-A"
+    python manage.py seed_game_questions                        # har bir fanning umumiy banki
+    python manage.py seed_game_questions --subject Matematika
+    python manage.py seed_game_questions --school-class "9-A"    # faqat 9-A uchun
 
 Qayta ishga tushirsa ham xavfsiz (idempotent): bir xil matnli savol bitta
 (sinf, fan) pool'iga takror joylanmaydi.
@@ -226,7 +231,10 @@ class Command(BaseCommand):
             "--school-class",
             action="append",
             default=[],
-            help="Faqat shu sinf uchun seed qilish. Bir necha marta ishlatish mumkin.",
+            help=(
+                "Faqat shu sinf uchun seed qilish. Berilmasa — fanning umumiy banki "
+                "(barcha sinflar uchun), bu odatiy holat."
+            ),
         )
         parser.add_argument("--dry-run", action="store_true", help="Hech narsa saqlamay, faqat hisoblaydi.")
 
@@ -235,7 +243,7 @@ class Command(BaseCommand):
         classes = self._resolve_classes(options["school_class"])
         if not subjects:
             raise CommandError("Hech bir fan topilmadi. --subject bilan aniqroq nom bering.")
-        if not classes:
+        if options["school_class"] and not classes:
             raise CommandError("Hech bir sinf topilmadi. --school-class bilan aniqroq nom bering.")
 
         total_created = 0
@@ -243,9 +251,8 @@ class Command(BaseCommand):
             for subject in subjects:
                 created = self._seed_pool(subject, school_class, dry_run=options["dry_run"])
                 if created or options["dry_run"]:
-                    self.stdout.write(
-                        f"{school_class.name} / {subject.name}: +{created} ta savol",
-                    )
+                    scope = "barcha sinflar" if school_class is None else school_class.name
+                    self.stdout.write(f"{subject.name} ({scope}): +{created} ta savol")
                 total_created += created
 
         self.stdout.write(self.style.SUCCESS(f"Jami {total_created} ta savol qo'shildi."))
@@ -271,16 +278,13 @@ class Command(BaseCommand):
                 matches.append(subject)
         return matches
 
-    def _resolve_classes(self, filters: list[str]) -> list[SchoolClass]:
-        classes = (
-            SchoolClass.objects.filter(name__in=filters)
-            if filters
-            else SchoolClass.objects.all()
-        )
-        # Tanlangan fanlardan kamida bittasiga dars biriktirilgan sinflarni
-        # ustun qo'yamiz — bo'sh sinflarga ham to'ldiramiz, ular ham kelajakda
-        # ishlatiladi.
-        return list(classes.order_by("name"))
+    def _resolve_classes(self, filters: list[str]) -> list[SchoolClass | None]:
+        """Sinflarni seed qilish uchun. Filtr berilmasa — bitta `None`, ya'ni
+        fanning umumiy banki: bir marta yozilgan savol har bir sinfga xizmat
+        qiladi, shuning uchun har bir sinfni alohida to'ldirish shart emas."""
+        if not filters:
+            return [None]
+        return list(SchoolClass.objects.filter(name__in=filters).order_by("name"))
 
     def _bank_for(self, subject: Subject) -> list[dict] | None:
         lower = subject.name.lower()
@@ -289,7 +293,7 @@ class Command(BaseCommand):
                 return bank
         return None
 
-    def _seed_pool(self, subject: Subject, school_class: SchoolClass, *, dry_run: bool) -> int:
+    def _seed_pool(self, subject: Subject, school_class: SchoolClass | None, *, dry_run: bool) -> int:
         questions = self._bank_for(subject)
         if not questions:
             return 0

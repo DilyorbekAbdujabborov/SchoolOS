@@ -76,12 +76,55 @@ class DuelServiceTests(APITestCase):
         with self.assertRaises(ValueError):
             create_duel(challenger=self.a, ai_level="HACKER", subject=self.subject, question_count=5)
 
-    def test_requires_enough_questions_in_the_pool(self):
+    def test_cannot_start_when_the_subject_has_no_questions_at_all(self):
+        empty_subject = make_subject()
+        with self.assertRaises(ValueError):
+            create_duel(challenger=self.a, opponent=self.b, subject=empty_subject, question_count=5)
+
+    def test_plays_from_the_subject_bank_even_when_the_students_class_has_none(self):
+        """The duel draws from the same shared bank as the games, so a class
+        with no pool of its own is not locked out of its own subject."""
         empty_class = make_school_class()
         _, x = make_student(empty_class)
         _, y = make_student(empty_class)
-        with self.assertRaises(ValueError):
-            create_duel(challenger=x, opponent=y, subject=self.subject, question_count=5)
+
+        duel = create_duel(challenger=x, opponent=y, subject=self.subject, question_count=5)
+
+        self.assertEqual(len(duel.questions), 5)
+        self.assertTrue(all(q["text"].startswith("Savol") for q in duel.questions))
+
+    def test_runs_shorter_than_requested_when_the_bank_is_thin(self):
+        thin_subject = make_subject()
+        seed_question_pool(subject=thin_subject, school_class=self.school_class, count=3)
+
+        duel = create_duel(challenger=self.a, opponent=self.b, subject=thin_subject, question_count=5)
+
+        # The bank is the source of truth for the question count, so the timer
+        # budget, the score and the invite text all stay consistent.
+        self.assertEqual(duel.question_count, 3)
+        self.assertEqual(len(duel.questions), 3)
+
+    def test_both_players_are_answered_on_the_challengers_subject(self):
+        other_subject = make_subject()
+        seed_question_pool(subject=other_subject, school_class=self.school_class)
+        own = seed_question_pool(subject=self.subject, school_class=self.school_class)
+
+        duel = create_duel(challenger=self.a, opponent=self.b, subject=self.subject, question_count=5)
+
+        # One question set on the duel row — the opponent can never be served a
+        # different subject's questions than the challenger.
+        self.assertEqual(duel.subject, self.subject)
+        self.assertEqual({q["text"] for q in duel.questions} <= {q.text for q in own}, True)
+
+    def test_ai_opponent_gets_the_challengers_subject(self):
+        other_subject = make_subject()
+        seed_question_pool(subject=other_subject, school_class=self.school_class)
+        own = seed_question_pool(subject=self.subject, school_class=self.school_class)
+
+        duel = create_duel(challenger=self.a, ai_level="NOVICE", subject=self.subject, question_count=5)
+
+        self.assertEqual(duel.mode, Duel.Mode.AI)
+        self.assertEqual({q["text"] for q in duel.questions} <= {q.text for q in own}, True)
 
     def test_invite_is_pending_and_notifies_the_opponent(self):
         duel = create_duel(challenger=self.a, opponent=self.b, subject=self.subject, question_count=5)

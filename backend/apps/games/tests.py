@@ -1,14 +1,19 @@
 import json
+from io import StringIO
 from unittest.mock import Mock, patch
 
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.common.testing import make_director, make_school_class, make_student, make_subject, make_teacher
+from apps.academics.models import Subject
 from apps.gamification.models import XPTransaction
 
 from .models import GameSession, PooledQuestion
 from .services import (
+    MAX_GAME_XP,
     POOL_LOW_THRESHOLD,
     check_answer,
     pick_session_questions,
@@ -45,12 +50,14 @@ def _questions_payload(count: int) -> str:
     )
 
 
-def _seed_pool(*, subject, school_class, count: int) -> list[PooledQuestion]:
+def _seed_pool(*, subject, school_class, count: int, prefix: str = "Savol") -> list[PooledQuestion]:
+    """`school_class=None` seeds the subject-wide bank. `prefix` keeps two banks
+    of the same subject distinguishable in assertions."""
     return PooledQuestion.objects.bulk_create(
         PooledQuestion(
             subject=subject,
             school_class=school_class,
-            text=f"Savol {i}",
+            text=f"{prefix} {i}",
             options=["a", "b", "c", "d"],
             correct_index=i % 4,
             explanation=f"Izoh {i}",
@@ -77,28 +84,69 @@ class PoolPickingTests(APITestCase):
 
         self.assertEqual(len(questions), 8)
 
-    def test_returns_none_when_pool_too_small(self):
+    def test_plays_a_short_game_rather_than_refusing(self):
         _seed_pool(subject=self.subject, school_class=self.school_class, count=5)
         session = start_game(student=self.student, subject=self.subject, game_type=GameSession.GameType.QUIZ)
 
-        self.assertIsNone(pick_session_questions(session))
+        # A thin bank is topped up with repeats instead of locking the student
+        # out of the game — "fewer questions" beats "no game".
+        self.assertEqual(len(pick_session_questions(session)), 5)
 
-    def test_returns_none_when_student_has_no_class(self):
+    def test_student_without_a_class_still_plays_from_the_subject_bank(self):
         _, unassigned_student = make_student(school_class=None)
         _seed_pool(subject=self.subject, school_class=self.school_class, count=20)
         session = start_game(
             student=unassigned_student, subject=self.subject, game_type=GameSession.GameType.QUIZ
         )
 
-        self.assertIsNone(pick_session_questions(session))
+        self.assertEqual(len(pick_session_questions(session)), 8)
 
-    def test_scoped_to_the_exact_class_not_just_the_subject(self):
+    def test_falls_back_to_another_class_of_the_same_subject(self):
         other_class = make_school_class()
         _seed_pool(subject=self.subject, school_class=other_class, count=20)
         session = start_game(student=self.student, subject=self.subject, game_type=GameSession.GameType.QUIZ)
 
-        # self.student is in self.school_class, but the pool was seeded for other_class.
+        # The bank belongs to the subject; the class a question was written for
+        # only decides which questions are preferred, never whether the student
+        # can play. A question written for another class of the same subject is
+        # correct and on-topic, so it beats a "no questions" error.
+        self.assertEqual(len(pick_session_questions(session)), 8)
+
+    def test_never_serves_another_subjects_questions(self):
+        other_subject = make_subject()
+        _seed_pool(subject=other_subject, school_class=self.school_class, count=20)
+        session = start_game(student=self.student, subject=self.subject, game_type=GameSession.GameType.QUIZ)
+
         self.assertIsNone(pick_session_questions(session))
+
+    def test_prefers_the_students_own_class_over_the_subject_wide_bank(self):
+        _seed_pool(subject=self.subject, school_class=self.school_class, count=20, prefix="Sinf")
+        _seed_pool(subject=self.subject, school_class=None, count=20, prefix="Fan")
+        session = start_game(student=self.student, subject=self.subject, game_type=GameSession.GameType.QUIZ)
+
+        questions = pick_session_questions(session)
+
+        # The own-class bank is large enough on its own, so none of the
+        # subject-wide questions ("Fan ...") should be needed.
+        self.assertEqual(len(questions), 8)
+        self.assertTrue(all(q["text"].startswith("Sinf") for q in questions))
+
+    def test_draws_the_subject_wide_bank_when_the_students_class_is_empty(self):
+        _seed_pool(subject=self.subject, school_class=None, count=20)
+        session = start_game(student=self.student, subject=self.subject, game_type=GameSession.GameType.QUIZ)
+
+        self.assertEqual(len(pick_session_questions(session)), 8)
+
+    def test_retired_questions_are_never_served(self):
+        _seed_pool(subject=self.subject, school_class=self.school_class, count=20)
+        retired = PooledQuestion.objects.filter(subject=self.subject).first()
+        retired.is_active = False
+        retired.save(update_fields=["is_active"])
+        session = start_game(student=self.student, subject=self.subject, game_type=GameSession.GameType.QUIZ)
+
+        texts = {q["text"] for q in pick_session_questions(session)}
+
+        self.assertNotIn(retired.text, texts)
 
     def test_avoids_repeats_across_two_games_when_pool_is_large_enough(self):
         _seed_pool(subject=self.subject, school_class=self.school_class, count=16)
@@ -1091,3 +1139,242 @@ class NeonRacingTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         quiz.refresh_from_db()
         self.assertEqual(quiz.nitro_rounds, [])
+
+
+class UniversalSubjectQuestionBankTests(APITestCase):
+    """The architecture this app is built around: ONE question bank per subject,
+    drawn from by every game through one shared service.
+
+    These are the acceptance tests for that promise — every game type against
+    several subjects, and the two invariants that matter most (a session only
+    ever sees its own subject, and XP is untouched by any of it).
+    """
+
+    # Every game, so adding a new GameType without covering it here fails loudly
+    # rather than silently shipping a game that can't be played.
+    ALL_GAMES = tuple(GameSession.GameType.values)
+    SAMPLE_SUBJECTS = ("Adabiyot", "Matematika", "Fizika")
+
+    def setUp(self):
+        self.school_class = make_school_class()
+        self.student_user, self.student = make_student(self.school_class)
+        self.subjects = {name: make_subject(name) for name in self.SAMPLE_SUBJECTS}
+        # A subject-wide bank ("school_class=None") is the universal one: one
+        # set of questions, usable by every class and every game.
+        for subject in self.subjects.values():
+            _seed_pool(subject=subject, school_class=None, count=30, prefix=subject.name)
+
+    def _questions_for(self, *, subject, game_type, difficulty=None):
+        session = start_game(
+            student=self.student, subject=subject, game_type=game_type, difficulty=difficulty or ""
+        )
+        self.client.force_authenticate(self.student_user)
+        response = self.client.get(f"/api/games/{session.id}/questions/")
+        return session, response
+
+    def test_every_game_gets_questions_for_every_subject(self):
+        for name, subject in self.subjects.items():
+            for game_type in self.ALL_GAMES:
+                difficulty = "EASY" if game_type in ("TOWER_DEFENSE", "NEON_RACING") else ""
+                with self.subTest(subject=name, game=game_type):
+                    session, response = self._questions_for(
+                        subject=subject, game_type=game_type, difficulty=difficulty
+                    )
+                    self.assertEqual(response.status_code, status.HTTP_200_OK)
+                    self.assertTrue(response.data, f"{game_type} returned no questions for {name}")
+                    # Whatever the game, the questions are the selected subject's.
+                    self.assertTrue(
+                        all(q["text"].startswith(name) for q in response.data),
+                        f"{game_type} served a question outside {name}",
+                    )
+
+    def test_a_session_never_receives_another_subjects_questions(self):
+        literature = self.subjects["Adabiyot"]
+        _seed_pool(subject=make_subject("Biologiya"), school_class=None, count=30, prefix="Biologiya")
+
+        for game_type in self.ALL_GAMES:
+            with self.subTest(game=game_type):
+                _, response = self._questions_for(subject=literature, game_type=game_type)
+                self.assertTrue(all(q["text"].startswith("Adabiyot") for q in response.data))
+
+    def test_questions_are_reshuffled_so_answers_do_not_sit_in_one_slot(self):
+        subject = self.subjects["Matematika"]
+        _, first = self._questions_for(subject=subject, game_type=GameSession.GameType.QUIZ)
+        _, second = self._questions_for(subject=subject, game_type=GameSession.GameType.QUIZ)
+
+        # Same bank, but option order must not be identical question-for-question,
+        # or a student could answer from muscle memory instead of reading.
+        self.assertNotEqual(
+            [q["options"] for q in first.data], [q["options"] for q in second.data]
+        )
+
+    def test_the_same_question_serves_different_games(self):
+        """One authored question, two games — the whole point of a shared bank."""
+        subject = self.subjects["Fizika"]
+        bank_text = {q.text for q in PooledQuestion.objects.filter(subject=subject)}
+
+        _, rope = self._questions_for(subject=subject, game_type=GameSession.GameType.TUG_OF_WAR)
+        _, arena = self._questions_for(subject=subject, game_type=GameSession.GameType.BATTLE_ARENA)
+
+        self.assertTrue({q["text"] for q in rope.data} <= bank_text)
+        self.assertTrue({q["text"] for q in arena.data} <= bank_text)
+
+    def test_repeats_are_avoided_while_the_bank_allows_it(self):
+        subject = self.subjects["Adabiyot"]
+        _, first = self._questions_for(subject=subject, game_type=GameSession.GameType.QUIZ)
+        _, second = self._questions_for(subject=subject, game_type=GameSession.GameType.QUIZ)
+
+        self.assertEqual({q["text"] for q in first.data} & {q["text"] for q in second.data}, set())
+
+    def test_empty_subject_reports_a_proper_empty_state_not_a_generic_error(self):
+        unstocked = make_subject("Kimyo")
+
+        session, response = self._questions_for(subject=unstocked, game_type=GameSession.GameType.QUIZ)
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(response.data["code"], "no_questions_for_subject")
+        self.assertEqual(response.data["subject"], unstocked.id)
+        # The message has to name the subject, so the student knows what to pick
+        # differently — "something went wrong" is exactly what it replaces.
+        self.assertIn("savol", response.data["detail"].lower())
+
+    def test_subject_availability_endpoint_flags_unstocked_subjects(self):
+        make_subject("Kimyo")
+        self.client.force_authenticate(self.student_user)
+
+        response = self.client.get("/api/games/subjects/")
+        counts = {row["name"]: row["question_count"] for row in response.data}
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(counts["Matematika"], 30)
+        self.assertEqual(counts["Kimyo"], 0)
+
+    def test_xp_is_unaffected_by_the_subject_draw(self):
+        """Same answers, same XP — the subject only decides *which* questions,
+        never what a correct one is worth."""
+        subject = self.subjects["Adabiyot"]
+
+        session = start_game(student=self.student, subject=subject, game_type=GameSession.GameType.QUIZ)
+        pick_session_questions(session)
+        total = len(session.questions)
+        # Every answer correct.
+        submit_game(
+            session=session,
+            answers={index: session.questions[index]["correct_index"] for index in range(total)},
+        )
+        session.refresh_from_db()
+
+        self.assertEqual(session.score_percent, 100.0)
+        self.assertEqual(session.xp_awarded, MAX_GAME_XP)
+        transaction = XPTransaction.objects.get(student=self.student, source=XPTransaction.Source.GAME)
+        self.assertEqual(transaction.amount, MAX_GAME_XP)
+
+    def test_an_existing_session_keeps_the_questions_it_already_played(self):
+        """Sessions created before this change (or before a question is retired)
+        must not be rewritten — a student resuming sees the same set."""
+        subject = self.subjects["Matematika"]
+        session = start_game(student=self.student, subject=subject, game_type=GameSession.GameType.QUIZ)
+        first = pick_session_questions(session)
+
+        self.client.force_authenticate(self.student_user)
+        response = self.client.get(f"/api/games/{session.id}/questions/")
+
+        self.assertEqual([q["text"] for q in response.data], [q["text"] for q in first])
+
+    def test_retiring_a_question_does_not_break_an_answered_session(self):
+        subject = self.subjects["Fizika"]
+        session = start_game(student=self.student, subject=subject, game_type=GameSession.GameType.TUG_OF_WAR)
+        pick_session_questions(session)
+        PooledQuestion.objects.filter(subject=subject).update(is_active=False)
+
+        self.client.force_authenticate(self.student_user)
+        response = self.client.get(f"/api/games/{session.id}/questions/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 8)
+
+    def test_subject_wide_bank_needs_no_class(self):
+        """A subject stocked once is playable by a student who isn't in any class."""
+        _, unassigned = make_student(school_class=None)
+        session = start_game(
+            student=unassigned, subject=self.subjects["Adabiyot"], game_type=GameSession.GameType.QUIZ
+        )
+
+        self.assertEqual(len(pick_session_questions(session)), 8)
+
+
+class SeedQuestionBankCommandTests(APITestCase):
+    """The command that actually fills the production bank — the step that
+    decides whether students can play a subject at all, so its default scope
+    matters as much as the draw logic."""
+
+    def _run(self, *args) -> str:
+        out = StringIO()
+        call_command("seed_game_questions", *args, stdout=out)
+        return out.getvalue()
+
+    def test_defaults_to_the_subject_wide_bank(self):
+        subject = make_subject("Matematika")
+        make_school_class()
+        make_school_class()
+
+        self._run()
+
+        # Written once, with no class attached, so one authored question serves
+        # every class — not a private copy per class.
+        self.assertEqual(
+            PooledQuestion.objects.filter(subject=subject, school_class__isnull=True).count(), 20
+        )
+        self.assertEqual(PooledQuestion.objects.filter(subject=subject).count(), 20)
+
+    def test_seeded_bank_makes_every_game_playable_for_any_class(self):
+        for name in ("Adabiyot", "Matematika", "Fizika"):
+            make_subject(name)
+        self._run()
+
+        school_class = make_school_class()
+        _, student = make_student(school_class)
+
+        for name in ("Adabiyot", "Matematika", "Fizika"):
+            subject = Subject.objects.get(name=name)
+            session = start_game(
+                student=student, subject=subject, game_type=GameSession.GameType.QUIZ
+            )
+            with self.subTest(subject=name):
+                self.assertEqual(len(pick_session_questions(session)), 8)
+
+    def test_running_twice_does_not_duplicate_questions(self):
+        make_subject("Fizika")
+
+        self._run()
+        first = PooledQuestion.objects.count()
+        self._run()
+
+        self.assertEqual(PooledQuestion.objects.count(), first)
+
+    def test_school_class_flag_scopes_the_seed_to_that_class(self):
+        subject = make_subject("Informatika")
+        target = make_school_class()
+        make_school_class()
+
+        self._run("--school-class", target.name)
+
+        self.assertEqual(
+            PooledQuestion.objects.filter(subject=subject, school_class=target).count(), 18
+        )
+        self.assertEqual(PooledQuestion.objects.filter(subject=subject).count(), 18)
+
+    def test_dry_run_reports_the_plan_without_writing(self):
+        make_subject("Geografiya")
+
+        output = self._run("--dry-run")
+
+        self.assertIn("Geografiya", output)
+        self.assertIn("+16", output)
+        self.assertEqual(PooledQuestion.objects.count(), 0)
+
+    def test_unknown_subject_filter_is_rejected_with_the_available_list(self):
+        with self.assertRaises(CommandError) as caught:
+            self._run("--subject", "Astronomiya")
+
+        self.assertIn("matematika", str(caught.exception))

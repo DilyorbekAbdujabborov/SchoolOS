@@ -7,17 +7,35 @@ from apps.common.models import TimeStampedModel
 
 
 class PooledQuestion(TimeStampedModel):
-    """A subject+class question bank, pre-generated in batches by AI (see
-    `services.refill_pool`) so a game's live start never has to wait on — or
-    burn through the rate limit of — a real-time Gemini call. One pool per
-    exact (subject, school_class) pair, e.g. "6-A + Matematika".
+    """The universal question bank: one row per question, belonging to a
+    **subject**, and served to *any* game (see `question_service.get_questions`).
+
+    A question is content, not gameplay — Arqon tortish, Jang maydoni, Duel and
+    any future game all draw from this same table and only differ in how they
+    present it, so a teacher never has to enter a question once per game.
+
+    `school_class` narrows a question to one class's level; leaving it empty
+    ("butun fanga tegishli") makes it part of the subject-wide bank every
+    student of that subject can draw from. It is a *preference*, never a
+    requirement — the draw always falls back to the rest of the subject so a
+    student is never locked out of a game by a class that simply has no pool
+    of its own.
+
+    Pools are pre-generated in batches by AI (`services.refill_pool`) or seeded
+    by hand (`manage.py seed_game_questions`) so a game's live start never has
+    to wait on — or burn through the rate limit of — a real-time Gemini call.
     """
 
     subject = models.ForeignKey(
-        "academics.Subject", verbose_name=_("subject"), related_name="+", on_delete=models.CASCADE
+        "academics.Subject", verbose_name=_("subject"), related_name="pooled_questions", on_delete=models.CASCADE
     )
     school_class = models.ForeignKey(
-        "schools.SchoolClass", verbose_name=_("class"), related_name="+", on_delete=models.CASCADE
+        "schools.SchoolClass",
+        verbose_name=_("class"),
+        related_name="pooled_questions",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
     )
     text = models.TextField(_("question text"))
     options = models.JSONField(_("options"))
@@ -26,14 +44,22 @@ class PooledQuestion(TimeStampedModel):
     # key mid-round (Minora qurish). Older pooled questions predate this and
     # simply have none — the UI then shows only the correct option.
     explanation = models.TextField(_("explanation"), blank=True, default="")
+    # A retired question stays in place (already-played sessions and their
+    # review screens keep referencing it) but is never drawn again — the hook
+    # for "this one is wrong, take it out of rotation" without a data loss.
+    is_active = models.BooleanField(_("active"), default=True)
 
     class Meta:
         verbose_name = _("pooled question")
         verbose_name_plural = _("pooled questions")
-        indexes: ClassVar[list[models.Index]] = [models.Index(fields=["subject", "school_class"])]
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(fields=["subject", "school_class"]),
+            models.Index(fields=["subject", "is_active"]),
+        ]
 
     def __str__(self) -> str:
-        return f"{self.subject} — {self.school_class}: {self.text[:50]}"
+        scope = self.school_class or _("butun fan")
+        return f"{self.subject} — {scope}: {self.text[:50]}"
 
 
 class PooledQuestionServed(models.Model):

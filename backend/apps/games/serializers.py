@@ -158,5 +158,9 @@ class GameAnswerCheckSerializer(serializers.Serializer):
 
 
 class PoolRefillSerializer(serializers.Serializer):
+    """A director tops up a subject's bank. With no `school_class` the questions
+    go into the subject-wide bank, which every student of that subject can draw
+    from in every game — the quickest way to make a whole subject playable."""
+
     subject = serializers.PrimaryKeyRelatedField(queryset=Subject.objects.all())
-    school_class = serializers.PrimaryKeyRelatedField(queryset=SchoolClass.objects.all())
+    school_class = serializers.PrimaryKeyRelatedField(queryset=SchoolClass.objects.all(), required=False)

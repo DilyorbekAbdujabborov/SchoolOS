@@ -5,8 +5,7 @@ from django.db import transaction
 from django.db.models import Q, Sum
 from django.utils import timezone
 
-from apps.common.questions import shuffle_options
-from apps.games.models import PooledQuestion
+from apps.games import question_service
 from apps.gamification.models import XPTransaction
 from apps.gamification.services import award_xp
 from apps.notifications.models import Notification
@@ -40,20 +39,24 @@ def get_or_create_rating(student) -> DuelRating:
 # ---------- Creating / answering an invitation ----------
 
 
-def _pick_questions(*, subject, school_class_id: int, count: int) -> list[dict]:
-    pool = list(
-        PooledQuestion.objects.filter(subject=subject, school_class_id=school_class_id).order_by("?")[:count]
-    )
-    if len(pool) < count:
+def _pick_questions(*, subject, student, count: int) -> list[dict]:
+    """A duel's question set, drawn from the same shared bank every game uses
+    (`apps.games.question_service`) — a duel is just another presentation of the
+    selected subject's questions, so both players are always answered on the
+    subject the challenger picked, from one question bank rather than a
+    duel-only copy of it.
+
+    If the subject has no questions at all that's a real empty state (the duel
+    can't start); if it has fewer than asked for, the duel simply runs with
+    what the bank has rather than refusing to start.
+    """
+    try:
+        return question_service.get_questions(subject=subject, amount=count, student=student)
+    except question_service.NoQuestionsAvailable as exc:
         raise ValueError(
-            f"Bu fan bo'yicha savollar yetarli emas ({len(pool)}/{count}). Kamroq savol yoki boshqa fan tanlang."
-        )
-    return [
-        shuffle_options(
-            {"text": q.text, "options": q.options, "correct_index": q.correct_index, "explanation": q.explanation}
-        )
-        for q in pool
-    ]
+            f"'{getattr(subject, 'name', subject)}' fani uchun savollar hali kiritilmagan. "
+            "Avval bu fandan savollar qo'shing."
+        ) from exc
 
 
 @transaction.atomic
@@ -95,6 +98,8 @@ def create_duel(
             raise ValueError("Bu sinfdoshingiz bilan ochiq duelingiz bor — avval uni tugating.")
         mode = Duel.Mode.CLASSMATE
 
+    duel_questions = _pick_questions(subject=subject, student=challenger, count=question_count)
+
     duel = Duel.objects.create(
         mode=mode,
         ai_level=ai_level if mode == Duel.Mode.AI else "",
@@ -103,8 +108,10 @@ def create_duel(
         school_class_id=challenger.school_class_id,
         subject=subject,
         difficulty=difficulty,
-        question_count=question_count,
-        questions=_pick_questions(subject=subject, school_class_id=challenger.school_class_id, count=question_count),
+        # The bank may be thinner than asked for; record what was actually drawn
+        # so the timer budget, the score and the invite text all agree.
+        question_count=len(duel_questions),
+        questions=duel_questions,
         rematch_of=rematch_of,
         status=Duel.Status.ACTIVE if mode == Duel.Mode.AI else Duel.Status.PENDING,
         accepted_at=timezone.now() if mode == Duel.Mode.AI else None,
@@ -116,7 +123,7 @@ def create_duel(
             title="⚔️ Duel taklifi!",
             body=(
                 f"{display_name(challenger)} sizni duelga chaqirdi: {subject.name}, "
-                f"{duel.get_difficulty_display()}, {question_count} ta savol. Qabul qilasizmi?"
+                f"{duel.get_difficulty_display()}, {duel.question_count} ta savol. Qabul qilasizmi?"
             ),
             category=Notification.Category.DUEL_INVITE,
         )

@@ -3,18 +3,16 @@ import logging
 import secrets
 
 from django.db import transaction
-from django.db.models import Count
 from django.utils import timezone
 
 from apps.academics.models import Subject
 from apps.common.gemini import call_gemini
-from apps.common.questions import shuffle_options
 from apps.gamification.models import XPTransaction
 from apps.gamification.services import award_xp
 from apps.schools.models import SchoolClass
 
-from . import defense, racing
-from .models import GameSession, PooledQuestion, PooledQuestionServed
+from . import defense, question_service, racing
+from .models import GameSession, PooledQuestion
 
 logger = logging.getLogger(__name__)
 
@@ -263,22 +261,21 @@ def answer_review(session: GameSession) -> list[dict] | None:
 
 
 def pick_session_questions(session: GameSession) -> list[dict] | None:
-    """Pool-backed replacement for a live per-session Gemini call — draws
-    `question_count_for(game_type)` questions from the (subject, school_class) pool that
-    `refill_pool` keeps stocked, instead of ever calling Gemini during play.
+    """The subject's questions for this session, drawn by the shared
+    `question_service` — every game gets its questions from the one bank the
+    same way, so this function only owns the *session* half: deciding how many
+    the game needs and making the draw happen exactly once.
 
-    Idempotent per session, same contract as before. Returns `None` when
-    there's nowhere to draw from (student has no class, or the pool doesn't
-    have enough questions yet) — the caller shows a "not ready" message rather
-    than falling back to a live AI call, so a game start never risks the
-    Gemini rate limit.
+    Idempotent per session, same contract as before. Returns `None` when there
+    is genuinely nothing to draw from — a subject with no questions in the bank
+    at all — and the caller shows a real empty state; it never falls back to a
+    live AI call, so a game start can't risk the Gemini rate limit.
 
     `select_for_update` + a re-check under the lock guards against two
     near-simultaneous requests for the same session (a double-click, a
-    duplicate tab) both picking their own question set — without it, both
-    would mark their draw "served" via `PooledQuestionServed` before either
-    save won, quietly burning pool capacity for a set of questions nobody
-    ever actually played.
+    duplicate tab) both picking their own question set — without it, both would
+    mark their draw "served" via `PooledQuestionServed` before either save won,
+    quietly burning pool capacity for a set of questions nobody ever played.
     """
     if session.questions:
         return session.questions
@@ -293,63 +290,45 @@ def pick_session_questions(session: GameSession) -> list[dict] | None:
             session.questions = locked.questions
             return locked.questions
 
-        student = locked.student
-        if not student.school_class_id:
-            return None
-
-        pool = PooledQuestion.objects.filter(subject=locked.subject, school_class_id=student.school_class_id)
-
-        served_ids = set(
-            PooledQuestionServed.objects.filter(student=student, question__in=pool).values_list(
-                "question_id", flat=True
-            )
-        )
-
         needed = question_count_for(locked.game_type, locked.difficulty)
-        picked = list(pool.exclude(id__in=served_ids).order_by("?")[:needed])
-        if len(picked) < needed:
-            # Not enough fresh ones left for this student — top up with questions
-            # they've already seen rather than come up short.
-            still_needed = needed - len(picked)
-            already_picked_ids = {q.id for q in picked}
-            picked += list(
-                pool.filter(id__in=served_ids).exclude(id__in=already_picked_ids).order_by("?")[:still_needed]
+        try:
+            questions = question_service.get_questions(
+                subject=locked.subject,
+                amount=needed,
+                game_type=locked.game_type,
+                difficulty=locked.difficulty,
+                student=locked.student,
             )
-
-        if len(picked) < needed:
-            # The pool itself is too small overall — no amount of repeat-allowing helps.
+        except question_service.NoQuestionsAvailable:
             return None
 
-        PooledQuestionServed.objects.bulk_create(
-            (PooledQuestionServed(student=student, question=q) for q in picked),
-            ignore_conflicts=True,
-        )
-
-        # Options are re-shuffled per game, so a question the student has seen
-        # before doesn't have its answer in the same place again.
-        questions = [
-            shuffle_options(
-                {"text": q.text, "options": q.options, "correct_index": q.correct_index, "explanation": q.explanation}
-            )
-            for q in picked
-        ]
         locked.questions = questions
         locked.save(update_fields=["questions", "updated_at"])
         session.questions = questions
         return questions
 
 
-def refill_pool(*, subject: Subject, school_class: SchoolClass, batch_size: int = POOL_REFILL_BATCH) -> int:
-    """The *only* place apps.games talks to Gemini — one batched call that
-    tops up a subject+class pool. Called either by a director's manual
-    "to'ldirish" action or by the scheduled `tasks.refill_low_pools`; never
-    from a student's game-start request. Returns how many questions were
-    actually added (0 if Gemini was unavailable or returned something unusable
-    — same "fail quiet" contract as `call_gemini` itself).
+def refill_pool(
+    *, subject: Subject, school_class: SchoolClass | None = None, batch_size: int = POOL_REFILL_BATCH
+) -> int:
+    """The *only* place apps.games talks to Gemini — one batched call that tops
+    up a subject's bank. Called either by a director's manual "to'ldirish"
+    action or by the scheduled `tasks.refill_low_pools`; never from a student's
+    game-start request.
+
+    With no `school_class` the questions land in the subject-wide bank, which
+    every student of that subject can draw from — the one bank to fill when the
+    goal is "make this subject playable in every game", rather than tailoring
+    questions to a single class's level.
+
+    Returns how many questions were actually added (0 if Gemini was unavailable
+    or returned something unusable — same "fail quiet" contract as
+    `call_gemini` itself).
     """
     game_label = "mashq"
+    scope = f"{school_class.name} sinf darajasida" if school_class else "barcha sinf darajasida"
     prompt = (
-        f'"{subject.name}" fanidan, {school_class.name} sinf darajasida {batch_size} ta '
+        f'"{subject.name}" fanidan, {scope} {batch_size} ta '
         f"ODDIY va QISQA ko'p variantli {game_label} savoli tuzib ber. Turli mavzu va qiyinlik darajasidan "
         "bo'lsin.\n\n"
         "Faqat quyidagi JSON formatida javob ber, boshqa hech narsa yozma:\n"
@@ -399,26 +378,13 @@ def refill_pool(*, subject: Subject, school_class: SchoolClass, batch_size: int 
 
 
 def pool_status() -> list[dict]:
-    """Every (subject, school_class) pool that has at least one question, with
-    its current size — powers the director's pool-management page. A combo
-    with zero questions simply doesn't appear here; a director bootstraps it
-    with the manual refill action instead.
+    """Every (subject, class) bank that has at least one active question, with
+    its current size — powers the director's pool-management page. A subject
+    with no questions at all simply doesn't appear here; a director bootstraps
+    it with the manual refill action instead. An empty class name is the
+    subject-wide bank, shared by every student of that subject.
     """
-    rows = (
-        PooledQuestion.objects.values("subject", "subject__name", "school_class", "school_class__name")
-        .annotate(count=Count("id"))
-        .order_by("school_class__name", "subject__name")
-    )
-    return [
-        {
-            "subject": row["subject"],
-            "subject_name": row["subject__name"],
-            "school_class": row["school_class"],
-            "school_class_name": row["school_class__name"],
-            "count": row["count"],
-        }
-        for row in rows
-    ]
+    return question_service.subject_pool_sizes()
 
 
 def check_answer(*, session: GameSession, question_index: int, selected_index: int) -> bool:
