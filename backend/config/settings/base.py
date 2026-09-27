@@ -3,6 +3,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 
 env = environ.Env()
 
@@ -197,9 +198,13 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULE = {
-    "send-lesson-reminders": {
-        "task": "apps.academics.tasks.send_lesson_reminders",
-        "schedule": 300.0,  # every 5 minutes; must stay well under REMINDER_WINDOW
+    "send-daily-schedules": {
+        "task": "apps.academics.tasks.send_daily_schedules",
+        # crontab is evaluated in CELERY_TIMEZONE, which is TIME_ZONE above —
+        # so this is 07:00 Asia/Tashkent, not 07:00 UTC. Asia/Tashkent is UTC+5
+        # all year (no DST), but the crontab is still resolved through the
+        # timezone rather than offset, so it stays correct if that ever changes.
+        "schedule": crontab(hour=7, minute=0),
     },
     "remind-unmarked-attendance": {
         "task": "apps.attendance.tasks.remind_unmarked_attendance",

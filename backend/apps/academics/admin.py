@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Lesson, LessonReminder, Subject, TimetableSlot
+from .models import DailyScheduleDigest, Lesson, Subject, TimetableSlot
 
 
 @admin.register(Subject)
@@ -25,7 +25,9 @@ class TimetableSlotAdmin(admin.ModelAdmin):
     autocomplete_fields = ("subject", "school_class", "teacher", "secondary_teacher")
 
 
-@admin.register(LessonReminder)
-class LessonReminderAdmin(admin.ModelAdmin):
-    list_display = ("lesson", "sent_at")
-    autocomplete_fields = ("lesson",)
+@admin.register(DailyScheduleDigest)
+class DailyScheduleDigestAdmin(admin.ModelAdmin):
+    list_display = ("user", "date", "sent_at")
+    list_filter = ("date",)
+    search_fields = ("user__email", "user__first_name", "user__last_name")
+    readonly_fields = ("sent_at",)

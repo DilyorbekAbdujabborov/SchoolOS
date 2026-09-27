@@ -1,61 +1,99 @@
-from datetime import timedelta
+import logging
 
 from celery import shared_task
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.notifications.models import Notification
 from apps.notifications.services import notify
+from apps.users.models import User
 
-from .models import Lesson, LessonReminder
+from .models import DailyScheduleDigest
+from .services import DAILY_SCHEDULE_TITLE, format_daily_schedule
 
-# Celery Beat re-runs this task on a fixed interval (see CELERY_BEAT_SCHEDULE
-# in settings); this window just needs to be wider than that interval so a
-# lesson's start time is never skipped between two runs. LessonReminder is
-# what actually prevents sending the same lesson's reminder twice.
-REMINDER_LEAD_TIME = timedelta(minutes=60)
-REMINDER_WINDOW = timedelta(minutes=10)
+logger = logging.getLogger(__name__)
+
+
+def _digest_recipients(day):
+    """Everyone who should get their day, and nobody else.
+
+    Active students with a class and active teachers. Directors are left out on
+    purpose: their "schedule" would be a school-wide overview, which is a
+    different thing from a personal lesson list, and a director never received
+    the old per-lesson reminder either.
+
+    `select_related` keeps this to a couple of queries no matter how big the
+    school is, and the profile filters mean `lessons_for_user` can rely on a
+    profile existing.
+    """
+    return (
+        User.objects.filter(is_active=True)
+        .filter(
+            Q(role=User.Role.STUDENT, student_profile__isnull=False)
+            | Q(role=User.Role.TEACHER, teacher_profile__isnull=False)
+        )
+        .exclude(daily_schedule_digests__date=day)
+        .select_related("student_profile__school_class", "teacher_profile", "telegram_account")
+    )
+
+
+def _send_daily_schedule(user, *, day) -> bool:
+    """Send one user's day, at most once. Returns whether it was sent.
+
+    The digest row is written *before* the send. That ordering is the whole
+    point: it makes the guard hold even if two runs overlap, the worker is
+    restarted mid-send, or this task is fired by hand. The cost is that a user
+    whose message genuinely failed to go out is not retried that day — which is
+    the right trade for a daily digest, since re-sending it tomorrow is right
+    and re-sending it today at 14:00 is not.
+    """
+    body = format_daily_schedule(user, day)
+
+    # At-most-once, enforced by the unique (user, date) constraint rather than a
+    # read-then-write, so a race resolves to one row instead of two messages.
+    _digest, created = DailyScheduleDigest.objects.get_or_create(user=user, date=day)
+    if not created:
+        return False
+
+    notify(
+        recipient=user,
+        title=DAILY_SCHEDULE_TITLE,
+        body=body,
+        category=Notification.Category.LESSON_REMINDER,
+    )
+    return True
 
 
 @shared_task
-def send_lesson_reminders() -> int:
-    """Notifies every student in the class + the lesson's teacher ~1 hour
-    before each lesson starts. Returns how many lessons were reminded this run.
+def send_daily_schedules() -> int:
+    """Sends every student and teacher their complete day as one message.
+
+    Replaces the old per-lesson "~1 hour before" reminder, which sent a separate
+    message before every single lesson — four or five a day, each saying less
+    than the whole schedule would have said once. One message at 07:00 (see
+    CELERY_BEAT_SCHEDULE) answers the same question earlier and in one place.
+
+    Returns how many messages were sent. One user's failure is logged and the
+    run continues: a single dead Telegram chat must not cost everyone else
+    their morning schedule.
     """
-    now = timezone.localtime()
-    target = now + REMINDER_LEAD_TIME
-    window_start = target.time()
-    window_end = (target + REMINDER_WINDOW).time()
-
-    lessons = (
-        Lesson.objects.filter(date=now.date(), start_time__gte=window_start, start_time__lt=window_end)
-        .exclude(reminder__isnull=False)
-        .select_related("subject", "school_class", "teacher__user")
-    )
-
+    day = timezone.localdate()
     sent = 0
-    for lesson in lessons:
-        title = f"🔔 1 soatdan keyin {lesson.subject.name} darsi"
-        body = (
-            f"🏫 Xona: {lesson.room or '—'}\n"
-            f"⏰ {lesson.start_time:%H:%M}–{lesson.end_time:%H:%M}\n\n"
-            "📚 Bugun darsga kech qolmang!"
-        )
+    skipped = 0
 
-        for student in lesson.school_class.students.select_related("user"):
-            notify(
-                recipient=student.user,
-                title=title,
-                body=body,
-                category=Notification.Category.LESSON_REMINDER,
-            )
-        notify(
-            recipient=lesson.teacher.user,
-            title=title,
-            body=body,
-            category=Notification.Category.LESSON_REMINDER,
-        )
+    for user in _digest_recipients(day):
+        # `select_related` fetched the link above, so this is a cache read, not a
+        # query. `notify` is a silent no-op without a linked chat, but it still
+        # writes an in-app Notification row — so check first, or a user who never
+        # linked Telegram collects a daily ghost notification nobody will read.
+        if not hasattr(user, "telegram_account"):
+            skipped += 1
+            continue
+        try:
+            if _send_daily_schedule(user, day=day):
+                sent += 1
+        except Exception:  # noqa: BLE001 - one bad user must not stop the run
+            logger.exception("Daily schedule failed for user_id=%s", user.pk)
 
-        LessonReminder.objects.create(lesson=lesson)
-        sent += 1
-
+    logger.info("Daily schedule: %s sent, %s skipped (no Telegram), for %s", sent, skipped, day)
     return sent

@@ -11,7 +11,7 @@ class Command(BaseCommand):
     help = "Remove students + timetable/lessons; keep directors, teachers, classes, subjects, config."
 
     def handle(self, *args, **options):
-        from apps.academics.models import Lesson, LessonReminder, TimetableSlot
+        from apps.academics.models import DailyScheduleDigest, Lesson, TimetableSlot
 
         students = User.objects.filter(role=User.Role.STUDENT)
         self.stdout.write(f"Students to delete: {students.count()}")
@@ -25,9 +25,12 @@ class Command(BaseCommand):
         self.stdout.write(f"Lessons to delete: {lessons.count()}")
         lessons.delete()
 
-        reminders = LessonReminder.objects.all()
-        self.stdout.write(f"Lesson reminders to delete: {reminders.count()}")
-        reminders.delete()
+        # Teachers are kept by this command, so their digests are not cascaded
+        # away with the students. Left behind, a kept teacher's row would still
+        # suppress today's 07:00 push after a reset.
+        digests = DailyScheduleDigest.objects.all()
+        self.stdout.write(f"Daily schedule digests to delete: {digests.count()}")
+        digests.delete()
 
         slots = TimetableSlot.objects.all()
         self.stdout.write(f"Timetable slots to delete: {slots.count()}")

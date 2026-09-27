@@ -1,5 +1,6 @@
 from typing import ClassVar
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -136,21 +137,33 @@ class TimetableSlot(TimeStampedModel):
         return str(self.teacher)
 
 
-class LessonReminder(TimeStampedModel):
-    """Marks that the ~1-hour-before reminder was already sent for a `Lesson`
-    — the send-once guard for `tasks.send_lesson_reminders`, since Celery Beat
-    re-runs the task every few minutes and a lesson's start time can fall
-    inside more than one run's window.
+class DailyScheduleDigest(TimeStampedModel):
+    """Marks that `user` has already been sent their whole day of lessons.
+
+    The send-once guard for `tasks.send_daily_schedules`, which runs once a day
+    at 07:00 — but "once" has to survive Celery Beat retrying a run, two beat
+    instances overlapping, a worker restart mid-run, and somebody firing the task
+    by hand while debugging. Keyed on (user, date) rather than the lesson like the
+    task it replaces, because the unit that must not repeat is a user's *day*,
+    not any single lesson.
     """
 
-    lesson = models.OneToOneField(
-        Lesson, verbose_name=_("lesson"), related_name="reminder", on_delete=models.CASCADE
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("user"),
+        related_name="daily_schedule_digests",
+        on_delete=models.CASCADE,
     )
+    date = models.DateField(_("date"))
     sent_at = models.DateTimeField(_("sent at"), auto_now_add=True)
 
     class Meta:
-        verbose_name = _("lesson reminder")
-        verbose_name_plural = _("lesson reminders")
+        verbose_name = _("daily schedule digest")
+        verbose_name_plural = _("daily schedule digests")
+        ordering = ("-date",)
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.UniqueConstraint(fields=["user", "date"], name="unique_daily_schedule_per_user")
+        ]
 
     def __str__(self) -> str:
-        return f"Reminder sent for {self.lesson}"
+        return f"Daily schedule sent to {self.user} for {self.date}"
