@@ -200,6 +200,21 @@ QUESTIONS_BANK: dict[str, list[dict]] = {
         {"text": "'Dunyoning ishlari' romani muallifi kim?", "options": ["O'tkir Hoshimov", "Said Ahmad", "Abdulla Qahhor", "G'afur G'ulom"], "correct": 0},
         {"text": "Xalq og'zaki ijodi janrlaridan biri qaysi?", "options": ["Ertak", "Roman", "Qissa", "Drama"], "correct": 0},
     ],
+    "jahon tarixi": [
+        {"text": "Ikkinchi Jahon urushi qaysi yillarda bo'lgan?", "options": ["1939—1945", "1914—1918", "1929—1933", "1950—1953"], "correct": 0},
+        {"text": "Amir Temur davlati qaysi yillarda mavjud bo'lgan?", "options": ["1370—1507", "1200—1300", "1500—1600", "1300—1370"], "correct": 0},
+        {"text": "Qadimgi Misrda qurilgan mashhur piramidalar kimga bag'ishlangan?", "options": ["Faronlarga", "Savdochilarga", "Yozuvchilarga", "Tibbiyotchilarga"], "correct": 0},
+        {"text": "Rim imperiyasi qaysi davrda hukmronlik qilgan?", "options": ["VIII asdan V asr boshigacha", "Faqat I asrda", "XIV—XV asrlar", "I asrdan oldin"], "correct": 0},
+        {"text": "Qurilma insoniyat tarixidagi eng qadimiy yozuv tili hisoblanadi?", "options": ["Mix yozuvi", "Lotin yozuvi", "Grek yozuvi", "Arab yozuvi"], "correct": 0},
+        {"text": "Kolumbning Amerikaga birinchi sayohati qaysi yilda bo'lgan?", "options": ["1492", "1442", "1519", "1600"], "correct": 0},
+        {"text": "Sanoat inqilobi qaysi davlatda birinchi boshlandi?", "options": ["Angliya", "Frantsiya", "Germaniya", "Rossiya"], "correct": 0},
+        {"text": "Qurilishdagi Ulug'ek osmoniyasi qaysi davrga mansub?", "options": ["XV asr", "XI asr", "XVIII asr", "VII asr"], "correct": 0},
+        {"text": "Yaponiyada 1868-yilda boshlangan davlat modernizatsiyasi qanday ataladi?", "options": ["Meiji tiklanishi", "Sengoku davri", "Edo davri", "Taiko davri"], "correct": 0},
+        {"text": "Insoniyatning Yer shari paydo bo'lishi to'g'risidagi eng mashhur ilmiy nazariya qaysi?", "options": ["Koinotsiya", "Geotsentr", "Antropotsentr", "Finikoteya"], "correct": 0},
+        {"text": "Azteklarning poytaxti qaysi shahar edi?", "options": ["Tenochtitlan", "Tib", "Machu Pikchu", "Kairo"], "correct": 0},
+        {"text": "Xitoyning buyuk qo'ldan qo'l g'alayotgan ellar davlati 221-yilda kim tomonidan barqarorlashtirilgan?", "options": ["Shi Huangdi", "Chu Xiongyu", "Kongzi", "Sun Tzu"], "correct": 0},
+    ],
+
     "o'zbek tarixi": [
         {"text": "O'zbekiston mustaqilligi qaysi sana e'lon qilingan?", "options": ["1991-yil 31-avgust", "1991-yil 1-sentyabr", "1990-yil 24-mart", "1992-yil 2-mart"], "correct": 0},
         {"text": "Amir Temur qaysi davrda hukmronlik qilgan?", "options": ["1370—1405 yillar", "1300—1320 yillar", "1405—1420 yillar", "1450—1470 yillar"], "correct": 0},
@@ -214,7 +229,52 @@ QUESTIONS_BANK: dict[str, list[dict]] = {
         {"text": "Qadimda O'zbekiston hududida qanday davlatlar bo'lgan?", "options": ["Buxoro amirligi, Xiva va Qo'qon xonliklari", "Bir yagona davlat", "Faqat shaharlar", "Mustamlakalar"], "correct": 0},
         {"text": "Afrosiyob qadimiy shahar qoldig'i qaysi shaharda?", "options": ["Samarqand", "Termiz", "Andijon", "Urganch"], "correct": 0},
     ],
+    "algebra": [
+        {"text": "2x + 7 = 19 tenglamasi yechimini toping", "options": ["x = 6", "x = 13", "x = −6", "x = 26"], "correct": 0},
+        {"text": "x² − 5x + 6 = 0 tenglamasining ildizlari qaysilar?", "options": ["2 va 3", "1 va 6", "−2 va −3", "5 va 6"], "correct": 0},
+        {"text": "Ikkita haddning yig'indisi 12, ko'paytuvchilari 27. Ular qancha?", "options": ["3 va 9", "6 va 6", "1 va 11", "4 va 8"], "correct": 0},
+        {"text": "Ifoda 2(a − 3b) + 4(a − b) ning qiymati 10 bo'lsa, a − b qancha?", "options": ["5/3", "3", "10/3", "2"], "correct": 0},
+        {"text": "Logarifm berilgan: log₂ 32 = ?", "options": ["5", "6", "16", "4"], "correct": 0},
+        {"text": "Aritmetik progressiya: a₁ = 3, d = 4 bo'lsa, a₅ qancha?", "options": ["19", "23", "17", "15"], "correct": 0},
+        {"text": "Geometrik progressiya: b₁ = 2, q = 3 bo'lsa, b₃ qancha?", "options": ["18", "12", "9", "6"], "correct": 0},
+        {"text": "kvadrat tenglama tizimida D = 49 bo'lsa, |x| ning qiymati qancha?", "options": ["7", "49", "14", "3,5"], "correct": 0},
+        {"text": "3x − 2 > 7 tengsizligi yechimini toping", "options": ["x > 3", "x < 3", "x > 9", "x < 9"], "correct": 0},
+        {"text": "x⁴ − 16 = 0 tenglamasining haqiqiy ildizlari qaysilar?", "options": ["±2", "±4", "±8", "±1"], "correct": 0},
+        {"text": "Birinchi darajali tenglama 5(x − 2) = 3x + 6 shaklida, uni soddalashtiring", "options": ["2x = 16", "2x = 6", "8x = 16", "x = 16"], "correct": 0},
+        {"text": "y = 2x + 1 funksiya qaysi to'g'ri chiziqni tasvirlaydi?", "options": ["(0;1) nuqtadan o'tadigan, ko'tarilishli", "(0;0) nuqtadan o'tadigan, ko'tarilishli", "(0;1) nuqtadan o'tadigan, tushuvchi", "Parallel bo'ylash chizig'i"], "correct": 0},
+        {"text": "x² + 4x + 9 ifodasi to'liq kvadratga yopish mumkinmi?", "options": ["Yo'q, D < 0", "Ha, D = 0", "Ha, D > 0", "Faqat x > 0 da"], "correct": 0},
+        {"text": "Tenglamalar tizimi: x + y = 10, x − y = 4. x qancha?", "options": ["7", "5", "6", "3"], "correct": 0},
+        {"text": "log₃ 1 + log₃ 27 natijasi qancha?", "options": ["3", "4", "1", "9"], "correct": 0},
+        {"text": "Ifoda (a²)³ / a⁵ ni soddalashtirilgan shaklda yozing", "options": ["a", "a²", "1/a²", "a⁸"], "correct": 0},
+        {"text": "O'xshash haddlarni keltirib, 3a/a ifodasi qanday soddalashadi?", "options": ["3", "1", "a", "0"], "correct": 0},
+        {"text": "Kvadratning yuzasi 144 sm² bo'lsa, tomoni qancha sm?", "options": ["12", "24", "6", "144"], "correct": 0},
+    ],
+    "geometriya": [
+        {"text": "Uchburchakning ichki burchaklari yig'indisi necha gradus?", "options": ["180°", "90°", "270°", "360°"], "correct": 0},
+        {"text": "To'g'ri burchakli uchburchakning gipotenuzasi 5, bir o'tkir burchagi 30° bo'lsa, qarshi katet qancha?", "options": ["2,5", "5", "4,3", "3"], "correct": 0},
+        {"text": "Aylaning radiusi 6 sm bo'lsa, yuzasi qancha sm²?", "options": ["36π", "12π", "6π", "18π"], "correct": 0},
+        {"text": "Pifagor teoremasiga ko'ra 9 va 12 tomonli to'g'ri uchburchakning gipotenuzasi qancha?", "options": ["15", "21", "10,5", "18"], "correct": 0},
+        {"text": "Ikki parallel to'g'ri chiziq kesuvchisi burchagi 65° bo'lsa, qo'shni burchak necha gradus?", "options": ["115°", "65°", "25°", "130°"], "correct": 0},
+        {"text": "Do'g'orning ikki qirrasi tekislikda kesishda hosil bo'lgan burchak yumshoqligi 90° bo'lsa, u qanday nomlanadi?", "options": ["To'g'ri burchak", "O'tkir burchak", "Yassi burchak", "Butun burchak"], "correct": 0},
+        {"text": "Teng yonli uchburchakning asosi 8, yon tomoni 10 bo'lsa, perimetri qancha?", "options": ["28", "20", "36", "18"], "correct": 0},
+        {"text": "Doira markazining radiusi 5 sm. Uning ichida joylashgan nuqtadan markazgacha masofa 3 sm. Nuqta doirada yoki uning tashqarisidami?", "options": ["Ichida", "Tashqarisida", "Doiraga tegib turibdi", "Aniqlab bo'lmaydi"], "correct": 0},
+        {"text": "Sahnaviy uchburchakning ichki burchaklaridan biri 90° bo'lsa, uni qanday ataladi?", "options": ["To'g'ri burchakli", "O'tkir", "Yassi", "Teng yonli"], "correct": 0},
+        {"text": "Silindrning radiusi 3, balandligi 10 bo'lsa, asosining yuzasi qancha?", "options": ["9π", "30π", "10π", "6π"], "correct": 0},
+        {"text": "Ikki parallel tekislik orasidagi masofa 4 sm. Perpendikulyar kesimida bu masofa qanday ataladi?", "options": ["Balandlik", "Asos", "Yon qirra", "Diagonal"], "correct": 0},
+        {"text": "Ko'pburchakning ichki burchaklari yig'indisi 1080° bo'lsa, nechta tomoni bor?", "options": ["8", "6", "7", "9"], "correct": 0},
+        {"text": "To'g'ri to'rtburchakning diagonali 13, bir tomoni 5 bo'lsa, ikkinchi tomoni qancha?", "options": ["12", "8", "18", "√44"], "correct": 0},
+        {"text": "Xarakterli nuqta (nazorat nuqtasi) nima uchun ishlatiladi?", "options": ["Desinxroniyani tuzatish uchun", "Kuzatishni osonlashtirish uchun", "Chizishni tezlashtirish uchun", "Massani o'lchash uchun"], "correct": 0},
+        {"text": "To'rtburchakning ichki burchaklari yig'indisi nechaga teng?", "options": ["360°", "180°", "270°", "540°"], "correct": 0},
+        {"text": "Uchburchakning bitta tomoni 7, ikkinchisi 9. Uchinchi tomak uchun mumkin bo'lgan eng katta qiymat qancha?", "options": ["15", "16", "17", "2"], "correct": 0},
+        {"text": "Sharning markazidan r teng masofadagi nuqtalar to'plami qanday nomlanadi?", "options": ["Sfera", "K atmosfera", "Doira", "Silindr"], "correct": 0},
+        {"text": "Tenglamalar: 2x = 3y va x + y = 10. x qancha?", "options": ["6", "4", "5", "7"], "correct": 0},
+    ],
 }
+
+# Fan nomi bank kalitini "o'z ichiga olmaydigan" holatlar uchun. Masalan
+# "O'zbekiston tarixi" ichida "o'zbek tarixi" satri yo'q, shu bilan birga
+# savollar aynan bir xil — ikkala nom ham bitta fanni bildiradi.
+QUESTIONS_BANK["o'zbekiston tarixi"] = QUESTIONS_BANK["o'zbek tarixi"]
 
 
 class Command(BaseCommand):

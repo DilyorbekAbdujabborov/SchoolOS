@@ -1,4 +1,5 @@
 import json
+from datetime import time
 from io import StringIO
 from unittest.mock import Mock, patch
 
@@ -7,7 +8,14 @@ from django.core.management.base import CommandError
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.common.testing import make_director, make_school_class, make_student, make_subject, make_teacher
+from apps.common.testing import (
+    make_director,
+    make_lesson,
+    make_school_class,
+    make_student,
+    make_subject,
+    make_teacher,
+)
 from apps.academics.models import Subject
 from apps.gamification.models import XPTransaction
 
@@ -1372,6 +1380,33 @@ class SeedQuestionBankCommandTests(APITestCase):
         self.assertIn("Geografiya", output)
         self.assertIn("+16", output)
         self.assertEqual(PooledQuestion.objects.count(), 0)
+
+    def test_every_subject_a_school_actually_uses_gets_a_bank(self):
+        """Guards the data, not the code: a school picks subject names, and the
+        bank is keyed by name, so a subject whose name does not reach a bank key
+        silently becomes an unplayable subject."""
+        _, teacher = make_teacher()
+        school_class = make_school_class()
+        for slot, name in enumerate(
+            ("Algebra", "Geometriya", "O'zbekiston tarixi", "Jahon tarixi")
+        ):
+            make_lesson(
+                subject=make_subject(name),
+                school_class=school_class,
+                teacher=teacher,
+                start_time=time(8 + slot, 0),
+                end_time=time(8 + slot, 45),
+            )
+
+        self._run()
+
+        for subject in Subject.objects.all():
+            with self.subTest(subject=subject.name):
+                self.assertGreater(
+                    PooledQuestion.objects.filter(subject=subject).count(),
+                    0,
+                    f"{subject.name} is a real subject of the school but has no questions",
+                )
 
     def test_unknown_subject_filter_is_rejected_with_the_available_list(self):
         with self.assertRaises(CommandError) as caught:
