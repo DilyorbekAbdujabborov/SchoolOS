@@ -164,9 +164,17 @@ export function LeaderboardPodium({ entries }: { entries: StudentLeaderboardEntr
   return (
     <div className="flex items-end justify-center gap-2 sm:gap-3">
       {order.map((entry) => (
-        <div key={entry.rank} className="flex flex-1 flex-col items-center gap-1.5">
+        // `min-w-0` is what makes the name truncate. Without it this flex item
+        // keeps `min-width: auto`, and since the name is `whitespace-nowrap` its
+        // min-content width is the whole name — so a long one refuses to shrink,
+        // the three columns stop fitting their thirds, and the names spill out of
+        // the card and over each other. Every other `truncate` in the app sits
+        // under a `min-w-0` for this reason; the podium was the one that didn't.
+        <div key={entry.rank} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
           <Avatar name={entry.name} src={entry.avatar_url} size={entry.rank === 1 ? 44 : 34} />
-          <p className="max-w-full truncate text-xs font-medium text-ink">{entry.name}</p>
+          <p className="w-full truncate text-center text-xs font-medium text-ink">
+            {entry.name}
+          </p>
           <div
             className={`flex w-full items-start justify-center rounded-t-xl pt-1.5 text-[11px] font-bold text-white ${
               height[entry.rank]
