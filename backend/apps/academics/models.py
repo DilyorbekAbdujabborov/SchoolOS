@@ -21,6 +21,12 @@ class Subject(TimeStampedModel):
 
 
 class Lesson(TimeStampedModel):
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="lessons",
+        on_delete=models.CASCADE,
+    )
     subject = models.ForeignKey(
         Subject,
         verbose_name=_("subject"),
@@ -83,6 +89,12 @@ class TimetableSlot(TimeStampedModel):
         FRIDAY = 5, _("Friday")
         SATURDAY = 6, _("Saturday")
 
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="timetable_slots",
+        on_delete=models.CASCADE,
+    )
     school_class = models.ForeignKey(
         "schools.SchoolClass",
         verbose_name=_("class"),
@@ -154,6 +166,12 @@ class DailyScheduleDigest(TimeStampedModel):
         related_name="daily_schedule_digests",
         on_delete=models.CASCADE,
     )
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="daily_schedule_digests",
+        on_delete=models.CASCADE,
+    )
     date = models.DateField(_("date"))
     sent_at = models.DateTimeField(_("sent at"), auto_now_add=True)
 
@@ -162,8 +180,11 @@ class DailyScheduleDigest(TimeStampedModel):
         verbose_name_plural = _("daily schedule digests")
         ordering = ("-date",)
         constraints: ClassVar[list[models.BaseConstraint]] = [
-            models.UniqueConstraint(fields=["user", "date"], name="unique_daily_schedule_per_user")
+            models.UniqueConstraint(
+                fields=["user", "organization", "date"],
+                name="unique_daily_schedule_per_user_org",
+            )
         ]
 
     def __str__(self) -> str:
-        return f"Daily schedule sent to {self.user} for {self.date}"
+        return f"Daily schedule sent to {self.user} at {self.organization} for {self.date}"

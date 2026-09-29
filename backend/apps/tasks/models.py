@@ -19,6 +19,12 @@ class TeacherTask(TimeStampedModel):
         MEETING = "MEETING", _("Yig'ilish")
         OTHER = "OTHER", _("Boshqa")
 
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="teacher_tasks",
+        on_delete=models.CASCADE,
+    )
     title = models.CharField(_("title"), max_length=255)
     description = models.TextField(_("description"), blank=True)
     category = models.CharField(
@@ -45,6 +51,12 @@ class TeacherTask(TimeStampedModel):
 class TeacherTaskAssignment(TimeStampedModel):
     """One row per (task, teacher) — the recipient's copy, and where completion is tracked."""
 
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="teacher_task_assignments",
+        on_delete=models.CASCADE,
+    )
     task = models.ForeignKey(
         TeacherTask, verbose_name=_("task"), related_name="assignments", on_delete=models.CASCADE
     )

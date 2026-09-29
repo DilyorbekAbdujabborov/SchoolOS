@@ -26,6 +26,12 @@ class PooledQuestion(TimeStampedModel):
     to wait on — or burn through the rate limit of — a real-time Gemini call.
     """
 
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="pooled_questions",
+        on_delete=models.CASCADE,
+    )
     subject = models.ForeignKey(
         "academics.Subject", verbose_name=_("subject"), related_name="pooled_questions", on_delete=models.CASCADE
     )
@@ -68,6 +74,12 @@ class PooledQuestionServed(models.Model):
     pool is large enough to allow it (see `services.pick_session_questions`).
     """
 
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="served_pooled_questions",
+        on_delete=models.CASCADE,
+    )
     student = models.ForeignKey(
         "users.StudentProfile", verbose_name=_("student"), related_name="+", on_delete=models.CASCADE
     )
@@ -80,7 +92,10 @@ class PooledQuestionServed(models.Model):
         verbose_name = _("served pooled question")
         verbose_name_plural = _("served pooled questions")
         constraints: ClassVar[list[models.BaseConstraint]] = [
-            models.UniqueConstraint(fields=["student", "question"], name="unique_student_pooled_question"),
+            models.UniqueConstraint(
+                fields=["organization", "student", "question"],
+                name="unique_student_pooled_question_per_org",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -114,6 +129,12 @@ class GameSession(TimeStampedModel):
         ACTIVE = "ACTIVE", _("Active")
         COMPLETED = "COMPLETED", _("Completed")
 
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="game_sessions",
+        on_delete=models.CASCADE,
+    )
     student = models.ForeignKey(
         "users.StudentProfile", verbose_name=_("student"), related_name="game_sessions", on_delete=models.CASCADE
     )

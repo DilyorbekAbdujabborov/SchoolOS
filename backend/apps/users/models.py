@@ -5,6 +5,10 @@ from django.contrib.auth.models import UserManager as DjangoUserManager
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+# No import cycle: apps.organizations.models refers to the user model by
+# `settings.AUTH_USER_MODEL` string and never imports apps.users.
+from apps.organizations.models import OrganizationMembership
+
 
 class UserManager(DjangoUserManager):
     """`createsuperuser` always creates a director account."""
@@ -37,6 +41,19 @@ class User(AbstractUser):
         help_text=_("Set when a temporary password was issued (e.g. bulk import)."),
     )
     avatar = models.ImageField(_("avatar"), upload_to="avatars/", null=True, blank=True)
+    active_organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("active organization"),
+        related_name="active_users",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        help_text=_(
+            "Which organization this user is currently working in. NULL means the "
+            "user has no membership yet and the platform falls back to their only "
+            "membership, or to no organization at all."
+        ),
+    )
 
     objects = UserManager()
 
@@ -51,6 +68,55 @@ class User(AbstractUser):
     def __str__(self) -> str:
         return f"{self.get_full_name() or self.username} <{self.email}>"
 
+    def get_active_membership(self):
+        """The membership that authorizes this request, or None.
+
+        Resolution order:
+          1. `active_organization`, if it is still an ACTIVE membership
+          2. the user's single membership, if they only have one
+          3. otherwise None — the caller must pick a switch target
+
+        Never falls back to "any membership": with two organizations on the
+        same account, guessing would hand the user the wrong permissions.
+        """
+        if not self.is_authenticated:
+            return None
+
+        if self.active_organization_id:
+            membership = self.organization_memberships.filter(
+                organization_id=self.active_organization_id,
+                status=OrganizationMembership.Status.ACTIVE,
+            ).first()
+            if membership is not None:
+                return membership
+
+        memberships = self.organization_memberships.filter(
+            status=OrganizationMembership.Status.ACTIVE
+        ).order_by("organization_id")
+        if len(memberships) == 1:
+            return memberships[0]
+        return None
+
+    @property
+    def active_membership(self):
+        cached = getattr(self, "_active_membership_cache", None)
+        if cached is not None:
+            return cached
+        membership = self.get_active_membership()
+        self._active_membership_cache = membership
+        return membership
+
+    @property
+    def active_role(self) -> str | None:
+        """The role to authorize this user with, inside the active organization.
+
+        This — not `self.role` — is what access control must use. `User.role`
+        stays as a denormalized "primary role" for the current single-school
+        deployment and for the login defaults.
+        """
+        membership = self.active_membership
+        return membership.role if membership is not None else None
+
     @property
     def is_director(self) -> bool:
         return self.role == self.Role.DIRECTOR
@@ -62,6 +128,31 @@ class User(AbstractUser):
     @property
     def is_student(self) -> bool:
         return self.role == self.Role.STUDENT
+
+    @property
+    def is_org_director(self) -> bool:
+        return self.active_role in (
+            OrganizationMembership.Role.OWNER,
+            OrganizationMembership.Role.ADMIN,
+            OrganizationMembership.Role.DIRECTOR,
+        )
+
+    @property
+    def is_org_teacher(self) -> bool:
+        return self.active_role in (
+            OrganizationMembership.Role.OWNER,
+            OrganizationMembership.Role.ADMIN,
+            OrganizationMembership.Role.DIRECTOR,
+            OrganizationMembership.Role.TEACHER,
+            OrganizationMembership.Role.COACH,
+        )
+
+    @property
+    def is_org_student(self) -> bool:
+        return self.active_role in (
+            OrganizationMembership.Role.STUDENT,
+            OrganizationMembership.Role.MEMBER,
+        )
 
 
 class TeacherProfile(models.Model):

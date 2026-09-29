@@ -23,6 +23,12 @@ class RemedialSession(TimeStampedModel):
         EXPLAINED = "EXPLAINED", _("Explained")
         COMPLETED = "COMPLETED", _("Completed")
 
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="remedial_sessions",
+        on_delete=models.CASCADE,
+    )
     student = models.ForeignKey(
         "users.StudentProfile", verbose_name=_("student"), related_name="remedial_sessions",
         on_delete=models.CASCADE,

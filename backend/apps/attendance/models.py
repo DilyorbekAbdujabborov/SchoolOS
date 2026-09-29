@@ -14,6 +14,12 @@ class Attendance(TimeStampedModel):
         ABSENT = "ABSENT", _("Absent")
         EXCUSED = "EXCUSED", _("Excused")
 
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="attendance_records",
+        on_delete=models.CASCADE,
+    )
     lesson = models.ForeignKey(
         "academics.Lesson",
         verbose_name=_("lesson"),
@@ -56,6 +62,12 @@ class AttendanceReminder(TimeStampedModel):
     more than one run — this row is what stops the same lesson being pinged twice.
     """
 
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="attendance_reminders",
+        on_delete=models.CASCADE,
+    )
     lesson = models.OneToOneField(
         "academics.Lesson",
         verbose_name=_("lesson"),
