@@ -1,8 +1,6 @@
 from datetime import date, time, timedelta
 from django.db.models import Q, QuerySet
 
-from apps.school_config.models import SchoolTimeSettings
-
 from .models import Lesson, TimetableSlot
 
 # One place builds the daily lesson digest, because it has to be right for
@@ -41,20 +39,18 @@ def generate_lessons_for_week(week_start: date) -> list[Lesson]:
     uniqueness on.
     """
     monday = week_monday(week_start)
-    settings_obj = SchoolTimeSettings.get_solo()
     lessons = []
 
     for slot in TimetableSlot.objects.select_related("subject", "school_class", "teacher"):
         lesson_date = monday + timedelta(days=slot.day_of_week - 1)
-        start_time, end_time = settings_obj.period_times(slot.period_number)
         lesson, _created = Lesson.objects.get_or_create(
             school_class=slot.school_class,
             date=lesson_date,
-            start_time=start_time,
+            start_time=slot.start_time,
             defaults={
                 "subject": slot.subject,
                 "teacher": slot.teacher,
-                "end_time": end_time,
+                "end_time": slot.end_time,
                 "room": slot.room,
             },
         )

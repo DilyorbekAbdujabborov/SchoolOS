@@ -13,4 +13,7 @@ class SchoolTimeSettingsSerializer(serializers.ModelSerializer):
             "short_break_minutes",
             "long_break_after_period",
             "long_break_minutes",
+            "second_start_time",
+            "second_short_period",
+            "second_short_period_minutes",
         )

@@ -141,6 +141,8 @@ export interface TimetableSlot {
   day_of_week: number;
   day_of_week_display: string;
   period_number: number;
+  start_time: string;
+  end_time: string;
   room: string;
 }
 
@@ -229,6 +231,9 @@ export interface SchoolTimeConfig {
   short_break_minutes: number;
   long_break_after_period: number;
   long_break_minutes: number;
+  second_start_time: string | null;
+  second_short_period: number;
+  second_short_period_minutes: number;
 }
 
 export interface TelegramStatus {

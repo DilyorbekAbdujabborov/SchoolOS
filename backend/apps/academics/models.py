@@ -123,6 +123,8 @@ class TimetableSlot(TimeStampedModel):
     )
     day_of_week = models.PositiveSmallIntegerField(_("day of week"), choices=DayOfWeek.choices)
     period_number = models.PositiveSmallIntegerField(_("period number"))
+    start_time = models.TimeField(_("start time"))
+    end_time = models.TimeField(_("end time"))
     room = models.CharField(_("room"), max_length=50, blank=True)
 
     class Meta:
@@ -135,7 +137,7 @@ class TimetableSlot(TimeStampedModel):
                 name="unique_class_slot",
             ),
             models.UniqueConstraint(
-                fields=["teacher", "day_of_week", "period_number"],
+                fields=["teacher", "day_of_week", "start_time"],
                 name="unique_teacher_slot",
             ),
         ]

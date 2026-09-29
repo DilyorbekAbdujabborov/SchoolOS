@@ -5,7 +5,7 @@ from .models import SchoolTimeSettings
 
 @admin.register(SchoolTimeSettings)
 class SchoolTimeSettingsAdmin(admin.ModelAdmin):
-    list_display = ("start_time", "end_time")
+    list_display = ("start_time", "end_time", "second_start_time")
 
     def has_add_permission(self, request):
         return not SchoolTimeSettings.objects.exists()

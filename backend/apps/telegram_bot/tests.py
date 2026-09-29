@@ -1,14 +1,13 @@
+import json
 from datetime import timedelta
 from unittest.mock import patch
 
 from asgiref.sync import async_to_sync
-from django.test import TestCase
+from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.attendance.models import Attendance
-from apps.attendance.services import mark_lesson_attendance
 from apps.common.testing import (
     make_lesson,
     make_school_class,
@@ -20,16 +19,14 @@ from apps.gamification.models import Achievement, StudentAchievement, XPTransact
 from apps.gamification.services import award_xp, check_achievements
 from apps.learning.models import Test
 
-from .management.commands.runbot import (
+from .bot import (
     available_tests_text,
     class_xp_text,
     my_achievements_text,
     my_xp_text,
-    parent_attendance_text,
-    parent_progress_text,
 )
-from .models import ParentLinkCode, ParentTelegramAccount, TelegramAccount, TelegramLinkCode
-from .services import generate_link_code, generate_parent_link_code, notify_parents
+from .models import TelegramAccount, TelegramLinkCode
+from .services import generate_link_code
 
 
 class LinkCodeServiceTests(TestCase):
@@ -170,182 +167,102 @@ class BotGamificationTextTests(TestCase):
         self.assertLess(text.index(taught_class.name), text.index(led_class.name))
 
 
-class ParentLinkCodeServiceTests(TestCase):
+SECRET = "test-webhook-secret"
+WEBHOOK_URL = "/api/telegram/webhook/"
+
+# A real-shaped `/start` update: enough for Update.de_json() to rebuild it and for
+# the handler to find the chat and the user.
+START_UPDATE = {
+    "update_id": 12345,
+    "message": {
+        "message_id": 7,
+        "date": 1700000000,
+        "chat": {"id": 555000111, "type": "private"},
+        "from": {"id": 555000111, "is_bot": False, "first_name": "Ali"},
+        "text": "/start",
+        "entities": [{"type": "bot_command", "offset": 0, "length": 6}],
+    },
+}
+
+
+@override_settings(TELEGRAM_WEBHOOK_SECRET=SECRET, ALLOWED_HOSTS=["testserver"])
+class TelegramWebhookViewTests(TestCase):
+    """Telegram authenticates with the shared secret header, not a user session,
+    so these cover the header check and the accept-anything-Telegram-sends body
+    handling. The bot itself is patched out — `WebhookBotRunner` would try to
+    reach the real Telegram API.
+    """
+
     def setUp(self):
-        self.school_class = make_school_class()
-        _, self.student = make_student(self.school_class)
+        # enforce_csrf_checks proves the endpoint is genuinely csrf_exempt:
+        # Telegram can't send a CSRF token, so CsrfViewMiddleware must not
+        # reject its POSTs.
+        self.client = Client(enforce_csrf_checks=True)
 
-    def test_generate_parent_link_code_creates_a_valid_code(self):
-        link_code = generate_parent_link_code(self.student)
-        self.assertTrue(link_code.is_valid())
-        self.assertEqual(link_code.student, self.student)
+    def _post(self, payload, secret=SECRET):
+        headers = {}
+        if secret is not None:
+            headers["HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN"] = secret
+        return self.client.post(WEBHOOK_URL, json.dumps(payload), content_type="application/json", **headers)
 
-    def test_requesting_a_new_code_invalidates_the_previous_one(self):
-        first = generate_parent_link_code(self.student)
-        generate_parent_link_code(self.student)
-        self.assertFalse(ParentLinkCode.objects.filter(pk=first.pk).exists())
+    @patch("apps.telegram_bot.views.enqueue_update")
+    def test_valid_update_is_accepted_and_queued(self, enqueue):
+        response = self._post(START_UPDATE)
 
-    def test_used_code_is_not_valid(self):
-        link_code = generate_parent_link_code(self.student)
-        link_code.used_at = timezone.now()
-        link_code.save(update_fields=["used_at"])
-        self.assertFalse(link_code.is_valid())
-
-    def test_expired_code_is_not_valid(self):
-        link_code = generate_parent_link_code(self.student)
-        link_code.expires_at = timezone.now() - timedelta(seconds=1)
-        link_code.save(update_fields=["expires_at"])
-        self.assertFalse(link_code.is_valid())
-
-
-class ParentLinkCodeAPITests(APITestCase):
-    def setUp(self):
-        self.school_class = make_school_class()
-        self.student_user, self.student = make_student(self.school_class)
-        self.teacher_user, _ = make_teacher()
-
-    def test_student_can_request_a_parent_link_code(self):
-        self.client.force_authenticate(self.student_user)
-        response = self.client.post("/api/telegram/parent-link-code/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("code", response.data)
+        self.assertEqual(response.json(), {"ok": True})
+        enqueue.assert_called_once_with(START_UPDATE)
 
-    def test_teacher_cannot_request_a_parent_link_code(self):
-        self.client.force_authenticate(self.teacher_user)
-        response = self.client.post("/api/telegram/parent-link-code/")
+    @patch("apps.telegram_bot.views.enqueue_update")
+    def test_missing_secret_header_is_rejected(self, enqueue):
+        response = self._post(START_UPDATE, secret=None)
+
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        enqueue.assert_not_called()
 
-    def test_anonymous_cannot_request_a_parent_link_code(self):
-        response = self.client.post("/api/telegram/parent-link-code/")
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    @patch("apps.telegram_bot.views.enqueue_update")
+    def test_wrong_secret_header_is_rejected(self, enqueue):
+        response = self._post(START_UPDATE, secret="not-the-secret")
 
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        enqueue.assert_not_called()
 
-class ParentTelegramAccountsAPITests(APITestCase):
-    def setUp(self):
-        self.school_class = make_school_class()
-        self.student_user, self.student = make_student(self.school_class)
+    @patch("apps.telegram_bot.views.enqueue_update")
+    def test_empty_secret_header_is_rejected(self, enqueue):
+        response = self._post(START_UPDATE, secret="")
 
-    def test_lists_only_own_linked_parent_accounts(self):
-        ParentTelegramAccount.objects.create(
-            student=self.student, telegram_id=111, telegram_username="ota1"
-        )
-        other_student_user, other_student = make_student(self.school_class)
-        ParentTelegramAccount.objects.create(student=other_student, telegram_id=222)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        enqueue.assert_not_called()
 
-        self.client.force_authenticate(self.student_user)
-        response = self.client.get("/api/telegram/parent-accounts/")
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["telegram_username"], "ota1")
-
-    def test_student_can_unlink_own_parent_account(self):
-        account = ParentTelegramAccount.objects.create(student=self.student, telegram_id=111)
-        self.client.force_authenticate(self.student_user)
-        response = self.client.delete(f"/api/telegram/parent-accounts/{account.id}/")
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(ParentTelegramAccount.objects.filter(pk=account.pk).exists())
-
-    def test_student_cannot_unlink_another_students_parent_account(self):
-        other_student_user, other_student = make_student(self.school_class)
-        account = ParentTelegramAccount.objects.create(student=other_student, telegram_id=111)
-        self.client.force_authenticate(self.student_user)
-        response = self.client.delete(f"/api/telegram/parent-accounts/{account.id}/")
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertTrue(ParentTelegramAccount.objects.filter(pk=account.pk).exists())
-
-
-class NotifyParentsServiceTests(TestCase):
-    def setUp(self):
-        self.school_class = make_school_class()
-        _, self.student = make_student(self.school_class)
-
-    @patch("apps.telegram_bot.services.send_telegram_message")
-    def test_pushes_to_every_linked_parent_account(self, mock_send):
-        ParentTelegramAccount.objects.create(student=self.student, telegram_id=111)
-        ParentTelegramAccount.objects.create(student=self.student, telegram_id=222)
-
-        notify_parents(self.student, "Salom")
-
-        self.assertEqual(mock_send.call_count, 2)
-        sent_chat_ids = {call.args[0] for call in mock_send.call_args_list}
-        self.assertEqual(sent_chat_ids, {111, 222})
-
-    @patch("apps.telegram_bot.services.send_telegram_message")
-    def test_does_nothing_when_no_parent_is_linked(self, mock_send):
-        notify_parents(self.student, "Salom")
-        mock_send.assert_not_called()
-
-
-class AttendanceParentNotificationTests(TestCase):
-    def setUp(self):
-        self.subject = make_subject()
-        self.teacher_user, self.teacher = make_teacher()
-        self.school_class = make_school_class()
-        _, self.student = make_student(self.school_class)
-        self.lesson = make_lesson(
-            school_class=self.school_class, subject=self.subject, teacher=self.teacher
-        )
-        ParentTelegramAccount.objects.create(student=self.student, telegram_id=111)
-
-    @patch("apps.telegram_bot.services.send_telegram_message")
-    def test_absent_notifies_linked_parent(self, mock_send):
-        mark_lesson_attendance(
-            lesson=self.lesson,
-            records=[{"student": self.student, "status": Attendance.Status.ABSENT}],
-            marked_by=self.teacher_user,
-        )
-        mock_send.assert_called_once()
-        self.assertEqual(mock_send.call_args.args[0], 111)
-        self.assertIn("kelmadi", mock_send.call_args.args[1])
-
-    @patch("apps.telegram_bot.services.send_telegram_message")
-    def test_late_notifies_linked_parent(self, mock_send):
-        mark_lesson_attendance(
-            lesson=self.lesson,
-            records=[{"student": self.student, "status": Attendance.Status.LATE}],
-            marked_by=self.teacher_user,
-        )
-        mock_send.assert_called_once()
-        self.assertIn("kechikdi", mock_send.call_args.args[1])
-
-    @patch("apps.telegram_bot.services.send_telegram_message")
-    def test_present_does_not_notify_parent(self, mock_send):
-        mark_lesson_attendance(
-            lesson=self.lesson,
-            records=[{"student": self.student, "status": Attendance.Status.PRESENT}],
-            marked_by=self.teacher_user,
-        )
-        mock_send.assert_not_called()
-
-
-class ParentBotTextTests(TestCase):
-    def setUp(self):
-        self.subject = make_subject()
-        self.teacher_user, self.teacher = make_teacher()
-        self.school_class = make_school_class()
-        self.student_user, self.student = make_student(self.school_class)
-
-    def test_parent_attendance_text_reports_counts_for_each_child(self):
-        lesson = make_lesson(
-            school_class=self.school_class, subject=self.subject, teacher=self.teacher
-        )
-        mark_lesson_attendance(
-            lesson=lesson,
-            records=[{"student": self.student, "status": Attendance.Status.ABSENT}],
-            marked_by=self.teacher_user,
+    @patch("apps.telegram_bot.views.enqueue_update")
+    def test_malformed_json_is_rejected(self, enqueue):
+        headers = {"HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN": SECRET}
+        response = self.client.post(
+            WEBHOOK_URL, "not json", content_type="application/json", **headers
         )
 
-        text = async_to_sync(parent_attendance_text)([self.student])
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        enqueue.assert_not_called()
 
-        self.assertIn("❌ Kelmadi: 1", text)
+    @patch("apps.telegram_bot.views.enqueue_update")
+    def test_json_that_is_not_an_object_is_rejected(self, enqueue):
+        response = self._post([1, 2, 3])
 
-    def test_parent_progress_text_reports_xp_for_each_child(self):
-        award_xp(
-            student=self.student, amount=25, source=XPTransaction.Source.TEST,
-            related_object=None, reason="x",
-        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        enqueue.assert_not_called()
 
-        text = async_to_sync(parent_progress_text)([self.student])
+    @patch("apps.telegram_bot.views.enqueue_update")
+    def test_bot_failure_reports_service_unavailable(self, enqueue):
+        enqueue.side_effect = RuntimeError("bot did not start")
 
-        self.assertIn("25", text)
+        response = self._post(START_UPDATE)
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    @override_settings(TELEGRAM_WEBHOOK_SECRET="")
+    @patch("apps.telegram_bot.views.enqueue_update")
+    def test_unconfigured_server_rejects_even_a_correct_looking_request(self, enqueue):
+        response = self._post(START_UPDATE)
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        enqueue.assert_not_called()

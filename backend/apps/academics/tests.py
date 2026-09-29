@@ -1,7 +1,6 @@
 from datetime import date, datetime, time, timedelta
 from unittest.mock import patch
 
-from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.utils import timezone
@@ -18,20 +17,10 @@ from apps.common.testing import (
 )
 from apps.notifications.models import Notification
 from apps.school_config.models import SchoolTimeSettings
-from apps.telegram_bot.models import TelegramAccount
-from config.celery import app
 
-from . import tasks
-from .models import DailyScheduleDigest, Lesson
-from .services import (
-    _KEYCAP,
-    DAILY_SCHEDULE_TITLE,
-    NO_LESSONS_BODY,
-    format_daily_schedule,
-    generate_lessons_for_week,
-    lessons_for_user,
-)
-from .tasks import send_daily_schedules
+from .models import Lesson, LessonReminder
+from .services import generate_lessons_for_week
+from .tasks import send_lesson_reminders
 
 
 def _this_weeks_monday() -> date:
@@ -169,360 +158,180 @@ class LessonQuerysetScopingAPITests(APITestCase):
         self.assertEqual(ids, {self.lesson_a.id})
 
 
-class DailyScheduleFormattingTests(TestCase):
-    """`format_daily_schedule` is what every recipient actually reads, so it is
-    tested as text — the whole point is that the message is legible, and an
-    assertion on a list of lesson ids would pass just as happily on a message
-    nobody could read."""
-
-    DAY = date(2026, 9, 21)  # a Monday
-
-    def setUp(self):
-        self.subject_a = make_subject(name="Matematika")
-        self.subject_b = make_subject(name="Adabiyot")
-        self.teacher_user, self.teacher = make_teacher(first_name="Alisher", last_name="Karimov")
-        self.school_class = make_school_class(name="8-A")
-        self.student_user, _ = make_student(self.school_class)
-
-    def _lesson(self, subject, start, end, **kwargs):
-        return make_lesson(
-            school_class=self.school_class,
-            subject=subject,
-            teacher=self.teacher,
-            lesson_date=self.DAY,
-            start_time=start,
-            end_time=end,
-            **kwargs,
-        )
-
-    def test_student_sees_whole_day_in_chronological_order(self):
-        # created out of order on purpose: the message must follow the clock
-        self._lesson(self.subject_b, time(11, 0), time(11, 45))
-        self._lesson(self.subject_a, time(9, 0), time(9, 45))
-
-        body = format_daily_schedule(self.student_user, self.DAY)
-
-        self.assertLess(body.index("09:00"), body.index("11:00"))
-        self.assertIn("Matematika", body)
-        self.assertIn("Adabiyot", body)
-
-    def test_student_is_told_the_teacher_and_room_when_they_are_known(self):
-        self._lesson(self.subject_a, time(9, 0), time(9, 45), room="201")
-
-        body = format_daily_schedule(self.student_user, self.DAY)
-
-        self.assertIn("Alisher Karimov", body)
-        self.assertIn("201", body)
-
-    def test_missing_room_is_omitted_rather_than_printed_empty(self):
-        self._lesson(self.subject_a, time(9, 0), time(9, 45))
-
-        body = format_daily_schedule(self.student_user, self.DAY)
-
-        self.assertNotIn("🚪", body)
-        # no dangling "· " or blank detail line where the room would have been
-        self.assertNotIn("·", body)
-
-    def test_teacher_sees_the_class_and_is_not_told_their_own_name(self):
-        self._lesson(self.subject_a, time(9, 0), time(9, 45), room="201")
-
-        body = format_daily_schedule(self.teacher_user, self.DAY)
-
-        self.assertIn("8-A", body)
-        self.assertNotIn("Alisher Karimov", body)
-
-    def test_day_without_lessons_says_so_and_does_not_raise(self):
-        body = format_daily_schedule(self.student_user, self.DAY)
-
-        self.assertEqual(body, NO_LESSONS_BODY)
-
-    def test_ordinary_between_period_gap_is_not_announced_as_a_break(self):
-        # The school's own short break is the threshold, so read it rather than
-        # hardcoding 5 — a gap of exactly that length is an ordinary pause.
-        short = SchoolTimeSettings.get_solo().short_break_minutes
-        self._lesson(self.subject_a, time(9, 0), time(9, 45))
-        resumes = (datetime.combine(self.DAY, time(9, 45)) + timedelta(minutes=short)).time()
-        self._lesson(self.subject_b, resumes, time(10, 45))
-
-        body = format_daily_schedule(self.student_user, self.DAY)
-
-        self.assertNotIn("tanaffus", body)
-
-    def test_gap_longer_than_the_configured_break_is_reported_with_its_real_length(self):
-        # 09:45 -> 11:00 is 75 minutes. The message must state the gap that is
-        # actually on the timetable, not a number pulled from the settings.
-        self._lesson(self.subject_a, time(9, 0), time(9, 45))
-        self._lesson(self.subject_b, time(11, 0), time(11, 45))
-
-        body = format_daily_schedule(self.student_user, self.DAY)
-
-        self.assertIn("tanaffus", body)
-        self.assertIn("75", body)
-
-    def test_lessons_on_another_day_are_not_included(self):
-        self._lesson(self.subject_a, time(9, 0), time(9, 45))
-        make_lesson(
-            school_class=self.school_class,
-            subject=self.subject_b,
-            teacher=self.teacher,
-            lesson_date=self.DAY + timedelta(days=1),
-            start_time=time(9, 0),
-            end_time=time(9, 45),
-        )
-
-        body = format_daily_schedule(self.student_user, self.DAY)
-
-        self.assertIn("Matematika", body)
-        self.assertNotIn("Adabiyot", body)
-
-    def test_tenth_and_later_lesson_falls_back_to_a_readable_number(self):
-        # Only nine keycap emoji exist. The tenth must degrade to plain text
-        # rather than render as a broken glyph in someone's morning message.
-        for hour in range(8, 18):
-            self._lesson(self.subject_a, time(hour, 0), time(hour, 40))
-
-        body = format_daily_schedule(self.student_user, self.DAY)
-
-        self.assertIn("10. ", body)  # the 10th lesson
-        self.assertIn("9️⃣", body)  # the 9th still gets its keycap
-        self.assertNotIn(f"10{_KEYCAP}", body)
-
-
-class DailyScheduleRecipientsTests(TestCase):
-    """Who the morning push is allowed to reach."""
-
-    DAY = date(2026, 9, 21)
+class SendLessonRemindersTests(TestCase):
+    FIXED_NOW = timezone.make_aware(datetime(2026, 9, 21, 8, 0))  # noqa: DTZ001
 
     def setUp(self):
         self.subject = make_subject()
         self.teacher_user, self.teacher = make_teacher()
-        self.school_class = make_school_class(class_teacher=self.teacher)
-        self.student_user, _ = make_student(self.school_class)
-        self.director = make_director()
-        self.make_lesson()
+        self.school_class = make_school_class()
+        self.student_user, self.student = make_student(self.school_class)
 
-    def make_lesson(self):
+    def _make_lesson(self, start_time, lesson_date):
+        end_time = (datetime.combine(lesson_date, start_time) + timedelta(minutes=45)).time()
         return make_lesson(
             school_class=self.school_class,
             subject=self.subject,
             teacher=self.teacher,
-            lesson_date=self.DAY,
+            lesson_date=lesson_date,
+            start_time=start_time,
+            end_time=end_time,
         )
 
-    @staticmethod
-    def _link(user, telegram_id):
-        return TelegramAccount.objects.create(user=user, telegram_id=telegram_id)
+    @patch("apps.academics.tasks.timezone")
+    def test_sends_reminder_for_a_lesson_starting_in_about_an_hour(self, mock_timezone):
+        mock_timezone.localtime.return_value = self.FIXED_NOW
+        lesson = self._make_lesson(start_time=time(9, 0), lesson_date=date(2026, 9, 21))
 
-    def test_teacher_receives_own_lessons_and_the_class_they_lead(self):
-        self._link(self.teacher_user, 5001)
+        sent = send_lesson_reminders()
 
-        self.assertEqual(lessons_for_user(self.teacher_user, self.DAY).count(), 1)
-
-    def test_teacher_does_not_receive_another_teachers_lessons(self):
-        _other_user, other_teacher = make_teacher()
-        other_lesson = make_lesson(
-            school_class=make_school_class(),
-            subject=self.subject,
-            teacher=other_teacher,
-            lesson_date=self.DAY,
+        self.assertEqual(sent, 1)
+        self.assertTrue(LessonReminder.objects.filter(lesson=lesson).exists())
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.student_user, category=Notification.Category.LESSON_REMINDER
+            ).exists()
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.teacher_user, category=Notification.Category.LESSON_REMINDER
+            ).exists()
         )
 
-        lesson_ids = {lesson.id for lesson in lessons_for_user(self.teacher_user, self.DAY)}
+    @patch("apps.academics.tasks.timezone")
+    def test_lesson_outside_the_reminder_window_is_not_reminded(self, mock_timezone):
+        mock_timezone.localtime.return_value = self.FIXED_NOW
+        self._make_lesson(start_time=time(11, 0), lesson_date=date(2026, 9, 21))
 
-        self.assertNotIn(other_lesson.id, lesson_ids)
+        self.assertEqual(send_lesson_reminders(), 0)
 
-    def test_student_without_a_class_has_no_schedule(self):
-        orphan_user, _ = make_student(None)
-        self._link(orphan_user, 5003)
+    @patch("apps.academics.tasks.timezone")
+    def test_lesson_on_a_different_date_is_not_reminded(self, mock_timezone):
+        mock_timezone.localtime.return_value = self.FIXED_NOW
+        self._make_lesson(start_time=time(9, 0), lesson_date=date(2026, 9, 22))
 
-        self.assertEqual(lessons_for_user(orphan_user, self.DAY).count(), 0)
+        self.assertEqual(send_lesson_reminders(), 0)
 
-    def test_director_has_no_personal_schedule(self):
-        self._link(self.director, 5004)
+    @patch("apps.academics.tasks.timezone")
+    def test_running_twice_does_not_send_duplicate_reminders(self, mock_timezone):
+        mock_timezone.localtime.return_value = self.FIXED_NOW
+        self._make_lesson(start_time=time(9, 0), lesson_date=date(2026, 9, 21))
 
-        self.assertEqual(lessons_for_user(self.director, self.DAY).count(), 0)
+        send_lesson_reminders()
+        second_run_sent = send_lesson_reminders()
+
+        self.assertEqual(second_run_sent, 0)
+        self.assertEqual(LessonReminder.objects.count(), 1)
 
 
-class SendDailySchedulesTests(TestCase):
-    """The behaviour of the 07:00 push itself: who hears about it, and the
-    promise that they hear about it exactly once."""
+class TimetableSlotAutoTimeTests(APITestCase):
+    """The director timetable form posts no times, so the API derives them.
 
-    DAY = date(2026, 9, 21)
+    Two details make this easy to regress:
+      * start_time takes part in the unique_teacher_slot constraint, so DRF's
+        constraint validator demands it *before* validate() runs — the fill has
+        to happen in to_internal_value().
+      * the school runs an 08:00 and a 13:00 block with different period
+        lengths, so the shift is read off the class's existing slots.
+    """
 
     def setUp(self):
-        self.subject = make_subject(name="Matematika")
-        self.teacher_user, self.teacher = make_teacher()
-        self.school_class = make_school_class(name="8-A", class_teacher=self.teacher)
-        self.student_user, _ = make_student(self.school_class)
-        make_lesson(
-            school_class=self.school_class,
+        self.director = make_director()
+        self.client.force_authenticate(self.director)
+        self.subject = make_subject()
+        _, self.teacher = make_teacher()
+        self.settings_obj = SchoolTimeSettings.get_solo()
+        self.settings_obj.start_time = time(8, 0)
+        self.settings_obj.end_time = time(17, 50)
+        self.settings_obj.period_duration_minutes = 45
+        self.settings_obj.short_break_minutes = 5
+        self.settings_obj.long_break_after_period = 3
+        self.settings_obj.long_break_minutes = 10
+        self.settings_obj.second_start_time = time(13, 0)
+        self.settings_obj.second_short_period = 4
+        self.settings_obj.second_short_period_minutes = 35
+        self.settings_obj.save()
+
+    def _post(self, school_class, period, day):
+        return self.client.post(
+            "/api/timetable-slots/",
+            {
+                "school_class": school_class.id,
+                "day_of_week": day,
+                "period_number": period,
+                "subject": self.subject.id,
+                "teacher": self.teacher.id,
+            },
+            format="json",
+        )
+
+    def test_times_are_derived_for_a_morning_class(self):
+        school_class = make_school_class()
+        response = self._post(school_class, period=4, day=3)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["start_time"], "10:35:00")
+        self.assertEqual(response.data["end_time"], "11:20:00")
+
+    def test_times_are_derived_for_an_afternoon_class(self):
+        school_class = make_school_class()
+        make_timetable_slot(
+            school_class=school_class,
             subject=self.subject,
-            teacher=self.teacher,
-            lesson_date=self.DAY,
-            start_time=time(9, 0),
-            end_time=time(9, 45),
+            teacher=make_teacher()[1],
+            day_of_week=1,
+            period_number=1,
+            start_time=time(13, 0),
+            end_time=time(13, 45),
         )
+        response = self._post(school_class, period=4, day=3)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["start_time"], "15:35:00")
+        self.assertEqual(response.data["end_time"], "16:10:00")
 
-    def _link(self, user, telegram_id):
-        return TelegramAccount.objects.create(user=user, telegram_id=telegram_id)
-
-    def _run(self):
-        with (
-            patch("apps.academics.tasks.timezone.localdate", return_value=self.DAY),
-            patch("apps.telegram_bot.services.send_telegram_message") as send,
-        ):
-            sent = send_daily_schedules()
-        return sent, send
-
-    def test_linked_student_gets_one_message_containing_the_whole_day(self):
-        self._link(self.student_user, 6001)
-
-        sent, send = self._run()
-
-        self.assertEqual(sent, 1)
-        self.assertEqual(send.call_count, 1)
-        _chat_id, text = send.call_args[0]
-        self.assertIn("Matematika", text)
-        self.assertIn("09:00", text)
-
-    def test_running_twice_on_the_same_day_sends_nothing_the_second_time(self):
-        self._link(self.student_user, 6002)
-
-        first_sent, _ = self._run()
-        second_sent, second_send = self._run()
-
-        self.assertEqual(first_sent, 1)
-        self.assertEqual(second_sent, 0)
-        self.assertEqual(second_send.call_count, 0)
-        self.assertEqual(DailyScheduleDigest.objects.filter(user=self.student_user).count(), 1)
-
-    def test_the_next_day_is_a_new_message(self):
-        self._link(self.student_user, 6003)
-        self._run()
-
-        with (
-            patch("apps.academics.tasks.timezone.localdate", return_value=self.DAY + timedelta(days=1)),
-            patch("apps.telegram_bot.services.send_telegram_message") as send,
-        ):
-            sent = send_daily_schedules()
-
-        self.assertEqual(sent, 1)
-        self.assertEqual(send.call_count, 1)
-        self.assertEqual(DailyScheduleDigest.objects.filter(user=self.student_user).count(), 2)
-
-    def test_a_user_without_a_linked_chat_gets_no_message_at_all(self):
-        sent, send = self._run()  # nobody linked
-
-        self.assertEqual(sent, 0)
-        self.assertEqual(send.call_count, 0)
-        # and no ghost web notification left behind for a channel they cannot read
-        self.assertEqual(Notification.objects.count(), 0)
-        self.assertEqual(DailyScheduleDigest.objects.count(), 0)
-
-    def test_student_and_teacher_are_both_served(self):
-        self._link(self.student_user, 6004)
-        self._link(self.teacher_user, 6005)
-
-        sent, send = self._run()
-
-        self.assertEqual(sent, 2)
-        self.assertEqual(send.call_count, 2)
-
-    def test_director_is_not_sent_a_schedule(self):
-        director = make_director()
-        self._link(director, 6006)
-
-        sent, _ = self._run()
-
-        self.assertEqual(sent, 0)
-        self.assertFalse(Notification.objects.filter(recipient=director).exists())
-
-    def test_inactive_user_is_skipped(self):
-        self.student_user.is_active = False
-        self.student_user.save(update_fields=["is_active"])
-        self._link(self.student_user, 6007)
-
-        sent, send = self._run()
-
-        self.assertEqual(sent, 0)
-        self.assertEqual(send.call_count, 0)
-
-    def test_a_student_with_no_class_still_gets_the_no_lessons_message(self):
-        orphan_user, _ = make_student(None)
-        self._link(orphan_user, 6008)
-
-        sent, send = self._run()
-
-        self.assertEqual(sent, 1)
-        self.assertIn(NO_LESSONS_BODY, send.call_args[0][1])
-
-    def test_one_failing_user_does_not_stop_the_others(self):
-        self._link(self.student_user, 6009)
-        self._link(self.teacher_user, 6010)
-        broken_user, _ = make_student(self.school_class)
-        self._link(broken_user, 6011)
-
-        # the first chat to be attempted fails; the run must carry on regardless
-        with (
-            patch("apps.academics.tasks.timezone.localdate", return_value=self.DAY),
-            patch(
-                "apps.telegram_bot.services.send_telegram_message",
-                side_effect=[Exception("telegram rejected this chat id"), True, True],
-            ),
-        ):
-            sent = send_daily_schedules()
-
-        # the two healthy users were still served
-        self.assertEqual(sent, 2)
-        self.assertTrue(
-            Notification.objects.filter(recipient__in=[self.student_user, self.teacher_user]).count()
-            == 2
+    def test_explicit_times_win_over_derived_ones(self):
+        school_class = make_school_class()
+        response = self.client.post(
+            "/api/timetable-slots/",
+            {
+                "school_class": school_class.id,
+                "day_of_week": 3,
+                "period_number": 5,
+                "subject": self.subject.id,
+                "teacher": self.teacher.id,
+                "start_time": "16:15",
+                "end_time": "17:00",
+            },
+            format="json",
         )
-        # and the failed user holds a digest too: the guard is written before the
-        # send, so a failure cannot be retried into a second message later that day
-        self.assertEqual(DailyScheduleDigest.objects.count(), 3)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["start_time"], "16:15:00")
 
-    def test_message_carries_the_schedule_title_and_lesson_reminder_category(self):
-        self._link(self.student_user, 6012)
+    def test_end_time_before_start_time_is_rejected(self):
+        school_class = make_school_class()
+        response = self.client.post(
+            "/api/timetable-slots/",
+            {
+                "school_class": school_class.id,
+                "day_of_week": 3,
+                "period_number": 5,
+                "subject": self.subject.id,
+                "teacher": self.teacher.id,
+                "start_time": "16:00",
+                "end_time": "15:00",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("end_time", response.data)
 
-        self._run()
-
-        notification = Notification.objects.get(recipient=self.student_user)
-        self.assertEqual(notification.title, DAILY_SCHEDULE_TITLE)
-        self.assertEqual(notification.category, Notification.Category.LESSON_REMINDER)
-        self.assertIn("Matematika", notification.body)
-
-
-class DailyScheduleDigestConstraintTests(TestCase):
-    def test_the_same_user_cannot_be_digested_twice_for_one_date(self):
-        user = make_student()[0]
-        DailyScheduleDigest.objects.create(user=user, date=date(2026, 9, 21))
-
-        with self.assertRaises(IntegrityError), transaction.atomic():
-            DailyScheduleDigest.objects.create(user=user, date=date(2026, 9, 21))
-
-
-class DailyScheduleBeatTests(TestCase):
-    """The schedule is half the feature: a correct task that never fires sends
-    nothing to anyone."""
-
-    def test_it_is_scheduled_once_daily_at_seven_in_the_school_timezone(self):
-        entry = settings.CELERY_BEAT_SCHEDULE["send-daily-schedules"]
-
-        self.assertEqual(entry["task"], "apps.academics.tasks.send_daily_schedules")
-        self.assertEqual(set(entry["schedule"].hour), {7})
-        self.assertEqual(set(entry["schedule"].minute), {0})
-
-    def test_celery_resolves_the_schedule_in_asia_tashkent(self):
-        self.assertEqual(str(app.conf.timezone), "Asia/Tashkent")
-
-    def test_the_per_lesson_reminder_schedule_is_gone(self):
-        self.assertNotIn("send-lesson-reminders", settings.CELERY_BEAT_SCHEDULE)
-        # the task itself is gone too, not just its Beat entry — otherwise it
-        # could still be fired by name and send the old per-lesson messages
-        self.assertFalse(hasattr(tasks, "send_lesson_reminders"))
-        self.assertTrue(hasattr(tasks, "send_daily_schedules"))
-
-    def test_unrelated_schedules_survived_the_swap(self):
-        for key in ("remind-unmarked-attendance", "refill-low-question-pools"):
-            self.assertIn(key, settings.CELERY_BEAT_SCHEDULE)
+    def test_patching_only_the_room_keeps_the_times(self):
+        school_class = make_school_class()
+        created = self._post(school_class, period=2, day=3)
+        self.assertEqual(created.status_code, 201, created.data)
+        patched = self.client.patch(
+            f"/api/timetable-slots/{created.data['id']}/", {"room": "Xona-9"}, format="json"
+        )
+        self.assertEqual(patched.status_code, 200, patched.data)
+        self.assertEqual(patched.data["start_time"], "08:50:00")
+        self.assertEqual(patched.data["end_time"], "09:35:00")
+        self.assertEqual(patched.data["room"], "Xona-9")

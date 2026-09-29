@@ -152,13 +152,30 @@ def make_timetable_slot(
     teacher: TeacherProfile,
     day_of_week: int = 1,
     period_number: int = 1,
+    start_time: time | None = None,
+    end_time: time | None = None,
     **kwargs,
 ) -> TimetableSlot:
+    """Create a slot, defaulting its times to the configured period timing.
+
+    TimetableSlot.start_time/end_time are required columns, and lesson generation
+    copies them onto the generated Lesson, so tests that build slots need real
+    times. Deriving them from SchoolTimeSettings keeps the fixtures consistent
+    with what generate_lessons_for_week() will produce.
+    """
+    if start_time is None or end_time is None:
+        from apps.school_config.models import SchoolTimeSettings
+
+        period_start, period_end = SchoolTimeSettings.get_solo().period_times(period_number)
+        start_time = start_time or period_start
+        end_time = end_time or period_end
     return TimetableSlot.objects.create(
         school_class=school_class,
         subject=subject,
         teacher=teacher,
         day_of_week=day_of_week,
         period_number=period_number,
+        start_time=start_time,
+        end_time=end_time,
         **kwargs,
     )

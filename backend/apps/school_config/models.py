@@ -39,6 +39,25 @@ class SchoolTimeSettings(TimeStampedModel):
     )
     long_break_minutes = models.PositiveSmallIntegerField(_("long break (minutes)"), default=20)
 
+    # Second daily shift. It is not a copy of the first one: the 13:00 block runs
+    # a 35-minute period 4, so its times cannot be derived by shifting the 08:00
+    # block and have to be described in their own right.
+    second_start_time = models.TimeField(
+        _("second shift start time"),
+        null=True,
+        blank=True,
+        help_text=_("Leave empty when the school runs a single shift."),
+    )
+    second_short_period = models.PositiveSmallIntegerField(
+        _("second shift short period"),
+        default=4,
+        help_text=_("Which period of the second shift is shorter than the standard duration."),
+    )
+    second_short_period_minutes = models.PositiveSmallIntegerField(
+        _("second shift short period (minutes)"),
+        default=35,
+    )
+
     class Meta:
         verbose_name = _("school time settings")
         verbose_name_plural = _("school time settings")
@@ -63,12 +82,33 @@ class SchoolTimeSettings(TimeStampedModel):
             return self.start_time <= current_time < self.end_time
         return current_time >= self.start_time or current_time < self.end_time
 
-    def period_times(self, period_number: int) -> tuple[time, time]:
-        """Start/end time of the Nth period, counting breaks since `start_time`."""
+    def shift_start(self, shift: int) -> time:
+        """Start time of `shift` (1 or 2); falls back to the first shift."""
+        if shift == 2 and self.second_start_time is not None:
+            return self.second_start_time
+        return self.start_time
+
+    def period_duration(self, period_number: int, shift: int) -> int:
+        """Minutes the given period lasts. The second shift shortens one period."""
+        if (
+            shift == 2
+            and self.second_start_time is not None
+            and period_number == self.second_short_period
+        ):
+            return self.second_short_period_minutes
+        return self.period_duration_minutes
+
+    def period_times(self, period_number: int, shift: int = 1) -> tuple[time, time]:
+        """Start/end time of the Nth period of `shift`, counting breaks since that
+        shift's start.
+
+        `shift` is 1 or 2. The second shift is optional: when `second_start_time`
+        is empty the helper behaves as if the school ran a single shift.
+        """
         # The date is an arbitrary anchor — only the resulting .time() is used.
-        current = datetime.combine(date(2000, 1, 1), self.start_time)
+        current = datetime.combine(date(2000, 1, 1), self.shift_start(shift))
         for period in range(1, period_number):
-            current += timedelta(minutes=self.period_duration_minutes)
+            current += timedelta(minutes=self.period_duration(period, shift))
             break_minutes = (
                 self.long_break_minutes
                 if period == self.long_break_after_period
@@ -76,5 +116,5 @@ class SchoolTimeSettings(TimeStampedModel):
             )
             current += timedelta(minutes=break_minutes)
         period_start = current.time()
-        period_end = (current + timedelta(minutes=self.period_duration_minutes)).time()
+        period_end = (current + timedelta(minutes=self.period_duration(period_number, shift))).time()
         return period_start, period_end

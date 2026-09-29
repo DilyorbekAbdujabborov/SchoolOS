@@ -1,14 +1,11 @@
 import type { LucideIcon } from "lucide-react";
-import { Bell, ChevronDown, Flame, LogOut, Menu, Trophy, X } from "lucide-react";
+import { Bell, Flame, LogOut, Menu, Trophy, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { Avatar } from "../components/Avatar";
-import { Logo } from "../components/Logo";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { useAuth } from "../lib/auth";
-import { publicName } from "../lib/names";
-import { todayLabel } from "../lib/schoolTime";
 import { useStudentTopStats } from "../lib/useStudentTopStats";
 
 interface NavItem {
@@ -19,119 +16,53 @@ interface NavItem {
   end?: boolean;
 }
 
-/** A labeled, collapsible group of nav items. Omit `label` for the top-level
- * items (e.g. the dashboard link) that sit above every group. */
-export interface NavGroup {
-  label?: string;
-  items: NavItem[];
-}
-
 const ROLE_LABEL: Record<string, string> = {
   DIRECTOR: "Direktor",
   TEACHER: "O'qituvchi",
   STUDENT: "O'quvchi",
 };
 
-/**
- * One nav row. Inactive rows are muted neutral text on hover; the active row
- * is the only place the sidebar spends colour — a soft brand wash, brand text,
- * and a 3px accent bar on the leading edge. That single accent is what makes
- * the sidebar feel deliberate rather than a list of blue links.
- */
-function NavLinkRow({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
-  return (
-    <NavLink
-      to={item.to}
-      end={item.end}
-      onClick={onNavigate}
-      className={({ isActive }) => `nav-item ${isActive ? "nav-item-active" : ""}`}
-    >
-      {({ isActive }) => (
-        <>
-          {isActive && <span aria-hidden className="nav-active-bar" />}
-          <item.icon size={17} className="shrink-0" />
-          <span className="truncate">{item.label}</span>
-        </>
-      )}
-    </NavLink>
-  );
-}
-
-function NavSection({ group, onNavigate }: { group: NavGroup; onNavigate?: () => void }) {
-  const [open, setOpen] = useState(true);
-
-  if (!group.label) {
-    return (
-      <div className="space-y-1">
-        {group.items.map((item) => (
-          <NavLinkRow key={item.to} item={item} onNavigate={onNavigate} />
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between rounded-md px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-subtle transition-colors hover:text-ink-muted"
-      >
-        {group.label}
-        <ChevronDown
-          size={13}
-          className={`transition-transform duration-200 ${open ? "" : "-rotate-90"}`}
-        />
-      </button>
-      {open && (
-        <div className="mt-1 space-y-1">
-          {group.items.map((item) => (
-            <NavLinkRow key={item.to} item={item} onNavigate={onNavigate} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SidebarContent({
-  navGroups,
-  brand,
-  onNavigate,
-}: {
-  navGroups: NavGroup[];
-  brand: string;
-  onNavigate?: () => void;
-}) {
+function SidebarContent({ navItems, brand, onNavigate }: { navItems: NavItem[]; brand: string; onNavigate?: () => void }) {
   const { user, logout } = useAuth();
-  const displayName = publicName(user);
+  const displayName = user ? `${user.first_name || user.username} ${user.last_name || ""}`.trim() : "";
 
   return (
     <>
-      <div className="flex h-16 shrink-0 items-center border-b border-line px-5">
-        <Logo subtitle={brand} />
+      <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
+        <p className="text-lg font-bold text-brand-700 dark:text-brand-400">SchoolOS</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{brand}</p>
       </div>
-
-      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-5">
-        {navGroups.map((group, i) => (
-          <NavSection key={group.label ?? i} group={group} onNavigate={onNavigate} />
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? "bg-brand-600 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+              }`
+            }
+          >
+            <item.icon size={17} className="shrink-0" />
+            <span className="truncate">{item.label}</span>
+          </NavLink>
         ))}
       </nav>
-
-      <div className="shrink-0 border-t border-line p-3">
-        <div className="flex items-center gap-3 rounded-xl px-2 py-2">
+      <div className="border-t border-slate-200 p-4 dark:border-slate-800">
+        <div className="flex items-center gap-3">
           <Avatar name={displayName || "?"} src={user?.avatar_url} size={36} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-ink">{displayName}</p>
-            <p className="truncate text-xs text-ink-subtle">
-              {user && ROLE_LABEL[user.role]}
-            </p>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{displayName}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{user && ROLE_LABEL[user.role]}</p>
           </div>
         </div>
         <button
           onClick={logout}
-          className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-medium text-ink-muted transition-colors duration-150 hover:border-line-strong hover:bg-surface-raised hover:text-rose-600 dark:hover:text-rose-400"
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
         >
           <LogOut size={15} />
           Chiqish
@@ -141,49 +72,44 @@ function SidebarContent({
   );
 }
 
-/**
- * The top bar: identity on the left (or the drawer trigger on mobile), the
- * student's live XP/streak/level in the middle, and controls on the right.
- * The stat pills use violet / orange / amber because those *are* XP, streak
- * and level everywhere else in the app.
- */
 function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
   const { user } = useAuth();
   const stats = useStudentTopStats();
   const notificationsPath = user ? `/${user.role.toLowerCase()}/notifications` : "/login";
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-line bg-surface/85 px-4 backdrop-blur-md md:px-6">
-      <div className="flex min-w-0 items-center gap-2">
-        <button onClick={onMenuClick} aria-label="Menyuni ochish" className="btn-icon md:hidden">
+    <header className="flex items-center justify-between border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur md:px-6 dark:border-slate-800 dark:bg-slate-950/80">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onMenuClick}
+          aria-label="Menyuni ochish"
+          className="rounded-md p-2 text-slate-600 hover:bg-slate-100 md:hidden dark:text-slate-300 dark:hover:bg-slate-800"
+        >
           <Menu size={20} />
         </button>
-        <p className="truncate text-base font-bold tracking-tight text-ink md:hidden">SchoolOS</p>
-        <p className="hidden text-sm text-ink-subtle md:block">{todayLabel()}</p>
+        <p className="text-lg font-bold text-brand-700 md:hidden dark:text-brand-400">SchoolOS</p>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2">
-        {stats ? (
-          <div className="hidden items-center gap-1.5 sm:flex">
-            <span className="chip bg-violet-500/12 text-violet-700 dark:text-violet-300">
+      <div className="flex items-center gap-2 md:gap-3">
+        {stats && (
+          <div className="hidden items-center gap-2 sm:flex">
+            <span className="flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">
               {stats.level}-daraja
             </span>
-            <span className="chip bg-orange-500/12 text-orange-700 dark:text-orange-300">
-              <Flame size={13} />
-              <span className="tabular">{stats.currentStreak}</span>
+            <span className="flex items-center gap-1.5 rounded-full bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 dark:bg-orange-500/10 dark:text-orange-300">
+              <Flame size={14} />
+              {stats.currentStreak}
             </span>
-            <span className="chip bg-amber-500/12 text-amber-700 dark:text-amber-300">
-              <Trophy size={13} />
-              <span className="tabular">{stats.totalXp}</span> XP
+            <span className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+              <Trophy size={14} />
+              {stats.totalXp} XP
             </span>
           </div>
-        ) : (
-          <span className="chip bg-surface-raised text-ink-muted">{todayLabel()}</span>
         )}
         <ThemeToggle />
         <NavLink
           to={notificationsPath}
-          className="btn-icon border border-line"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
           aria-label="Bildirishnomalar"
         >
           <Bell size={17} />
@@ -194,11 +120,11 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
 }
 
 export function DashboardLayout({
-  navGroups,
+  navItems,
   brand,
   vibrant = false,
 }: {
-  navGroups: NavGroup[];
+  navItems: NavItem[];
   brand: string;
   /** A livelier backdrop for the student experience — teacher/director stay neutral. */
   vibrant?: boolean;
@@ -213,56 +139,45 @@ export function DashboardLayout({
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen bg-canvas md:flex">
+    <div
+      className={`min-h-screen md:flex md:h-screen md:overflow-hidden ${
+        vibrant
+          ? "bg-gradient-to-br from-brand-50 via-slate-50 to-amber-50 dark:from-slate-950 dark:via-slate-950 dark:to-violet-950/40"
+          : "bg-slate-50 dark:bg-slate-950"
+      }`}
+    >
       {/* Mobile drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <button
             aria-label="Yopish"
             onClick={() => setMobileOpen(false)}
-            className="animate-fade absolute inset-0 bg-slate-950/45 dark:bg-black/70"
+            className="absolute inset-0 bg-slate-900/40 dark:bg-black/60"
           />
-          <aside className="slide-left absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-line bg-surface">
-            <div className="flex items-center justify-between border-b border-line px-3 py-2">
-              <Logo subtitle={brand} />
+          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-white shadow-xl dark:bg-slate-900">
+            <div className="flex items-center justify-end px-3 pt-3">
               <button
                 onClick={() => setMobileOpen(false)}
                 aria-label="Yopish"
-                className="btn-icon"
+                className="rounded-md p-2 text-slate-400 hover:bg-slate-100 dark:text-slate-500 dark:hover:bg-slate-800"
               >
                 <X size={18} />
               </button>
             </div>
-            <SidebarContent
-              navGroups={navGroups}
-              brand={brand}
-              onNavigate={() => setMobileOpen(false)}
-            />
+            <SidebarContent navItems={navItems} brand={brand} onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
       )}
 
-      {/* Desktop sidebar — a surface distinct from the page behind it, so the
-          nav never competes with the content it frames. */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-line bg-surface md:flex">
-        <SidebarContent navGroups={navGroups} brand={brand} />
+      {/* Desktop sidebar */}
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white md:flex md:h-screen dark:border-slate-800 dark:bg-slate-900">
+        <SidebarContent navItems={navItems} brand={brand} />
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex flex-1 flex-col md:h-screen md:min-h-0">
         <TopBar onMenuClick={() => setMobileOpen(true)} />
-        {/*
-          The content plane sits one step above the page background in the
-          student experience only (a whisper of brand at the very top), and
-          the whole <Outlet/> is keyed by pathname so each route animates in
-          once on navigation instead of re-animating on every re-render.
-        */}
-        <main
-          key={location.pathname}
-          className={`fade flex-1 p-4 md:p-6 lg:p-8 ${vibrant ? "shell-vibrant" : ""}`}
-        >
-          <div className="mx-auto w-full max-w-[1400px]">
-            <Outlet />
-          </div>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          <Outlet />
         </main>
       </div>
     </div>

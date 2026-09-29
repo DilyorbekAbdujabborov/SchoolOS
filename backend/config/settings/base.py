@@ -174,6 +174,11 @@ CORS_ALLOW_CREDENTIALS = True
 # ---------- Telegram bot ----------
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
 TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME", default="")
+# Public HTTPS endpoint Telegram POSTs updates to in production, and the shared
+# secret it echoes back in X-Telegram-Bot-Api-Secret-Token. Both must match what
+# was registered via the telegram_webhook management command.
+TELEGRAM_WEBHOOK_URL = env("TELEGRAM_WEBHOOK_URL", default="")
+TELEGRAM_WEBHOOK_SECRET = env("TELEGRAM_WEBHOOK_SECRET", default="")
 
 # ---------- AI completions (apps.common.gemini) ----------
 # Gemini is the primary provider; Groq is an automatic fallback used whenever

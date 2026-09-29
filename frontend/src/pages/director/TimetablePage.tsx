@@ -1,12 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Field, Input, PrimaryButton, Select, SecondaryButton } from "../../components/form";
 import { Modal } from "../../components/Modal";
 import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { api } from "../../lib/api";
-import type { Paginated, SchoolClass, Subject, Teacher, TimetableSlot } from "../../types";
+import type {
+  Paginated,
+  SchoolClass,
+  SchoolTimeConfig,
+  Subject,
+  Teacher,
+  TimetableSlot,
+} from "../../types";
 
 const DAYS = [
   { value: 1, label: "Dushanba" },
@@ -18,6 +25,44 @@ const DAYS = [
 ];
 
 const PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
+
+function toMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function toClock(minutes: number): string {
+  const wrapped = ((minutes % 1440) + 1440) % 1440;
+  const h = String(Math.floor(wrapped / 60)).padStart(2, "0");
+  const m = String(wrapped % 60).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+export function formatTime(value: string | null | undefined): string {
+  return value ? value.slice(0, 5) : "";
+}
+
+/** Mirrors SchoolTimeSettings.period_times() so the grid and the modal agree
+ * with what the API will store. */
+function periodTimes(
+  period: number,
+  shift: number,
+  config: SchoolTimeConfig | undefined,
+): { start: string; end: string } | null {
+  if (!config) return null;
+  const secondStart = shift === 2 ? config.second_start_time : null;
+  const duration = (p: number) =>
+    secondStart && p === config.second_short_period
+      ? config.second_short_period_minutes
+      : config.period_duration_minutes;
+  let cursor = toMinutes(secondStart ?? config.start_time);
+  for (let p = 1; p < period; p++) {
+    cursor += duration(p);
+    cursor +=
+      p === config.long_break_after_period ? config.long_break_minutes : config.short_break_minutes;
+  }
+  return { start: toClock(cursor), end: toClock(cursor + duration(period)) };
+}
 
 function mondayOfCurrentWeekIso(): string {
   const d = new Date();
@@ -31,13 +76,19 @@ interface SlotFormState {
   subject: string;
   teacher: string;
   room: string;
+  shift: number;
 }
 
 export function TimetablePage() {
   const queryClient = useQueryClient();
   const [classId, setClassId] = useState("");
   const [editingCell, setEditingCell] = useState<{ day: number; period: number } | null>(null);
-  const [form, setForm] = useState<SlotFormState>({ subject: "", teacher: "", room: "" });
+  const [form, setForm] = useState<SlotFormState>({
+    subject: "",
+    teacher: "",
+    room: "",
+    shift: 1,
+  });
   const [error, setError] = useState<string | null>(null);
   const [weekStart, setWeekStart] = useState(mondayOfCurrentWeekIso());
   const [generateMessage, setGenerateMessage] = useState<string | null>(null);
@@ -55,6 +106,11 @@ export function TimetablePage() {
     queryFn: async () => (await api.get<Paginated<Teacher>>("/teachers/")).data,
   });
 
+  const { data: timeConfig } = useQuery({
+    queryKey: ["school-config"],
+    queryFn: async () => (await api.get<SchoolTimeConfig>("/school-config/")).data,
+  });
+
   const { data: slots, isLoading, isError } = useQuery({
     queryKey: ["timetable-slots", classId],
     enabled: Boolean(classId),
@@ -69,6 +125,21 @@ export function TimetablePage() {
   const slotAt = (day: number, period: number) =>
     slots?.find((s) => s.day_of_week === day && s.period_number === period);
 
+  // A class belongs to one shift: whichever block its existing slots start in.
+  // Until a class has a slot there is nothing to infer from, so it defaults to
+  // the first shift and the director can pick another in the slot modal.
+  const classShift = useMemo(() => {
+    const secondStart = timeConfig?.second_start_time;
+    if (!secondStart || !slots?.length) return 1;
+    const boundary = toMinutes(secondStart);
+    return slots.some((s) => toMinutes(s.start_time) >= boundary) ? 2 : 1;
+  }, [slots, timeConfig]);
+
+  const cellTimes = useMemo(
+    () => PERIODS.map((period) => periodTimes(period, classShift, timeConfig)),
+    [classShift, timeConfig],
+  );
+
   const saveSlot = useMutation({
     mutationFn: async () => {
       if (!editingCell) return;
@@ -80,6 +151,10 @@ export function TimetablePage() {
         subject: Number(form.subject),
         teacher: Number(form.teacher),
         room: form.room,
+        // The API derives times from the class's shift, but a director may set
+        // them explicitly, so send the times of the shift they picked.
+        start_time: periodTimes(editingCell.period, form.shift, timeConfig)?.start,
+        end_time: periodTimes(editingCell.period, form.shift, timeConfig)?.end,
       };
       if (existing) {
         return api.patch(`/timetable-slots/${existing.id}/`, payload);
@@ -110,10 +185,14 @@ export function TimetablePage() {
 
   function openCell(day: number, period: number) {
     const existing = slotAt(day, period);
+    const existingStart = existing ? toMinutes(existing.start_time) : 0;
+    const secondStart = timeConfig?.second_start_time;
+    const inferred = secondStart && existingStart >= toMinutes(secondStart) ? 2 : classShift;
     setForm({
       subject: existing ? String(existing.subject) : "",
       teacher: existing ? String(existing.teacher) : "",
       room: existing?.room ?? "",
+      shift: inferred,
     });
     setError(null);
     setEditingCell({ day, period });
@@ -174,7 +253,13 @@ export function TimetablePage() {
               {PERIODS.map((period) => (
                 <tr key={period}>
                   <td className="border-b border-r border-slate-100 px-3 py-2 font-medium text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                    {period}
+                    <p>{period}</p>
+                    {cellTimes[period - 1]?.start && (
+                      <p className="text-[11px] font-normal tabular-nums text-slate-400">
+                        {formatTime(cellTimes[period - 1]?.start)}–
+                        {formatTime(cellTimes[period - 1]?.end)}
+                      </p>
+                    )}
                   </td>
                   {DAYS.map((day) => {
                     const slot = slotAt(day.value, period);
@@ -188,8 +273,15 @@ export function TimetablePage() {
                             onClick={() => openCell(day.value, period)}
                             className="w-full rounded-md bg-brand-50 px-2 py-1.5 text-left hover:bg-brand-100 dark:bg-brand-500/10 dark:hover:bg-brand-500/20"
                           >
-                            <p className="font-medium text-brand-700 dark:text-brand-300">{slot.subject_name}</p>
-                            <p className="text-xs text-brand-600 dark:text-brand-400">{slot.teacher_name}</p>
+                            <p className="font-medium text-brand-700 dark:text-brand-300">
+                              {slot.subject_name}
+                            </p>
+                            <p className="text-xs text-brand-600 dark:text-brand-400">
+                              {slot.teacher_name}
+                            </p>
+                            <p className="text-[11px] tabular-nums text-brand-500 dark:text-brand-400">
+                              {formatTime(slot.start_time)}–{formatTime(slot.end_time)}
+                            </p>
                           </button>
                         ) : (
                           <button
@@ -249,6 +341,26 @@ export function TimetablePage() {
                 ))}
               </Select>
             </Field>
+            <Field label="Smena">
+              <Select
+                value={String(form.shift)}
+                onChange={(e) => setForm({ ...form, shift: Number(e.target.value) })}
+              >
+                <option value="1">1-smena (ertaqurun)</option>
+                {timeConfig?.second_start_time && (
+                  <option value="2">2-smena (kechqurun)</option>
+                )}
+              </Select>
+            </Field>
+            {editingCell && periodTimes(editingCell.period, form.shift, timeConfig) && (
+              <p className="-mt-2 text-xs text-slate-500 dark:text-slate-400">
+                {editingCell.period}-dars vaqti:{" "}
+                <span className="tabular-nums">
+                  {formatTime(periodTimes(editingCell.period, form.shift, timeConfig)?.start)}–
+                  {formatTime(periodTimes(editingCell.period, form.shift, timeConfig)?.end)}
+                </span>
+              </p>
+            )}
             <Field label="Xona">
               <Input value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} />
             </Field>

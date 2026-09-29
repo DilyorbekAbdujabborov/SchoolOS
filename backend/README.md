@@ -121,13 +121,50 @@ Terminal 2 — Celery beat (only if you use scheduled tasks):
 celery -A config beat -l info
 ```
 
-## 11. API documentation
+## 11. Telegram bot
+
+The bot has two delivery modes, sharing one set of handlers (`apps/telegram_bot/bot.py`):
+
+| Mode | Command | Use when |
+| --- | --- | --- |
+| Long polling | `python manage.py runbot` | Local development — no public HTTPS URL needed |
+| Webhook | `python manage.py telegram_webhook set` | Production — Telegram POSTs each update to `/api/telegram/webhook/` |
+
+Telegram only allows one of the two at a time: with a webhook registered, `getUpdates`
+fails with 409. Run `manage.py telegram_webhook delete` before switching back to polling.
+
+### Setting up the webhook (production)
+
+1. Add both variables to `.env` — the endpoint must be a public HTTPS URL served by your
+   app, and the secret is checked against the `X-Telegram-Bot-Api-Secret-Token` header
+   Telegram sends with every update:
+
+   ```bash
+   TELEGRAM_WEBHOOK_URL=https://your-domain.example/api/telegram/webhook/
+   TELEGRAM_WEBHOOK_SECRET=  # python -c 'import secrets; print(secrets.token_hex(32))'
+   ```
+
+2. Register it and confirm:
+
+   ```bash
+   python manage.py telegram_webhook set
+   python manage.py telegram_webhook info
+   ```
+
+No Celery worker or extra process is needed — the endpoint starts the bot on the
+gunicorn worker's first update, and `getWebhookInfo` (`... telegram_webhook info`)
+reports any delivery errors Telegram saw.
+
+Users link their account by requesting a code in the web app, then sending
+`/start <code>` to the bot.
+
+## 12. API documentation
 
 - Swagger UI: `http://127.0.0.1:8000/api/docs/`
 - ReDoc: `http://127.0.0.1:8000/api/redoc/`
 - OpenAPI schema: `http://127.0.0.1:8000/api/schema/`
 
-## 12. Creating a new app
+## 13. Creating a new app
 
 ```bash
 python manage.py startapp myapp --settings=config.settings.development
@@ -152,7 +189,7 @@ Create only what you actually use.
 Preferred pattern: REST Framework `ViewSet`s + a `DefaultRouter` in `urls.py`
 for CRUD resources, plain APIViews for simple endpoints.
 
-## 13. Recommended workflow for a new project
+## 14. Recommended workflow for a new project
 
 ```bash
 git clone <template-url> my-new-project

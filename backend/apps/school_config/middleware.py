@@ -6,11 +6,14 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 
 from .models import SchoolTimeSettings
 
-# Students must always be able to authenticate — otherwise they could never even
-# reach the point of being told the platform is locked.
+# The whole /api/auth/ namespace stays reachable during the lock, not just login
+# and refresh: it holds only identity and session lifecycle (login, refresh, me,
+# change-password, avatar), never the learning content the lock is meant to gate.
+# Locking /api/auth/me/ would leave the app unable to tell who is signed in, and
+# locking change-password would permanently trap any student who was issued a
+# temporary password (e.g. by the bulk import) in a 423 loop.
 EXEMPT_PATH_PREFIXES = (
-    "/api/auth/login",
-    "/api/auth/refresh",
+    "/api/auth/",
     "/api/schema",
     "/api/docs",
     "/api/redoc",

@@ -1,18 +1,22 @@
-from rest_framework.exceptions import NotFound
+import json
+import logging
+import secrets
+
+from django.conf import settings
+from django.http import JsonResponse
+from django.utils.decorators import method_decorator
+from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.common.permissions import IsStudent
-
 from . import services
-from .models import ParentTelegramAccount, TelegramAccount
-from .serializers import (
-    ParentLinkCodeSerializer,
-    ParentTelegramAccountSerializer,
-    TelegramLinkCodeSerializer,
-    TelegramStatusSerializer,
-)
+from .bot import enqueue_update
+from .models import TelegramAccount
+from .serializers import TelegramLinkCodeSerializer, TelegramStatusSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class TelegramLinkCodeView(APIView):
@@ -45,31 +49,47 @@ class TelegramUnlinkView(APIView):
         return Response(status=204)
 
 
-class ParentLinkCodeView(APIView):
-    """Issue a fresh one-time code the student shares with their parent, who
-    types it into the bot as `/start <code>` to link their own Telegram chat."""
+@method_decorator(csrf_exempt, name="dispatch")
+class TelegramWebhookView(View):
+    """Telegram's delivery endpoint for updates (registered by
+    `manage.py telegram_webhook set`).
 
-    permission_classes = (IsStudent,)
+    A plain Django view rather than a DRF `APIView` on purpose: this is not part of
+    the JWT API the frontend uses, and keeping it out of DRF also keeps it out of
+    the OpenAPI schema. `csrf_exempt` is required because Telegram can't send a
+    CSRF token, and the request is authorised by the shared secret header Telegram
+    echoes back on every call instead.
+    """
+
+    secret_header = "HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN"
 
     def post(self, request):
-        link_code = services.generate_parent_link_code(request.user.student_profile)
-        return Response(ParentLinkCodeSerializer(link_code).data)
+        expected_secret = settings.TELEGRAM_WEBHOOK_SECRET
+        if not expected_secret:
+            logger.error(
+                "TELEGRAM_WEBHOOK_SECRET is not set — rejecting Telegram update."
+            )
+            return JsonResponse(
+                {"detail": "Webhook is not configured on the server."}, status=503
+            )
 
+        provided_secret = request.META.get(self.secret_header, "")
+        if not secrets.compare_digest(provided_secret, expected_secret):
+            return JsonResponse({"detail": "Invalid secret token."}, status=403)
 
-class ParentTelegramAccountsView(APIView):
-    """Lists (and lets the student unlink) the parent chats linked to them."""
+        try:
+            update_data = json.loads(request.body)
+        except ValueError:
+            return JsonResponse({"detail": "Malformed JSON body."}, status=400)
 
-    permission_classes = (IsStudent,)
+        if not isinstance(update_data, dict):
+            return JsonResponse({"detail": "Malformed JSON body."}, status=400)
 
-    def get(self, request):
-        accounts = ParentTelegramAccount.objects.filter(student=request.user.student_profile)
-        return Response(ParentTelegramAccountSerializer(accounts, many=True).data)
+        try:
+            # Returns as soon as the update is queued on the bot's event loop.
+            enqueue_update(update_data)
+        except Exception:
+            logger.exception("Could not start the Telegram bot to handle an update.")
+            return JsonResponse({"detail": "Telegram bot is unavailable."}, status=503)
 
-    def delete(self, request, pk):
-        account = ParentTelegramAccount.objects.filter(
-            student=request.user.student_profile, pk=pk
-        ).first()
-        if account is None:
-            raise NotFound("Parent Telegram account not found.")
-        account.delete()
-        return Response(status=204)
+        return JsonResponse({"ok": True})
