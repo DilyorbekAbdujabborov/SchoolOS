@@ -53,3 +53,30 @@ class Notification(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.title} -> {self.recipient}"
+
+
+class PushSubscription(TimeStampedModel):
+    """A browser Web Push endpoint a user opted into, one row per device/browser.
+
+    `notify()` fans a message out to every live subscription its recipient has;
+    a subscription that the push service reports as gone (404/410) is deleted on
+    the next send, so dead endpoints don't pile up.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("user"),
+        related_name="push_subscriptions",
+        on_delete=models.CASCADE,
+    )
+    endpoint = models.URLField(_("endpoint"), max_length=500, unique=True)
+    p256dh = models.CharField(_("p256dh key"), max_length=200)
+    auth = models.CharField(_("auth secret"), max_length=100)
+
+    class Meta:
+        verbose_name = _("push subscription")
+        verbose_name_plural = _("push subscriptions")
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"Push subscription for {self.user}"

@@ -180,6 +180,14 @@ TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME", default="")
 TELEGRAM_WEBHOOK_URL = env("TELEGRAM_WEBHOOK_URL", default="")
 TELEGRAM_WEBHOOK_SECRET = env("TELEGRAM_WEBHOOK_SECRET", default="")
 
+# ---------- Web Push (apps.notifications.push) ----------
+# VAPID keypair for browser push notifications. Leave the private key empty to
+# disable push entirely — send_web_push() becomes a no-op. Generate a pair with:
+#   python -m py_vapid --gen  (or the vapid CLI), then expose the base64url keys.
+VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", default="")
+VAPID_PRIVATE_KEY = env("VAPID_PRIVATE_KEY", default="")
+VAPID_ADMIN_EMAIL = env("VAPID_ADMIN_EMAIL", default="")
+
 # ---------- AI completions (apps.common.gemini) ----------
 # Gemini is the primary provider; Groq is an automatic fallback used whenever
 # Gemini doesn't return a usable completion (quota/rate-limit exhaustion,

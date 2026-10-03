@@ -26,3 +26,6 @@ openpyxl>=3.1,<4
 
 # Avatar uploads (ImageField validation)
 Pillow>=12.3,<13
+
+# Web Push notifications (VAPID)
+pywebpush>=2.0,<3
