@@ -25,7 +25,7 @@ def refill_low_pools() -> int:
     """
     low_pools = list(
         PooledQuestion.objects.filter(is_active=True)
-        .values("subject", "school_class")
+        .values("organization", "subject", "school_class")
         .annotate(count=Count("id"))
         .filter(count__lt=services.POOL_LOW_THRESHOLD)
     )
@@ -45,7 +45,9 @@ def refill_low_pools() -> int:
     for row in low_pools:
         subject = subjects[row["subject"]]
         school_class = school_classes.get(row["school_class"])
-        added = services.refill_pool(subject=subject, school_class=school_class)
+        added = services.refill_pool(
+            subject=subject, school_class=school_class, organization=row["organization"]
+        )
         if added:
             refilled += 1
         else:

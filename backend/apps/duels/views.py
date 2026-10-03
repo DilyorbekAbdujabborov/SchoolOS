@@ -137,7 +137,7 @@ class DuelViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.Retriev
         classmates = (
             StudentProfile.objects.filter(school_class_id=profile.school_class_id, user__is_active=True)
             .exclude(pk=profile.pk)
-            .select_related("user", "duel_rating")
+            .prefetch_related("duel_ratings").select_related("user")
             .order_by("user__first_name", "user__last_name")
         )
         open_with = set()

@@ -56,6 +56,14 @@ class Test(TimeStampedModel):
         verbose_name_plural = _("tests")
         ordering = ("-created_at",)
 
+    def save(self, *args, **kwargs):
+        # Enforce the denormalization invariant in one place: organization is
+        # always copied from the class, never set independently, so the two can
+        # never disagree even if a caller forgets to pass it.
+        if self.organization_id is None and self.school_class_id is not None:
+            self.organization_id = self.school_class.organization_id
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         return self.title
 
@@ -128,6 +136,11 @@ class TestAttempt(TimeStampedModel):
             models.UniqueConstraint(fields=["test", "student"], name="unique_test_attempt"),
         ]
 
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.test_id is not None:
+            self.organization_id = self.test.organization_id
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         return f"{self.student} — {self.test} ({self.status})"
 
@@ -199,6 +212,11 @@ class Activity(TimeStampedModel):
         verbose_name_plural = _("activities")
         ordering = ("-created_at",)
 
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.school_class_id is not None:
+            self.organization_id = self.school_class.organization_id
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         return self.title
 
@@ -240,6 +258,11 @@ class ActivitySubmission(TimeStampedModel):
             models.UniqueConstraint(fields=["activity", "student"], name="unique_activity_submission"),
         ]
 
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.activity_id is not None:
+            self.organization_id = self.activity.organization_id
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         return f"{self.student} — {self.activity}"
 
@@ -269,6 +292,11 @@ class ActivityResult(TimeStampedModel):
     class Meta:
         verbose_name = _("activity result")
         verbose_name_plural = _("activity results")
+
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.submission_id is not None:
+            self.organization_id = self.submission.organization_id
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"{self.submission} — {self.score_percent}%"

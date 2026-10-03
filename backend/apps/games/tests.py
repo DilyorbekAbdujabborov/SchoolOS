@@ -8,7 +8,9 @@ from django.core.management.base import CommandError
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from apps.academics.models import Subject
 from apps.common.testing import (
+    default_organization,
     make_director,
     make_lesson,
     make_school_class,
@@ -16,7 +18,6 @@ from apps.common.testing import (
     make_subject,
     make_teacher,
 )
-from apps.academics.models import Subject
 from apps.gamification.models import XPTransaction
 
 from .models import GameSession, PooledQuestion
@@ -61,8 +62,10 @@ def _questions_payload(count: int) -> str:
 def _seed_pool(*, subject, school_class, count: int, prefix: str = "Savol") -> list[PooledQuestion]:
     """`school_class=None` seeds the subject-wide bank. `prefix` keeps two banks
     of the same subject distinguishable in assertions."""
+    org_id = school_class.organization_id if school_class else default_organization().pk
     return PooledQuestion.objects.bulk_create(
         PooledQuestion(
+            organization_id=org_id,
             subject=subject,
             school_class=school_class,
             text=f"{prefix} {i}",

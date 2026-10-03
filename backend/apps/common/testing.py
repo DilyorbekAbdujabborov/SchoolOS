@@ -166,7 +166,9 @@ def make_timetable_slot(
     if start_time is None or end_time is None:
         from apps.school_config.models import SchoolTimeSettings
 
-        period_start, period_end = SchoolTimeSettings.get_solo().period_times(period_number)
+        period_start, period_end = SchoolTimeSettings.get_solo(
+            school_class.organization
+        ).period_times(period_number)
         start_time = start_time or period_start
         end_time = end_time or period_end
     return TimetableSlot.objects.create(

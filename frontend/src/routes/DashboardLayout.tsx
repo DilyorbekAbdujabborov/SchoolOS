@@ -16,6 +16,11 @@ interface NavItem {
   end?: boolean;
 }
 
+export interface NavGroup {
+  label?: string;
+  items: NavItem[];
+}
+
 const ROLE_LABEL: Record<string, string> = {
   DIRECTOR: "Direktor",
   TEACHER: "O'qituvchi",

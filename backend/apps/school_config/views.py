@@ -19,4 +19,8 @@ class SchoolTimeSettingsView(RetrieveUpdateAPIView):
         return [IsAuthenticated()]
 
     def get_object(self):
-        return SchoolTimeSettings.get_solo()
+        user = self.request.user
+        org = getattr(user, "active_organization", None)
+        if org is None:
+            raise ValueError("User has no active organization")
+        return SchoolTimeSettings.get_solo(org)

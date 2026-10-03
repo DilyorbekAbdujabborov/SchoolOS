@@ -367,11 +367,19 @@ class Command(BaseCommand):
                 "(barcha sinflar uchun), bu odatiy holat."
             ),
         )
+        parser.add_argument(
+            "--organization",
+            help=(
+                "Qaysi tashkilot banki to'ldirilsin (slug yoki id). Bitta tashkilot "
+                "bo'lsa shart emas — o'sha olinadi."
+            ),
+        )
         parser.add_argument("--dry-run", action="store_true", help="Hech narsa saqlamay, faqat hisoblaydi.")
 
     def handle(self, *args, **options):
         subjects = self._resolve_subjects(options["subject"])
         classes = self._resolve_classes(options["school_class"])
+        organization = self._resolve_organization(options.get("organization"))
         if not subjects:
             raise CommandError("Hech bir fan topilmadi. --subject bilan aniqroq nom bering.")
         if options["school_class"] and not classes:
@@ -380,7 +388,9 @@ class Command(BaseCommand):
         total_created = 0
         for school_class in classes:
             for subject in subjects:
-                created = self._seed_pool(subject, school_class, dry_run=options["dry_run"])
+                created = self._seed_pool(
+                    subject, school_class, organization=organization, dry_run=options["dry_run"]
+                )
                 if created or options["dry_run"]:
                     scope = "barcha sinflar" if school_class is None else school_class.name
                     self.stdout.write(f"{subject.name} ({scope}): +{created} ta savol")
@@ -409,6 +419,31 @@ class Command(BaseCommand):
                 matches.append(subject)
         return matches
 
+    def _resolve_organization(self, ident: str | None):
+        """The tenant whose bank is being filled. With one organization in the
+        system it's unambiguous; with several, `--organization` must say which."""
+        from apps.organizations.models import Organization
+
+        if ident:
+            org = Organization.objects.filter(slug=ident).first()
+            if org is None and ident.isdigit():
+                org = Organization.objects.filter(pk=int(ident)).first()
+            if org is None:
+                raise CommandError(f"Tashkilot topilmadi: {ident}")
+            return org
+        orgs = list(Organization.objects.all()[:2])
+        if not orgs:
+            raise CommandError("Tashkilot yo'q — avval tashkilot yarating.")
+        if len(orgs) == 1:
+            return orgs[0]
+        # Several organizations exist (e.g. an empty default-seed school beside
+        # the real one). Prefer the one that actually has classes — that's the
+        # live school whose students will draw from the bank.
+        used = list(Organization.objects.filter(classes__isnull=False).distinct()[:2])
+        if len(used) == 1:
+            return used[0]
+        raise CommandError("Bir nechta faol tashkilot bor — --organization bilan tanlang.")
+
     def _resolve_classes(self, filters: list[str]) -> list[SchoolClass | None]:
         """Sinflarni seed qilish uchun. Filtr berilmasa — bitta `None`, ya'ni
         fanning umumiy banki: bir marta yozilgan savol har bir sinfga xizmat
@@ -424,15 +459,18 @@ class Command(BaseCommand):
                 return bank
         return None
 
-    def _seed_pool(self, subject: Subject, school_class: SchoolClass | None, *, dry_run: bool) -> int:
+    def _seed_pool(
+        self, subject: Subject, school_class: SchoolClass | None, *, organization, dry_run: bool
+    ) -> int:
         questions = self._bank_for(subject)
         if not questions:
             return 0
 
+        org_id = school_class.organization_id if school_class else organization.pk
         existing_texts = set(
-            PooledQuestion.objects.filter(subject=subject, school_class=school_class).values_list(
-                "text", flat=True
-            )
+            PooledQuestion.objects.filter(
+                organization_id=org_id, subject=subject, school_class=school_class
+            ).values_list("text", flat=True)
         )
         new_questions = [q for q in questions if q["text"] not in existing_texts]
         if dry_run or not new_questions:
@@ -441,6 +479,7 @@ class Command(BaseCommand):
         with transaction.atomic():
             PooledQuestion.objects.bulk_create(
                 PooledQuestion(
+                    organization_id=org_id,
                     subject=subject,
                     school_class=school_class,
                     text=q["text"],

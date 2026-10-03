@@ -2,6 +2,7 @@ from datetime import date, time, timedelta
 from django.db.models import Q, QuerySet
 
 from .models import Lesson, TimetableSlot
+from apps.school_config.models import SchoolTimeSettings
 
 # One place builds the daily lesson digest, because it has to be right for
 # everyone: the Telegram morning push, and anything that renders the same thing
@@ -111,7 +112,7 @@ def format_daily_schedule(user, day: date) -> str:
     Optional details are omitted rather than printed empty — a lesson with no
     room gets no room line, and a teacher is not told their own name back.
     """
-    settings_obj = SchoolTimeSettings.get_solo()
+    settings_obj = SchoolTimeSettings.get_solo(user.active_organization)
     lessons = list(
         lessons_for_user(user, day)
         .select_related("subject", "school_class", "teacher__user")

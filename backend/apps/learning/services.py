@@ -1,6 +1,7 @@
 import json
+from datetime import timedelta
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.academics.models import TimetableSlot
@@ -22,6 +23,17 @@ from .models import (
     TestAttempt,
 )
 
+# Slack for network latency between the client's countdown hitting zero (which
+# auto-submits) and the request reaching the server.
+SUBMIT_GRACE_PERIOD = timedelta(seconds=30)
+
+
+def is_past_deadline(attempt: TestAttempt, now) -> bool:
+    limit = attempt.test.time_limit_minutes
+    if not limit:
+        return False
+    return now > attempt.started_at + timedelta(minutes=limit) + SUBMIT_GRACE_PERIOD
+
 
 @transaction.atomic
 def grade_attempt(*, attempt: TestAttempt, answers: list[dict]) -> TestAttempt:
@@ -31,9 +43,18 @@ def grade_attempt(*, attempt: TestAttempt, answers: list[dict]) -> TestAttempt:
     (already resolved + cross-validated by `TestSubmitSerializer`). The score
     is computed purely from `Option.is_correct` here — the client never sends
     a score or an XP amount, so there is nothing for it to manipulate.
+
+    The time limit is enforced here too, not just by the client's countdown:
+    a submit that arrives after the deadline (+ grace) closes the attempt with
+    its answers discarded and no XP, so the attempt can't stay open forever.
     """
     if attempt.status == TestAttempt.Status.SUBMITTED:
         raise ValueError("This attempt has already been submitted.")
+
+    submitted_at = timezone.now()
+    is_late = is_past_deadline(attempt, submitted_at)
+    if is_late:
+        answers = []
 
     questions = list(attempt.test.questions.all())
     answer_map = {answer["question"].id: answer["selected_option"] for answer in answers}
@@ -53,13 +74,31 @@ def grade_attempt(*, attempt: TestAttempt, answers: list[dict]) -> TestAttempt:
     score_percent = round((correct / total) * 100, 2) if total else 0.0
     xp_awarded = round(attempt.test.max_xp * score_percent / 100)
 
-    attempt.status = TestAttempt.Status.SUBMITTED
-    attempt.submitted_at = timezone.now()
-    attempt.score_percent = score_percent
-    attempt.xp_awarded = xp_awarded
-    attempt.save(
-        update_fields=["status", "submitted_at", "score_percent", "xp_awarded", "updated_at"]
+    # Claim the attempt with a conditional UPDATE rather than trusting the
+    # status read above: two concurrent submits (double click, two tabs) would
+    # both see IN_PROGRESS, but only one can flip the row — the loser rolls
+    # back here instead of awarding XP a second time.
+    claimed = TestAttempt.objects.filter(
+        pk=attempt.pk, status=TestAttempt.Status.IN_PROGRESS
+    ).update(
+        status=TestAttempt.Status.SUBMITTED,
+        submitted_at=submitted_at,
+        score_percent=score_percent,
+        xp_awarded=xp_awarded,
+        updated_at=submitted_at,
     )
+    if not claimed:
+        raise ValueError("This attempt has already been submitted.")
+    attempt.refresh_from_db()
+
+    if is_late:
+        notify(
+            recipient=attempt.student.user,
+            title=f"{attempt.test.title} — vaqt tugadi",
+            body="Test vaqt tugaganidan keyin topshirildi, shuning uchun javoblar hisobga olinmadi.",
+            category=Notification.Category.TEST_RESULT,
+        )
+        return attempt
 
     award_xp(
         student=attempt.student,
@@ -114,13 +153,19 @@ def grade_submission(
 
     xp_awarded = round(submission.activity.max_xp * score_percent / 100)
 
-    result = ActivityResult.objects.create(
-        submission=submission,
-        score_percent=score_percent,
-        xp_awarded=xp_awarded,
-        feedback=feedback,
-        graded_by=graded_by,
-    )
+    # The OneToOne on `submission` is the real guard against grading twice;
+    # turn a concurrent duplicate into the same ValueError (400) instead of a 500.
+    try:
+        with transaction.atomic():
+            result = ActivityResult.objects.create(
+                submission=submission,
+                score_percent=score_percent,
+                xp_awarded=xp_awarded,
+                feedback=feedback,
+                graded_by=graded_by,
+            )
+    except IntegrityError as exc:
+        raise ValueError("This submission has already been graded.") from exc
 
     award_xp(
         student=submission.student,

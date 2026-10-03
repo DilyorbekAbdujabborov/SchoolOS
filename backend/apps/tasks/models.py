@@ -44,6 +44,11 @@ class TeacherTask(TimeStampedModel):
         verbose_name_plural = _("teacher tasks")
         ordering = ("-created_at",)
 
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.created_by_id is not None:
+            self.organization_id = getattr(self.created_by, "active_organization_id", None)
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         return self.title
 
@@ -76,6 +81,11 @@ class TeacherTaskAssignment(TimeStampedModel):
         constraints: ClassVar[list[models.BaseConstraint]] = [
             models.UniqueConstraint(fields=["task", "teacher"], name="unique_teacher_task_assignment"),
         ]
+
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.task_id is not None:
+            self.organization_id = self.task.organization_id
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"{self.task} -> {self.teacher}"

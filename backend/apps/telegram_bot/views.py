@@ -93,3 +93,29 @@ class TelegramWebhookView(View):
             return JsonResponse({"detail": "Telegram bot is unavailable."}, status=503)
 
         return JsonResponse({"ok": True})
+
+
+# --- Parent Telegram Accounts ---
+
+class ParentTelegramAccountsView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        accounts = TelegramAccount.objects.filter(user=request.user).order_by("-created_at")
+        return Response([
+            {
+                "id": a.id,
+                "telegram_username": a.telegram_username,
+                "created_at": a.created_at.isoformat(),
+            }
+            for a in accounts
+        ])
+
+    def delete(self, request):
+        account_id = request.query_params.get("id")
+        if not account_id:
+            return Response({"detail": "id required"}, status=400)
+        deleted, _ = TelegramAccount.objects.filter(user=request.user, id=account_id).delete()
+        if not deleted:
+            return Response({"detail": "Not found"}, status=404)
+        return Response(status=204)

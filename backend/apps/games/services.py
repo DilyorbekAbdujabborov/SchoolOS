@@ -309,7 +309,11 @@ def pick_session_questions(session: GameSession) -> list[dict] | None:
 
 
 def refill_pool(
-    *, subject: Subject, school_class: SchoolClass | None = None, batch_size: int = POOL_REFILL_BATCH
+    *,
+    subject: Subject,
+    school_class: SchoolClass | None = None,
+    organization=None,
+    batch_size: int = POOL_REFILL_BATCH,
 ) -> int:
     """The *only* place apps.games talks to Gemini — one batched call that tops
     up a subject's bank. Called either by a director's manual "to'ldirish"
@@ -319,12 +323,20 @@ def refill_pool(
     With no `school_class` the questions land in the subject-wide bank, which
     every student of that subject can draw from — the one bank to fill when the
     goal is "make this subject playable in every game", rather than tailoring
-    questions to a single class's level.
+    questions to a single class's level. `organization` names the tenant the
+    bank belongs to; it may be given explicitly (the subject-wide case, where
+    there is no class to read it from) or left to default to the class's own.
 
     Returns how many questions were actually added (0 if Gemini was unavailable
     or returned something unusable — same "fail quiet" contract as
     `call_gemini` itself).
     """
+    if organization is not None:
+        organization_id = organization.pk if hasattr(organization, "pk") else organization
+    elif school_class is not None:
+        organization_id = school_class.organization_id
+    else:
+        raise ValueError("refill_pool requires an organization when no school_class is given.")
     game_label = "mashq"
     scope = f"{school_class.name} sinf darajasida" if school_class else "barcha sinf darajasida"
     prompt = (
@@ -365,6 +377,7 @@ def refill_pool(
 
     created = PooledQuestion.objects.bulk_create(
         PooledQuestion(
+            organization_id=organization_id,
             subject=subject,
             school_class=school_class,
             text=q["text"],

@@ -166,7 +166,14 @@ class MyStreakView(APIView):
     permission_classes: ClassVar[list[type[BasePermission]]] = [IsStudent]
 
     def get(self, request):
-        streak, _created = Streak.objects.get_or_create(student=request.user.student_profile)
+        student = request.user.student_profile
+        org = getattr(request.user, "active_organization", None)
+        if org is None:
+            return Response({"detail": "No active organization"}, status=400)
+        streak, _created = Streak.objects.get_or_create(
+            student=student, organization=org,
+            defaults={"current_streak": 0, "longest_streak": 0}
+        )
         return Response(StreakSerializer(streak).data)
 
 

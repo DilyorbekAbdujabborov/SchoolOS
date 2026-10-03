@@ -50,6 +50,17 @@ CONDITION_CHECKS = {
 }
 
 
+def _student_organization_id(student):
+    """The tenant a student's gamification rows belong to: their class's
+    organization, or their account's active one when they have no class.
+    Every org-scoped row `award_xp` writes (XPTransaction, Streak,
+    StudentAchievement) is stamped from here so it can never be left NULL.
+    """
+    if student.school_class_id:
+        return student.school_class.organization_id
+    return getattr(student.user, "active_organization_id", None)
+
+
 @transaction.atomic
 def award_xp(*, student, amount: int, source: str, related_object, reason: str) -> XPTransaction:
     """The single entrypoint every XP-granting feature must call.
@@ -57,7 +68,9 @@ def award_xp(*, student, amount: int, source: str, related_object, reason: str) 
     Never mutate `StudentProfile.total_xp` or `SchoolClass.total_xp` anywhere
     else — that's what keeps every XP change auditable back to its source.
     """
+    organization_id = _student_organization_id(student)
     xp_transaction = XPTransaction.objects.create(
+        organization_id=organization_id,
         student=student,
         amount=amount,
         source=source,
@@ -83,7 +96,9 @@ def award_xp(*, student, amount: int, source: str, related_object, reason: str) 
 
 def record_streak_activity(student) -> Streak:
     """Bumps the student's streak for today's activity. Same-day calls are a no-op."""
-    streak, _created = Streak.objects.get_or_create(student=student)
+    streak, _created = Streak.objects.get_or_create(
+        student=student, defaults={"organization_id": _student_organization_id(student)}
+    )
     today = timezone.localdate()
 
     if streak.last_activity_date == today:
@@ -139,7 +154,9 @@ def check_achievements(student) -> list[StudentAchievement]:
             break
 
         student_achievement = StudentAchievement.objects.create(
-            student=student, achievement=candidate
+            student=student,
+            achievement=candidate,
+            organization_id=_student_organization_id(student),
         )
         newly_unlocked.append(student_achievement)
         notify(

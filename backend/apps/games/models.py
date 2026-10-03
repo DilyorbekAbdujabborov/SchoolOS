@@ -168,5 +168,12 @@ class GameSession(TimeStampedModel):
         verbose_name_plural = _("game sessions")
         ordering = ("-created_at",)
 
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.student_id is not None:
+            from apps.common.org import org_id_from_student
+
+            self.organization_id = org_id_from_student(self.student)
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         return f"{self.student} — {self.subject} — {self.get_game_type_display()} ({self.status})"

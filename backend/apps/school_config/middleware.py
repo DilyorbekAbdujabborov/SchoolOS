@@ -6,12 +6,6 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 
 from .models import SchoolTimeSettings
 
-# The whole /api/auth/ namespace stays reachable during the lock, not just login
-# and refresh: it holds only identity and session lifecycle (login, refresh, me,
-# change-password, avatar), never the learning content the lock is meant to gate.
-# Locking /api/auth/me/ would leave the app unable to tell who is signed in, and
-# locking change-password would permanently trap any student who was issued a
-# temporary password (e.g. by the bulk import) in a 423 loop.
 EXEMPT_PATH_PREFIXES = (
     "/api/auth/",
     "/api/schema",
@@ -21,20 +15,13 @@ EXEMPT_PATH_PREFIXES = (
 
 
 class SchoolTimeLockMiddleware:
-    """Blocks STUDENT accounts from using the web API during school hours.
-
-    Runs as plain Django middleware (not a DRF permission) so every current and
-    future API view is covered automatically, with no per-view wiring required.
-    Director and Teacher accounts are never affected.
-    """
-
     def __init__(self, get_response):
         self.get_response = get_response
         self.jwt_authenticator = JWTAuthentication()
 
     def __call__(self, request):
         if self._is_locked_out(request):
-            settings_obj = SchoolTimeSettings.get_solo()
+            settings_obj = self._get_settings(request)
             return JsonResponse(
                 {
                     "detail": (
@@ -56,8 +43,24 @@ class SchoolTimeLockMiddleware:
         if user is None or not user.is_authenticated or not user.is_student:
             return False
 
-        settings_obj = SchoolTimeSettings.get_solo()
+        settings_obj = self._get_settings_for_user(user)
+        if not settings_obj:
+            return False
         return settings_obj.is_locked_at(timezone.localtime().time())
+
+    def _get_settings(self, request):
+        user = self._authenticate(request)
+        if user and user.is_authenticated:
+            return self._get_settings_for_user(user)
+        return SchoolTimeSettings.objects.first()
+
+    def _get_settings_for_user(self, user):
+        if hasattr(user, 'active_organization_id') and user.active_organization_id:
+            try:
+                return SchoolTimeSettings.objects.get(organization_id=user.active_organization_id)
+            except SchoolTimeSettings.DoesNotExist:
+                pass
+        return SchoolTimeSettings.objects.first()
 
     def _authenticate(self, request):
         try:

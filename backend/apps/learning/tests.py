@@ -1,7 +1,9 @@
 import json
+from datetime import timedelta
 from unittest.mock import Mock, patch
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -107,6 +109,61 @@ class GradeAttemptTests(TestCase):
                 attempt=attempt, answers=[{"question": self.q1, "selected_option": self.o1_correct}]
             )
 
+    def test_concurrent_submit_with_a_stale_attempt_does_not_award_xp_twice(self):
+        # Two requests each loaded the attempt while it was still IN_PROGRESS.
+        first_copy = self._attempt()
+        stale_copy = TestAttempt.objects.get(pk=first_copy.pk)
+        answers = [{"question": self.q1, "selected_option": self.o1_correct}]
+
+        grade_attempt(attempt=first_copy, answers=answers)
+        with self.assertRaises(ValueError):
+            grade_attempt(attempt=stale_copy, answers=answers)
+
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.total_xp, 50)
+        self.assertEqual(XPTransaction.objects.filter(student=self.student).count(), 1)
+
+    def _start_attempt_minutes_ago(self, minutes, *, time_limit=10):
+        self.test.time_limit_minutes = time_limit
+        self.test.save()
+        attempt = self._attempt()
+        TestAttempt.objects.filter(pk=attempt.pk).update(
+            started_at=timezone.now() - timedelta(minutes=minutes)
+        )
+        attempt.refresh_from_db()
+        return attempt
+
+    def test_submit_within_time_limit_is_graded_normally(self):
+        attempt = self._start_attempt_minutes_ago(9)
+        attempt = grade_attempt(
+            attempt=attempt, answers=[{"question": self.q1, "selected_option": self.o1_correct}]
+        )
+        self.assertEqual(attempt.xp_awarded, 50)
+
+    def test_submit_after_time_limit_closes_attempt_without_xp(self):
+        attempt = self._start_attempt_minutes_ago(11)
+        attempt = grade_attempt(
+            attempt=attempt,
+            answers=[
+                {"question": self.q1, "selected_option": self.o1_correct},
+                {"question": self.q2, "selected_option": self.o2_correct},
+            ],
+        )
+        self.assertEqual(attempt.status, TestAttempt.Status.SUBMITTED)
+        self.assertEqual(attempt.score_percent, 0.0)
+        self.assertEqual(attempt.xp_awarded, 0)
+        self.assertFalse(attempt.answers.exists())
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.total_xp, 0)
+        self.assertFalse(XPTransaction.objects.filter(student=self.student).exists())
+
+    def test_grace_period_absorbs_network_latency(self):
+        attempt = self._start_attempt_minutes_ago(10, time_limit=10)
+        attempt = grade_attempt(
+            attempt=attempt, answers=[{"question": self.q1, "selected_option": self.o1_correct}]
+        )
+        self.assertEqual(attempt.xp_awarded, 50)
+
     @patch("apps.telegram_bot.services.send_telegram_message")
     def test_notifies_linked_parent_of_the_result(self, mock_send):
         from apps.telegram_bot.models import ParentTelegramAccount
@@ -166,6 +223,13 @@ class TestSubmitAPITests(APITestCase):
         self.client.post(f"/api/tests/{self.test.id}/submit/", payload, format="json")
         second = self.client.post(f"/api/tests/{self.test.id}/submit/", payload, format="json")
         self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_empty_auto_submit_closes_the_attempt(self):
+        self.client.force_authenticate(self.student_user)
+        response = self.client.post(f"/api/tests/{self.test.id}/submit/", {"answers": []}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], TestAttempt.Status.SUBMITTED)
+        self.assertEqual(response.data["xp_awarded"], 0)
 
     def test_cannot_submit_an_option_from_a_different_question(self):
         self.client.force_authenticate(self.student_user)
@@ -327,6 +391,16 @@ class GradeSubmissionTests(TestCase):
         grade_submission(submission=submission, score_percent=50, feedback="", graded_by=self.teacher_user)
         with self.assertRaises(ValueError):
             grade_submission(submission=submission, score_percent=80, feedback="", graded_by=self.teacher_user)
+
+    def test_concurrent_grade_with_a_stale_submission_is_rejected_without_extra_xp(self):
+        submission = self._submission()
+        stale_copy = ActivitySubmission.objects.get(pk=submission.pk)
+        grade_submission(submission=submission, score_percent=100, feedback="", graded_by=self.teacher_user)
+        with self.assertRaises(ValueError):
+            grade_submission(submission=stale_copy, score_percent=100, feedback="", graded_by=self.teacher_user)
+
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.total_xp, 50)
 
     def test_out_of_range_score_is_rejected(self):
         with self.assertRaises(ValueError):

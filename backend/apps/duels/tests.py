@@ -5,8 +5,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.common.testing import make_school_class, make_student, make_subject, make_teacher
-from apps.gamification.models import XPTransaction
 from apps.games.models import PooledQuestion
+from apps.gamification.models import XPTransaction
 from apps.notifications.models import Notification
 
 from .models import Duel, DuelRating
@@ -16,6 +16,7 @@ from .services import answer, create_duel, mark_ready, open_question, rematch, r
 def seed_question_pool(*, subject, school_class, count: int = 15) -> list[PooledQuestion]:
     return PooledQuestion.objects.bulk_create(
         PooledQuestion(
+            organization_id=school_class.organization_id,
             subject=subject,
             school_class=school_class,
             text=f"Savol {i}",

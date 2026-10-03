@@ -66,6 +66,11 @@ class Lesson(TimeStampedModel):
             ),
         ]
 
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.school_class_id is not None:
+            self.organization_id = self.school_class.organization_id
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         return f"{self.subject} — {self.school_class} ({self.date})"
 
@@ -141,6 +146,11 @@ class TimetableSlot(TimeStampedModel):
                 name="unique_teacher_slot",
             ),
         ]
+
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.school_class_id is not None:
+            self.organization_id = self.school_class.organization_id
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"{self.school_class} — {self.get_day_of_week_display()} #{self.period_number}: {self.subject}"

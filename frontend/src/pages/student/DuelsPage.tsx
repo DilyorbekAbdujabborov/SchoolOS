@@ -92,7 +92,7 @@ export function StudentDuelsPage() {
 
   const { data: rating } = useQuery({
     queryKey: ["duels", "me"],
-    queryFn: async () => (await api.get<DuelRatingInfo>("/duels/me/")).data,
+    queryFn: async () => (await api.get<DuelRatingInfo>("/duels/stats/")).data,
   });
 
   const { data: leaderboard } = useQuery({

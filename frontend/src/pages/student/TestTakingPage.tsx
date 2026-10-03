@@ -110,6 +110,18 @@ export function StudentTestTakingPage() {
     },
   });
 
+  // When the countdown hits zero, send whatever is answered so far — the server
+  // rejects late answers anyway, so waiting for the student to click would only
+  // cost them the questions they did answer in time.
+  const autoSubmittedRef = useRef(false);
+  useEffect(() => {
+    if (remainingSeconds !== 0 || autoSubmittedRef.current) return;
+    if (attempt?.status !== "IN_PROGRESS" || submitMutation.data || submitMutation.isPending) return;
+    autoSubmittedRef.current = true;
+    setError(null);
+    submitMutation.mutate();
+  }, [remainingSeconds, attempt?.status, submitMutation]);
+
   if (isLoading) return <LoadingState />;
   if (isError || !test) return <ErrorState />;
 
@@ -120,6 +132,8 @@ export function StudentTestTakingPage() {
   }
 
   const allAnswered = test.questions.every((q) => answers[q.id] !== undefined);
+  // Once time is up a partial submit is allowed (e.g. retrying a failed auto-submit).
+  const canSubmit = allAnswered || remainingSeconds === 0;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -179,7 +193,7 @@ export function StudentTestTakingPage() {
 
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-        <PrimaryButton type="submit" disabled={!allAnswered || submitMutation.isPending} className="w-full">
+        <PrimaryButton type="submit" disabled={!canSubmit || submitMutation.isPending} className="w-full">
           {submitMutation.isPending ? "Yuborilmoqda..." : "Testni yakunlash"}
         </PrimaryButton>
       </form>

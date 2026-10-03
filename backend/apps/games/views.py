@@ -136,5 +136,7 @@ class QuestionPoolViewSet(viewsets.ViewSet):
     def refill(self, request):
         serializer = PoolRefillSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        added = services.refill_pool(**serializer.validated_data)
+        added = services.refill_pool(
+            organization=request.user.active_organization, **serializer.validated_data
+        )
         return Response({"added": added})

@@ -131,7 +131,12 @@ def mark_served(*, student, questions: list[PooledQuestion]) -> None:
     if not questions:
         return
     PooledQuestionServed.objects.bulk_create(
-        (PooledQuestionServed(student=student, question=question) for question in questions),
+        (
+            PooledQuestionServed(
+                student=student, question=question, organization_id=question.organization_id
+            )
+            for question in questions
+        ),
         ignore_conflicts=True,
     )
 

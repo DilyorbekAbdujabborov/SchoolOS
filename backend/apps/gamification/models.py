@@ -51,6 +51,13 @@ class XPTransaction(TimeStampedModel):
         verbose_name_plural = _("XP transactions")
         ordering = ("-created_at",)
 
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.student_id is not None:
+            from apps.common.org import org_id_from_student
+
+            self.organization_id = org_id_from_student(self.student)
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         return f"{self.student} +{self.amount} XP ({self.source})"
 
@@ -128,6 +135,13 @@ class StudentAchievement(TimeStampedModel):
             ),
         ]
 
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.student_id is not None:
+            from apps.common.org import org_id_from_student
+
+            self.organization_id = org_id_from_student(self.student)
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         return f"{self.student} unlocked {self.achievement} at {self.organization}"
 
@@ -164,6 +178,13 @@ class Streak(TimeStampedModel):
                 fields=["organization", "student"], name="unique_streak_per_student_org"
             ),
         ]
+
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.student_id is not None:
+            from apps.common.org import org_id_from_student
+
+            self.organization_id = org_id_from_student(self.student)
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"{self.student} @ {self.organization}: {self.current_streak} day streak"

@@ -104,6 +104,11 @@ class Duel(TimeStampedModel):
         verbose_name_plural = _("duels")
         ordering = ("-created_at",)
 
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.school_class_id is not None:
+            self.organization_id = self.school_class.organization_id
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         opponent = self.get_ai_level_display() if self.mode == self.Mode.AI else self.opponent
         return f"{self.challenger} vs {opponent} ({self.status})"
@@ -152,6 +157,13 @@ class DuelRating(TimeStampedModel):
                 fields=["organization", "student"], name="unique_duel_rating_per_student_org"
             ),
         ]
+
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.student_id is not None:
+            from apps.common.org import org_id_from_student
+
+            self.organization_id = org_id_from_student(self.student)
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"{self.student} @ {self.organization} — {self.rating}"

@@ -51,6 +51,11 @@ class Attendance(TimeStampedModel):
             ),
         ]
 
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.lesson_id is not None:
+            self.organization_id = self.lesson.organization_id
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         return f"{self.student} — {self.lesson} — {self.status}"
 
@@ -79,6 +84,11 @@ class AttendanceReminder(TimeStampedModel):
     class Meta:
         verbose_name = _("unmarked attendance reminder")
         verbose_name_plural = _("unmarked attendance reminders")
+
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.lesson_id is not None:
+            self.organization_id = self.lesson.organization_id
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"Attendance reminder sent for {self.lesson}"

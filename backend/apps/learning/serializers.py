@@ -200,7 +200,8 @@ class TestAnswerInputSerializer(serializers.Serializer):
 
 
 class TestSubmitSerializer(serializers.Serializer):
-    answers = TestAnswerInputSerializer(many=True, allow_empty=False)
+    # Empty is allowed: the client auto-submits whatever is answered when time runs out.
+    answers = TestAnswerInputSerializer(many=True, allow_empty=True)
 
 
 class ActivityListSerializer(serializers.ModelSerializer):

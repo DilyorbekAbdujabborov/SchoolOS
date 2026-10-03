@@ -32,7 +32,15 @@ def _now_ms() -> int:
 
 
 def get_or_create_rating(student) -> DuelRating:
-    rating, _created = DuelRating.objects.get_or_create(student=student)
+    org = getattr(student.user, "active_organization", None)
+    if org is None:
+        raise ValueError("Student has no active organization")
+    org_id = getattr(student.user, "active_organization_id", None)
+    rating, _created = DuelRating.objects.get_or_create(
+        student=student,
+        organization_id=org_id,
+        defaults={"rating": DuelRating.DEFAULT_RATING}
+    )
     return rating
 
 

@@ -280,6 +280,7 @@ class GameRemedialTests(APITestCase):
         self.user, self.student = make_student(school_class)
         PooledQuestion.objects.bulk_create(
             PooledQuestion(
+                organization_id=school_class.organization_id,
                 subject=self.subject, school_class=school_class, text=f"Savol {i}", options=["a", "b", "c", "d"],
                 correct_index=i % 4,
             )

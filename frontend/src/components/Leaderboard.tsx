@@ -3,7 +3,7 @@ import { Crown, Medal, Trophy, Users } from "lucide-react";
 import { useState } from "react";
 
 import { api } from "../lib/api";
-import { TONE_DOT, TONE_FILL, type Tone } from "../lib/tones";
+import { TONE_DOT, type Tone } from "../lib/tones";
 import type { ClassLeaderboardEntry, StudentLeaderboardEntry } from "../types";
 import { Avatar } from "./Avatar";
 import { SegmentedControl } from "./form";

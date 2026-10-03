@@ -26,7 +26,11 @@ def maybe_start_remedial_session(attempt) -> RemedialSession | None:
 
     session, _created = RemedialSession.objects.get_or_create(
         attempt=attempt,
-        defaults={"student": attempt.student, "subject": attempt.test.subject},
+        defaults={
+            "student": attempt.student,
+            "subject": attempt.test.subject,
+            "organization_id": attempt.test.organization_id,
+        },
     )
     return session
 
@@ -42,7 +46,11 @@ def maybe_start_remedial_for_game(game_session) -> RemedialSession | None:
 
     session, _created = RemedialSession.objects.get_or_create(
         game_session=game_session,
-        defaults={"student": game_session.student, "subject": game_session.subject},
+        defaults={
+            "student": game_session.student,
+            "subject": game_session.subject,
+            "organization_id": game_session.organization_id,
+        },
     )
     return session
 

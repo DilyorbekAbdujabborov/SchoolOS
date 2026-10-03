@@ -74,7 +74,13 @@ class SchoolTimeSettings(TimeStampedModel):
         """
         if organization is None:
             raise ValueError("SchoolTimeSettings.get_solo() requires an organization.")
-        obj, _created = cls.objects.get_or_create(organization=organization)
+        # Accept either an Organization instance or its pk, so callers that only
+        # have an id (a serializer with a class's organization_id, say) don't
+        # have to fetch the row just to pass it here.
+        if isinstance(organization, int):
+            obj, _created = cls.objects.get_or_create(organization_id=organization)
+        else:
+            obj, _created = cls.objects.get_or_create(organization=organization)
         return obj
 
     def is_locked_at(self, current_time) -> bool:

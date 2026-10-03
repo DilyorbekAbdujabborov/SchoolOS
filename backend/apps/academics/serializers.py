@@ -96,12 +96,21 @@ class TimetableSlotSerializer(serializers.ModelSerializer):
 
         from apps.school_config.models import SchoolTimeSettings
 
-        settings_obj = SchoolTimeSettings.get_solo()
-        class_id = values.get("school_class") or getattr(self.instance, "school_class_id", None)
+        # `super().to_internal_value` has already resolved the FK, so this is a
+        # SchoolClass instance (on create) or None; fall back to the instance
+        # being patched. The bell times belong to the class's tenant, so with no
+        # class we can't know whose schedule to read — leave the times untouched.
+        school_class = values.get("school_class")
+        if school_class is None and self.instance is not None:
+            school_class = self.instance.school_class
+        if school_class is None:
+            return values
+
+        settings_obj = SchoolTimeSettings.get_solo(school_class.organization_id)
         shift = 1
-        if class_id and settings_obj.second_start_time is not None:
+        if settings_obj.second_start_time is not None:
             shift = 2 if TimetableSlot.objects.filter(
-                school_class_id=class_id,
+                school_class=school_class,
                 start_time__gte=settings_obj.second_start_time,
             ).exists() else 1
 

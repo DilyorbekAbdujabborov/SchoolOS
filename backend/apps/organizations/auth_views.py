@@ -59,13 +59,17 @@ class OrganizationTokenObtainPairView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data["user"]
 
+        data = serializer.validated_data
+        refresh_token = data.get("refresh")
+        access_token = data.get("access")
+
+        user = serializer.user
         membership = _resolve_for_login(user, request.data.get("organization"))
 
-        refresh = self.get_refresh_token()
+        refresh = RefreshToken(refresh_token)
         _with_organization(refresh, membership.organization)
-        access = self.get_access_token()
+        access = refresh.access_token
         _with_organization(access, membership.organization)
 
         data = {
