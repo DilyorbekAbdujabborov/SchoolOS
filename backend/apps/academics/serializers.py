@@ -32,7 +32,8 @@ class LessonSerializer(serializers.ModelSerializer):
         )
 
     def get_teacher_name(self, obj) -> str:
-        return str(obj.teacher)
+        user = obj.teacher.user
+        return user.get_full_name() or user.username
 
     def validate(self, attrs):
         start_time = attrs.get("start_time", getattr(self.instance, "start_time", None))
