@@ -41,7 +41,8 @@ class XPHistoryView(generics.ListAPIView):
             return queryset.filter(student=student_profile) if student_profile else queryset.none()
 
         if user.is_director:
-            return queryset.filter(student_id=student_id) if student_id else queryset
+            scoped = queryset.filter(organization_id=user.active_organization_id)
+            return scoped.filter(student_id=student_id) if student_id else scoped
 
         if user.is_teacher:
             profile = user.teacher_profile
@@ -60,8 +61,12 @@ class StudentLeaderboardView(generics.ListAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        return StudentProfile.objects.select_related("user", "school_class").order_by(
-            "-total_xp", "user__first_name"
+        return (
+            StudentProfile.objects.filter(
+                user__active_organization_id=self.request.user.active_organization_id
+            )
+            .select_related("user", "school_class")
+            .order_by("-total_xp", "user__first_name")
         )
 
     def list(self, request, *args, **kwargs):
@@ -78,7 +83,9 @@ class ClassLeaderboardView(generics.ListAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        return SchoolClass.objects.order_by("-total_xp", "name")
+        return SchoolClass.objects.filter(
+            organization_id=self.request.user.active_organization_id
+        ).order_by("-total_xp", "name")
 
     def list(self, request, *args, **kwargs):
         ranked = [
@@ -111,7 +118,11 @@ class ClassGrowthView(APIView):
         since = timezone.localdate() - timedelta(days=days - 1)
         date_range = [since + timedelta(days=i) for i in range(days)]
 
-        classes = list(SchoolClass.objects.order_by("name"))
+        classes = list(
+            SchoolClass.objects.filter(
+                organization_id=request.user.active_organization_id
+            ).order_by("name")
+        )
         daily_deltas = {c.id: dict.fromkeys(date_range, 0) for c in classes}
 
         transactions = XPTransaction.objects.filter(

@@ -40,7 +40,7 @@ class LessonViewSet(viewsets.ModelViewSet):
         queryset = Lesson.objects.select_related("subject", "school_class", "teacher__user")
 
         if user.is_director:
-            return queryset
+            return queryset.filter(organization_id=user.active_organization_id)
         if user.is_teacher:
             return queryset.filter(
                 Q(teacher=user.teacher_profile)
@@ -67,7 +67,7 @@ class TimetableSlotViewSet(viewsets.ModelViewSet):
         )
 
         if user.is_director:
-            return queryset
+            return queryset.filter(organization_id=user.active_organization_id)
         if user.is_teacher:
             return queryset.filter(
                 Q(teacher=user.teacher_profile)

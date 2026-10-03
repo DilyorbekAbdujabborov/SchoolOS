@@ -75,7 +75,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         )
 
         if user.is_director:
-            return queryset
+            return queryset.filter(user__active_organization_id=user.active_organization_id)
         if user.is_teacher:
             profile = user.teacher_profile
             return queryset.filter(

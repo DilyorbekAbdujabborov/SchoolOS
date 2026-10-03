@@ -49,7 +49,7 @@ class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
         )
 
         if user.is_director:
-            return queryset
+            return queryset.filter(organization_id=user.active_organization_id)
         if user.is_teacher:
             return queryset.filter(
                 Q(lesson__teacher=user.teacher_profile)
@@ -177,7 +177,7 @@ class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
         )
 
         if user.is_director:
-            pass
+            queryset = queryset.filter(organization_id=user.active_organization_id)
         elif user.is_teacher:
             profile = user.teacher_profile
             queryset = queryset.filter(
@@ -267,7 +267,7 @@ class AttendanceViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewse
     @staticmethod
     def _can_view_class(user, school_class) -> bool:
         if user.is_director:
-            return True
+            return school_class.organization_id == user.active_organization_id
         profile = getattr(user, "teacher_profile", None)
         if profile is not None:
             return (

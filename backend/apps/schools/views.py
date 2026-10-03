@@ -25,7 +25,7 @@ class SchoolClassViewSet(viewsets.ModelViewSet):
         queryset = SchoolClass.objects.select_related("class_teacher__user")
 
         if user.is_director:
-            return queryset
+            return queryset.filter(organization_id=user.active_organization_id)
         if user.is_teacher:
             return queryset.filter(
                 Q(class_teacher=user.teacher_profile) | Q(lessons__teacher=user.teacher_profile)

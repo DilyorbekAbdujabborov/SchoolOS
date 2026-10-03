@@ -60,7 +60,7 @@ class TestViewSet(viewsets.ModelViewSet):
         )
 
         if user.is_director:
-            return queryset
+            return queryset.filter(organization_id=user.active_organization_id)
         if user.is_teacher:
             return queryset.filter(teacher=user.teacher_profile)
         if user.is_student:
@@ -176,7 +176,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = Question.objects.select_related("test")
         if user.is_director:
-            return queryset
+            return queryset.filter(test__organization_id=user.active_organization_id)
         if user.is_teacher:
             return queryset.filter(test__teacher=user.teacher_profile)
         return queryset.none()
@@ -191,7 +191,7 @@ class OptionViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = Option.objects.select_related("question__test")
         if user.is_director:
-            return queryset
+            return queryset.filter(question__test__organization_id=user.active_organization_id)
         if user.is_teacher:
             return queryset.filter(question__test__teacher=user.teacher_profile)
         return queryset.none()
@@ -232,7 +232,7 @@ class ActivityViewSet(viewsets.ModelViewSet):
         queryset = Activity.objects.select_related("subject", "school_class", "teacher__user")
 
         if user.is_director:
-            return queryset
+            return queryset.filter(organization_id=user.active_organization_id)
         if user.is_teacher:
             return queryset.filter(teacher=user.teacher_profile)
         if user.is_student:
@@ -304,7 +304,7 @@ class ActivitySubmissionViewSet(mixins.RetrieveModelMixin, viewsets.GenericViewS
             "activity__teacher", "student__user", "result"
         )
         if user.is_director:
-            return queryset
+            return queryset.filter(organization_id=user.active_organization_id)
         if user.is_teacher:
             return queryset.filter(activity__teacher=user.teacher_profile)
         if user.is_student:
