@@ -112,3 +112,29 @@ class IsDirectorOrReadOnly(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return user.active_role in tuple(OrganizationMembership.Role.values)
         return user.active_role in IsDirector.allowed_roles
+
+
+class IsStaffOrReadOnly(permissions.BasePermission):
+    """Any authenticated member can read; staff (owner/admin/director/teacher/
+    coach) can write. Object-level: a director may edit anyone's row, a teacher
+    only their own.
+
+    Read access is narrowed per-view by the queryset (active organization), so
+    this class only decides who may write.
+    """
+
+    def has_permission(self, request, view):
+        user = getattr(request, "user", None)
+        if not (user and user.is_authenticated):
+            return False
+        if request.method in permissions.SAFE_METHODS:
+            return user.active_role in tuple(OrganizationMembership.Role.values)
+        return user.active_role in IsOrgStaff.allowed_roles
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        user = request.user
+        if user.active_role in IsOrgDirector.allowed_roles:
+            return True
+        return getattr(obj, "uploaded_by_id", None) == user.id

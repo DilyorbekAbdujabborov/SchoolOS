@@ -104,6 +104,36 @@ export interface Subject {
   name: string;
 }
 
+export type MaterialKind =
+  | "LINK"
+  | "PDF"
+  | "DOC"
+  | "SHEET"
+  | "SLIDES"
+  | "IMAGE"
+  | "VIDEO"
+  | "AUDIO"
+  | "ARCHIVE"
+  | "OTHER";
+
+/** `GET /materials/` — one item in the school's materials library (a file to
+ * download or an external link, filed under a subject). */
+export interface Material {
+  id: number;
+  title: string;
+  description: string;
+  subject: number;
+  subject_name: string;
+  file_url: string | null;
+  file_name: string | null;
+  file_size: number | null;
+  link: string;
+  kind: MaterialKind;
+  kind_display: string;
+  uploaded_by_name: string | null;
+  created_at: string;
+}
+
 /** `GET /games/subjects/` — a subject with how many questions its shared bank
  * currently holds, so the client can flag an unstocked subject before a game
  * session is started. */

@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "apps.duels",
     "apps.remedial",
     "apps.games",
+    "apps.materials",
 ]
 
 MIDDLEWARE = [

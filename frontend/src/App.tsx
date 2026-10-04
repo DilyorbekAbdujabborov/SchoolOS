@@ -13,6 +13,7 @@ import {
   GraduationCap,
   HelpCircle,
   LayoutDashboard,
+  Library,
   School,
   Send,
   Settings,
@@ -27,6 +28,7 @@ import { LoadingState } from "./components/states";
 import { useAuth } from "./lib/auth";
 import { GuidePage } from "./pages/GuidePage";
 import { LoginPage } from "./pages/LoginPage";
+import { MaterialsPage } from "./pages/MaterialsPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { DirectorAchievementsPage } from "./pages/director/AchievementsPage";
 import { AttendancePage } from "./pages/director/AttendancePage";
@@ -88,6 +90,7 @@ const DIRECTOR_NAV: NavGroup[] = [
       { to: "/director/teachers", label: "O'qituvchilar", icon: GraduationCap },
       { to: "/director/classes", label: "Sinflar", icon: School },
       { to: "/director/subjects", label: "Fanlar", icon: BookOpen },
+      { to: "/director/materials", label: "Materiallar", icon: Library },
     ],
   },
   {
@@ -135,6 +138,7 @@ const TEACHER_NAV: NavGroup[] = [
     items: [
       { to: "/teacher/tests", label: "Testlar", icon: FileText },
       { to: "/teacher/activities", label: "Topshiriqlar", icon: ClipboardList },
+      { to: "/teacher/materials", label: "Materiallar", icon: Library },
       { to: "/teacher/tasks", label: "Vazifalarim", icon: Send },
       { to: "/teacher/reports", label: "Hisobotlar", icon: BarChart3 },
       { to: "/teacher/xp", label: "XP", icon: Trophy },
@@ -157,6 +161,7 @@ const STUDENT_NAV: NavGroup[] = [
     items: [
       { to: "/student/class", label: "Mening sinfim", icon: Users },
       { to: "/student/lessons", label: "Darslarim", icon: BookOpen },
+      { to: "/student/materials", label: "Materiallar", icon: Library },
       { to: "/student/attendance", label: "Davomatim", icon: ClipboardCheck },
       { to: "/student/tests", label: "Testlar", icon: FileText },
       { to: "/student/activities", label: "Topshiriqlar", icon: ClipboardList },
@@ -214,6 +219,7 @@ export default function App() {
         <Route path="teachers" element={<TeachersPage />} />
         <Route path="classes" element={<ClassesPage />} />
         <Route path="subjects" element={<SubjectsPage />} />
+        <Route path="materials" element={<MaterialsPage />} />
         <Route path="lessons" element={<LessonsPage />} />
         <Route path="timetable" element={<TimetablePage />} />
         <Route path="attendance" element={<AttendancePage />} />
@@ -243,6 +249,7 @@ export default function App() {
         <Route path="attendance" element={<TeacherAttendancePage />} />
         <Route path="tests" element={<TeacherTestsPage />} />
         <Route path="activities" element={<TeacherActivitiesPage />} />
+        <Route path="materials" element={<MaterialsPage />} />
         <Route path="tasks" element={<TeacherTasksPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="xp" element={<TeacherXpPage />} />
@@ -262,6 +269,7 @@ export default function App() {
         <Route index element={<StudentDashboardPage />} />
         <Route path="class" element={<StudentClassPage />} />
         <Route path="lessons" element={<StudentLessonsPage />} />
+        <Route path="materials" element={<MaterialsPage />} />
         <Route path="attendance" element={<StudentAttendancePage />} />
         <Route path="tests" element={<StudentTestsPage />} />
         <Route path="tests/:id" element={<ExamGuard><StudentTestTakingPage /></ExamGuard>} />
