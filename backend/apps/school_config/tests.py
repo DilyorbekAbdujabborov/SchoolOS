@@ -1,5 +1,9 @@
-from datetime import time, timedelta
+from datetime import date, time, timedelta
 from unittest.mock import patch
+
+# A known Monday — a school day under the default Mon–Sat schedule — so lock tests
+# that mock the clock still land on a day the lock is active.
+_SCHOOL_DAY = date(2026, 10, 5)
 
 from django.http import HttpResponse
 from django.test import RequestFactory, TestCase
@@ -68,6 +72,7 @@ class SchoolTimeLockMiddlewareTests(TestCase):
     @patch("apps.school_config.middleware.timezone")
     def test_student_locked_out_during_school_hours(self, mock_timezone):
         mock_timezone.localtime.return_value.time.return_value = time(9, 0)
+        mock_timezone.localtime.return_value.date.return_value = _SCHOOL_DAY
         student_user, _ = make_student()
         response = self.middleware(self._authed_request(student_user))
         self.assertEqual(response.status_code, 423)
@@ -78,6 +83,30 @@ class SchoolTimeLockMiddlewareTests(TestCase):
         student_user, _ = make_student()
         response = self.middleware(self._authed_request(student_user))
         self.assertEqual(response.status_code, 200)
+
+    @patch("apps.school_config.middleware.timezone")
+    def test_student_not_locked_on_a_day_off(self, mock_timezone):
+        # 2026-10-04 is a Sunday; default school days are Mon–Sat, so even during
+        # school hours the lock must not apply.
+        from datetime import date
+
+        mock_now = mock_timezone.localtime.return_value
+        mock_now.time.return_value = time(9, 0)
+        mock_now.date.return_value = date(2026, 10, 4)
+        student_user, _ = make_student()
+        response = self.middleware(self._authed_request(student_user))
+        self.assertEqual(response.status_code, 200)
+
+    @patch("apps.school_config.middleware.timezone")
+    def test_student_locked_on_a_school_day(self, mock_timezone):
+        from datetime import date
+
+        mock_now = mock_timezone.localtime.return_value
+        mock_now.time.return_value = time(9, 0)
+        mock_now.date.return_value = date(2026, 10, 5)  # Monday
+        student_user, _ = make_student()
+        response = self.middleware(self._authed_request(student_user))
+        self.assertEqual(response.status_code, 423)
 
     @patch("apps.school_config.middleware.timezone")
     def test_director_never_blocked(self, mock_timezone):
@@ -128,6 +157,7 @@ class SchoolTimeLockMiddlewareTests(TestCase):
         """Guards the other direction: exempting /api/auth/ must not have widened
         the exemption to the rest of the API."""
         mock_timezone.localtime.return_value.time.return_value = time(9, 0)
+        mock_timezone.localtime.return_value.date.return_value = _SCHOOL_DAY
         student_user, _ = make_student()
         response = self.middleware(self._authed_request(student_user))
         self.assertEqual(response.status_code, 423)
@@ -156,6 +186,7 @@ class ClassAccessWindowTests(TestCase):
     @patch("apps.school_config.middleware.timezone")
     def test_open_window_lets_the_class_through_during_lock(self, mock_timezone):
         mock_timezone.localtime.return_value.time.return_value = time(9, 0)
+        mock_timezone.localtime.return_value.date.return_value = _SCHOOL_DAY
         ClassAccessWindow.objects.create(
             school_class=self.school_class,
             opened_by=self.teacher_user,
@@ -166,6 +197,7 @@ class ClassAccessWindowTests(TestCase):
     @patch("apps.school_config.middleware.timezone")
     def test_expired_window_keeps_the_class_locked(self, mock_timezone):
         mock_timezone.localtime.return_value.time.return_value = time(9, 0)
+        mock_timezone.localtime.return_value.date.return_value = _SCHOOL_DAY
         ClassAccessWindow.objects.create(
             school_class=self.school_class,
             opened_by=self.teacher_user,
@@ -176,6 +208,7 @@ class ClassAccessWindowTests(TestCase):
     @patch("apps.school_config.middleware.timezone")
     def test_other_class_window_does_not_unlock_this_student(self, mock_timezone):
         mock_timezone.localtime.return_value.time.return_value = time(9, 0)
+        mock_timezone.localtime.return_value.date.return_value = _SCHOOL_DAY
         other_class = make_school_class()
         ClassAccessWindow.objects.create(
             school_class=other_class,

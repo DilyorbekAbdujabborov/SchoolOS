@@ -7,6 +7,15 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.common.models import TimeStampedModel
 
+#: ISO weekdays (1=Mon … 7=Sun) the School Time Lock is active on by default —
+#: Monday through Saturday, so Sunday is open. A module-level callable so the
+#: migration can serialize it.
+DEFAULT_SCHOOL_DAYS = [1, 2, 3, 4, 5, 6]
+
+
+def default_school_days() -> list[int]:
+    return list(DEFAULT_SCHOOL_DAYS)
+
 
 class SchoolTimeSettings(TimeStampedModel):
     """School-day timing for exactly one organization.
@@ -31,6 +40,14 @@ class SchoolTimeSettings(TimeStampedModel):
     )
     start_time = models.TimeField(_("school start time"), default=time(8, 0))
     end_time = models.TimeField(_("school end time"), default=time(13, 10))
+    school_days = models.JSONField(
+        _("school days"),
+        default=default_school_days,
+        help_text=_(
+            "ISO weekdays the lock is active on (1=Mon … 7=Sun). "
+            "Default is Mon–Sat, so Sunday is open."
+        ),
+    )
 
     period_duration_minutes = models.PositiveSmallIntegerField(
         _("period duration (minutes)"), default=45
@@ -84,6 +101,11 @@ class SchoolTimeSettings(TimeStampedModel):
         else:
             obj, _created = cls.objects.get_or_create(organization=organization)
         return obj
+
+    def is_school_day(self, day) -> bool:
+        """Whether `day` (a date) is a day the lock applies on. Days off — Sunday
+        by default — are never locked, so weekends stay open."""
+        return day.isoweekday() in (self.school_days or DEFAULT_SCHOOL_DAYS)
 
     def is_locked_at(self, current_time) -> bool:
         if self.start_time <= self.end_time:

@@ -45,7 +45,11 @@ class SchoolTimeLockMiddleware:
         settings_obj = self._get_settings_for_user(user)
         if not settings_obj:
             return None
-        if not settings_obj.is_locked_at(timezone.localtime().time()):
+        now_local = timezone.localtime()
+        # Weekends / days off are never locked — only school days, during hours.
+        if not settings_obj.is_school_day(now_local.date()):
+            return None
+        if not settings_obj.is_locked_at(now_local.time()):
             return None
 
         # A teacher may have opened the platform for this student's class during
