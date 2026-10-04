@@ -95,12 +95,6 @@ function SidebarNav({
               >
                 <item.icon size={18} className="shrink-0" />
                 {!collapsed && <span className="truncate">{item.label}</span>}
-                {collapsed && (
-                  // Hover label for the icon-only rail.
-                  <span className="pointer-events-none absolute left-full z-50 ml-2 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-xs font-medium text-white shadow-lg group-hover/nav:block dark:bg-slate-700">
-                    {item.label}
-                  </span>
-                )}
               </NavLink>
             ))}
           </div>
