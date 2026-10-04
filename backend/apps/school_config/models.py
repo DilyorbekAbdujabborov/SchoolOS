@@ -200,3 +200,39 @@ class ClassAccessWindow(TimeStampedModel):
 
     def is_active(self, now=None) -> bool:
         return self.expires_at > (now or timezone.now())
+
+
+class SchoolDayException(TimeStampedModel):
+    """A calendar override of the weekly school schedule, per organization.
+
+    `OFF` turns the School Time Lock off on a day it would normally apply (a
+    public holiday or a vacation that falls on a weekday). `SCHOOL` turns it on
+    for a day that is normally off (a make-up Saturday/Sunday). `end_date` makes
+    one row cover a range inclusively; leave it empty for a single day.
+    """
+
+    class Kind(models.TextChoices):
+        OFF = "OFF", _("Day off")  # lock disabled — holiday / vacation
+        SCHOOL = "SCHOOL", _("School day")  # lock enabled — make-up day
+
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="day_exceptions",
+        on_delete=models.CASCADE,
+    )
+    start_date = models.DateField(_("start date"))
+    end_date = models.DateField(_("end date"), null=True, blank=True)
+    kind = models.CharField(_("kind"), max_length=6, choices=Kind.choices, default=Kind.OFF)
+    note = models.CharField(_("note"), max_length=255, blank=True)
+
+    class Meta:
+        verbose_name = _("school day exception")
+        verbose_name_plural = _("school day exceptions")
+        ordering = ("-start_date",)
+
+    def __str__(self) -> str:
+        return f"{self.start_date} {self.get_kind_display()}"
+
+    def covers(self, day) -> bool:
+        return self.start_date <= day <= (self.end_date or self.start_date)

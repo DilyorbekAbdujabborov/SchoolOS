@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2 } from "lucide-react";
+import { CalendarOff, CheckCircle2, GraduationCap, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { Field, Input, PrimaryButton } from "../../components/form";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { Field, IconButton, Input, PrimaryButton, Select } from "../../components/form";
 import { PageHeader } from "../../components/PageHeader";
 import { ErrorState, LoadingState } from "../../components/states";
 import { TelegramConnect } from "../../components/TelegramConnect";
 import { api } from "../../lib/api";
-import type { SchoolTimeConfig } from "../../types";
+import type { SchoolDayException, SchoolDayExceptionKind, SchoolTimeConfig } from "../../types";
 
 /** ISO weekday → short Uzbek label, in week order (Mon first). */
 const WEEKDAYS = [
@@ -210,10 +211,198 @@ export function SettingsPage() {
         </form>
       )}
 
+      <SchoolDayExceptionsSection />
+
       <section className="card p-7">
         <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-slate-50">Telegram</h2>
         <TelegramConnect />
       </section>
     </div>
+  );
+}
+
+/** Formats "2026-01-01" → "01.01.2026"; returns "" for an empty value. */
+function formatDate(value: string | null): string {
+  if (!value) return "";
+  const [y, m, d] = value.split("-");
+  return `${d}.${m}.${y}`;
+}
+
+/**
+ * Calendar overrides of the weekly school schedule: holidays and vacations that
+ * turn the lock off on a normal school day, and make-up days that turn it on on
+ * a normal day off. Each exception is a single day, or a range when an end date
+ * is given.
+ */
+function SchoolDayExceptionsSection() {
+  const queryClient = useQueryClient();
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [kind, setKind] = useState<SchoolDayExceptionKind>("OFF");
+  const [note, setNote] = useState("");
+  const [deleting, setDeleting] = useState<SchoolDayException | null>(null);
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["school-day-exceptions"],
+    queryFn: async () =>
+      (await api.get<SchoolDayException[]>("/school-day-exceptions/")).data,
+  });
+
+  const create = useMutation({
+    mutationFn: async () =>
+      (
+        await api.post("/school-day-exceptions/", {
+          start_date: startDate,
+          end_date: endDate || null,
+          kind,
+          note,
+        })
+      ).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["school-day-exceptions"] });
+      setStartDate("");
+      setEndDate("");
+      setKind("OFF");
+      setNote("");
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: number) => api.delete(`/school-day-exceptions/${id}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["school-day-exceptions"] });
+      setDeleting(null);
+    },
+  });
+
+  return (
+    <section className="card p-7">
+      <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">
+        Bayram va maxsus kunlar
+      </h2>
+      <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
+        Haftalik jadvalga istisno. <strong>Dam olish</strong> — bayram yoki ta'til: o'sha kun(lar)da
+        platforma ochiq. <strong>O'quv kuni</strong> — ishlanadigan dam olish: o'sha kun cheklov
+        ishlaydi. Bir kun uchun faqat boshlanish sanasini tanlang; oraliq uchun tugash sanasini ham.
+      </p>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          create.mutate();
+        }}
+        className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2"
+      >
+        <Field label="Sana (boshlanishi)">
+          <Input
+            type="date"
+            required
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="py-2.5"
+          />
+        </Field>
+        <Field label="Tugashi (ixtiyoriy, oraliq uchun)">
+          <Input
+            type="date"
+            value={endDate}
+            min={startDate || undefined}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="py-2.5"
+          />
+        </Field>
+        <Field label="Turi">
+          <Select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as SchoolDayExceptionKind)}
+            className="py-2.5"
+          >
+            <option value="OFF">Dam olish (bayram/ta'til)</option>
+            <option value="SCHOOL">O'quv kuni (ishlanadigan)</option>
+          </Select>
+        </Field>
+        <Field label="Izoh (ixtiyoriy)">
+          <Input
+            type="text"
+            value={note}
+            maxLength={255}
+            placeholder="Masalan: Mustaqillik kuni"
+            onChange={(e) => setNote(e.target.value)}
+            className="py-2.5"
+          />
+        </Field>
+        <div className="sm:col-span-2">
+          <PrimaryButton type="submit" disabled={create.isPending || !startDate}>
+            {create.isPending ? "Qo'shilmoqda..." : "Qo'shish"}
+          </PrimaryButton>
+          {create.isError && (
+            <span className="ml-3 text-sm text-rose-600 dark:text-rose-400">
+              Saqlashda xato. Sanalarni tekshiring.
+            </span>
+          )}
+        </div>
+      </form>
+
+      <div className="mt-6">
+        {isLoading && <LoadingState />}
+        {isError && <ErrorState />}
+        {data && data.length === 0 && (
+          <p className="text-sm text-slate-400 dark:text-slate-500">Hali istisno kun qo'shilmagan.</p>
+        )}
+        {data && data.length > 0 && (
+          <ul className="divide-y divide-line">
+            {data.map((item) => {
+              const isOff = item.kind === "OFF";
+              return (
+                <li key={item.id} className="flex items-center gap-3 py-3">
+                  <span
+                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                      isOff
+                        ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
+                        : "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400"
+                    }`}
+                  >
+                    {isOff ? <CalendarOff className="h-4 w-4" /> : <GraduationCap className="h-4 w-4" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                      {formatDate(item.start_date)}
+                      {item.end_date ? ` — ${formatDate(item.end_date)}` : ""}
+                      <span className="ml-2 text-xs font-normal text-slate-400">{item.kind_display}</span>
+                    </p>
+                    {item.note && (
+                      <p className="truncate text-xs text-slate-500 dark:text-slate-400">{item.note}</p>
+                    )}
+                  </div>
+                  <IconButton
+                    type="button"
+                    label="O'chirish"
+                    tone="danger"
+                    onClick={() => setDeleting(item)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </IconButton>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {deleting && (
+        <ConfirmDialog
+          title="Istisno kunni o'chirish"
+          confirmLabel="O'chirish"
+          danger
+          loading={remove.isPending}
+          onConfirm={() => remove.mutate(deleting.id)}
+          onClose={() => setDeleting(null)}
+        >
+          {formatDate(deleting.start_date)}
+          {deleting.end_date ? ` — ${formatDate(deleting.end_date)}` : ""} ({deleting.kind_display})
+          o'chirilsinmi?
+        </ConfirmDialog>
+      )}
+    </section>
   );
 }

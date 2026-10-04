@@ -1,12 +1,19 @@
 from django.contrib import admin
 
-from .models import ClassAccessWindow, SchoolTimeSettings
+from .models import ClassAccessWindow, SchoolDayException, SchoolTimeSettings
 
 
 @admin.register(ClassAccessWindow)
 class ClassAccessWindowAdmin(admin.ModelAdmin):
     list_display = ("school_class", "opened_by", "expires_at")
     raw_id_fields = ("school_class", "opened_by")
+
+
+@admin.register(SchoolDayException)
+class SchoolDayExceptionAdmin(admin.ModelAdmin):
+    list_display = ("organization", "start_date", "end_date", "kind", "note")
+    list_filter = ("kind",)
+    raw_id_fields = ("organization",)
 
 
 @admin.register(SchoolTimeSettings)

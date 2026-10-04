@@ -47,7 +47,9 @@ class SchoolTimeLockMiddleware:
             return None
         now_local = timezone.localtime()
         # Weekends / days off are never locked — only school days, during hours.
-        if not settings_obj.is_school_day(now_local.date()):
+        # A calendar exception (holiday / vacation, or a make-up working day)
+        # overrides the weekly pattern in both directions.
+        if not services.is_lock_day(settings_obj, now_local.date()):
             return None
         if not settings_obj.is_locked_at(now_local.time()):
             return None

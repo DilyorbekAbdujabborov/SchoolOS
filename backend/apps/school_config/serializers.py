@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import SchoolTimeSettings
+from .models import SchoolDayException, SchoolTimeSettings
 
 
 class ClassAccessClassSerializer(serializers.Serializer):
@@ -39,3 +39,22 @@ class SchoolTimeSettingsSerializer(serializers.ModelSerializer):
         if not isinstance(value, list) or not all(isinstance(d, int) and 1 <= d <= 7 for d in value):
             raise serializers.ValidationError("Kunlar 1 (Dush) dan 7 (Yak) gacha butun sonlar ro'yxati bo'lishi kerak.")
         return sorted(set(value))
+
+
+class SchoolDayExceptionSerializer(serializers.ModelSerializer):
+    """A director-managed calendar override of the weekly school schedule."""
+
+    kind_display = serializers.CharField(source="get_kind_display", read_only=True)
+
+    class Meta:
+        model = SchoolDayException
+        fields = ("id", "start_date", "end_date", "kind", "kind_display", "note")
+
+    def validate(self, attrs):
+        start = attrs.get("start_date", getattr(self.instance, "start_date", None))
+        end = attrs.get("end_date", getattr(self.instance, "end_date", None))
+        if end is not None and start is not None and end < start:
+            raise serializers.ValidationError(
+                {"end_date": "Tugash sanasi boshlanish sanasidan oldin bo'lishi mumkin emas."}
+            )
+        return attrs

@@ -11,7 +11,39 @@ from apps.academics.models import Lesson
 from apps.common.permissions import IsDirector
 from apps.schools.models import SchoolClass
 
-from .models import ClassAccessWindow, SchoolTimeSettings
+from .models import ClassAccessWindow, SchoolDayException, SchoolTimeSettings
+
+
+def _exception_kind(organization_id, day):
+    """The calendar override for `day`, if the org has one: ``"OFF"`` (holiday /
+    vacation — lock disabled), ``"SCHOOL"`` (make-up day — lock enabled), or
+    ``None`` when no exception covers the date.
+
+    A single-day row (no ``end_date``) matches only its own ``start_date``; a
+    dated range matches inclusively. If several rows overlap one day, the most
+    recently started one wins — the director's latest word."""
+    exception = (
+        SchoolDayException.objects.filter(organization_id=organization_id, start_date__lte=day)
+        .filter(Q(end_date__gte=day) | (Q(end_date__isnull=True) & Q(start_date=day)))
+        .order_by("-start_date")
+        .first()
+    )
+    return exception.kind if exception else None
+
+
+def is_lock_day(settings_obj, day) -> bool:
+    """Whether the School Time Lock applies on `day` for this org's settings.
+
+    A calendar exception overrides the weekly pattern in both directions: an
+    ``OFF`` day is never locked even if it is a normal school day, and a
+    ``SCHOOL`` day is locked even if it is a normal day off. With no exception it
+    falls back to the weekly `school_days`."""
+    kind = _exception_kind(settings_obj.organization_id, day)
+    if kind == SchoolDayException.Kind.OFF:
+        return False
+    if kind == SchoolDayException.Kind.SCHOOL:
+        return True
+    return settings_obj.is_school_day(day)
 
 
 def _is_manager(user) -> bool:

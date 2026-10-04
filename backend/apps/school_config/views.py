@@ -4,12 +4,17 @@ from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
 
-from apps.common.permissions import IsDirector, IsOrgStaff
+from apps.common.permissions import IsDirector, IsDirectorOrReadOnly, IsOrgStaff
 
 from . import services
-from .models import SchoolTimeSettings
-from .serializers import ClassAccessStatusSerializer, SchoolTimeSettingsSerializer
+from .models import SchoolDayException, SchoolTimeSettings
+from .serializers import (
+    ClassAccessStatusSerializer,
+    SchoolDayExceptionSerializer,
+    SchoolTimeSettingsSerializer,
+)
 
 
 class SchoolTimeSettingsView(RetrieveUpdateAPIView):
@@ -56,3 +61,20 @@ class ClassAccessView(APIView):
         services.close_access(request.user)
         status = services.access_status(request.user)
         return Response(ClassAccessStatusSerializer(status).data)
+
+
+class SchoolDayExceptionViewSet(ModelViewSet):
+    """Calendar overrides of the weekly school schedule (holidays, vacations and
+    make-up working days). Any member may read them; only a director edits them.
+    Always scoped to the caller's active organization."""
+
+    serializer_class = SchoolDayExceptionSerializer
+    permission_classes: ClassVar[list[type[BasePermission]]] = [IsDirectorOrReadOnly]
+
+    def get_queryset(self):
+        return SchoolDayException.objects.filter(
+            organization_id=self.request.user.active_organization_id
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(organization_id=self.request.user.active_organization_id)

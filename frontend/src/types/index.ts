@@ -268,6 +268,19 @@ export interface SchoolTimeConfig {
   second_short_period_minutes: number;
 }
 
+/** A calendar override of the weekly school schedule. */
+export type SchoolDayExceptionKind = "OFF" | "SCHOOL";
+
+export interface SchoolDayException {
+  id: number;
+  start_date: string;
+  /** Inclusive range end; null for a single day. */
+  end_date: string | null;
+  kind: SchoolDayExceptionKind;
+  kind_display: string;
+  note: string;
+}
+
 export interface TelegramStatus {
   linked: boolean;
   telegram_username: string | null;

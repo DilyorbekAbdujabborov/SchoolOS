@@ -24,7 +24,7 @@ from apps.common.testing import (
 
 from . import services
 from .middleware import SchoolTimeLockMiddleware
-from .models import ClassAccessWindow, SchoolTimeSettings
+from .models import ClassAccessWindow, SchoolDayException, SchoolTimeSettings
 
 
 class PeriodTimesTests(TestCase):
@@ -80,6 +80,7 @@ class SchoolTimeLockMiddlewareTests(TestCase):
     @patch("apps.school_config.middleware.timezone")
     def test_student_allowed_outside_school_hours(self, mock_timezone):
         mock_timezone.localtime.return_value.time.return_value = time(14, 0)
+        mock_timezone.localtime.return_value.date.return_value = _SCHOOL_DAY
         student_user, _ = make_student()
         response = self.middleware(self._authed_request(student_user))
         self.assertEqual(response.status_code, 200)
@@ -327,3 +328,81 @@ class SecondShiftTests(TestCase):
         self.settings_obj.save()
         self.assertEqual(self.settings_obj.shift_start(2), time(8, 0))
         self.assertEqual(self.settings_obj.period_times(4, shift=2), (time(10, 35), time(11, 20)))
+
+
+class SchoolDayExceptionTests(TestCase):
+    """Calendar overrides of the weekly schedule, in both directions."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.middleware = SchoolTimeLockMiddleware(lambda request: HttpResponse("OK"))
+        self.org = default_organization()
+        settings_obj = SchoolTimeSettings.get_solo(self.org)
+        settings_obj.start_time = time(8, 0)
+        settings_obj.end_time = time(13, 10)
+        settings_obj.save()
+        # A Monday (school day) and a Sunday (day off) to anchor the two directions.
+        self.school_day = date(2026, 10, 5)
+        self.day_off = date(2026, 10, 4)
+
+    def _authed_request(self, user, path="/api/dashboard/student/"):
+        token = str(RefreshToken.for_user(user).access_token)
+        return self.factory.get(path, HTTP_AUTHORIZATION=f"Bearer {token}")
+
+    @patch("apps.school_config.middleware.timezone")
+    def test_holiday_unlocks_a_normal_school_day(self, mock_timezone):
+        SchoolDayException.objects.create(
+            organization=self.org, start_date=self.school_day, kind=SchoolDayException.Kind.OFF
+        )
+        mock_timezone.localtime.return_value.time.return_value = time(9, 0)
+        mock_timezone.localtime.return_value.date.return_value = self.school_day
+        student_user, _ = make_student()
+        response = self.middleware(self._authed_request(student_user))
+        self.assertEqual(response.status_code, 200)
+
+    @patch("apps.school_config.middleware.timezone")
+    def test_makeup_day_locks_a_normal_day_off(self, mock_timezone):
+        SchoolDayException.objects.create(
+            organization=self.org, start_date=self.day_off, kind=SchoolDayException.Kind.SCHOOL
+        )
+        mock_timezone.localtime.return_value.time.return_value = time(9, 0)
+        mock_timezone.localtime.return_value.date.return_value = self.day_off
+        student_user, _ = make_student()
+        response = self.middleware(self._authed_request(student_user))
+        self.assertEqual(response.status_code, 423)
+
+    @patch("apps.school_config.middleware.timezone")
+    def test_vacation_range_unlocks_every_day_inside_it(self, mock_timezone):
+        SchoolDayException.objects.create(
+            organization=self.org,
+            start_date=date(2026, 10, 5),
+            end_date=date(2026, 10, 9),
+            kind=SchoolDayException.Kind.OFF,
+        )
+        mock_timezone.localtime.return_value.time.return_value = time(9, 0)
+        mock_timezone.localtime.return_value.date.return_value = date(2026, 10, 7)  # inside
+        student_user, _ = make_student()
+        response = self.middleware(self._authed_request(student_user))
+        self.assertEqual(response.status_code, 200)
+
+    def test_single_day_exception_does_not_leak_past_its_date(self):
+        SchoolDayException.objects.create(
+            organization=self.org, start_date=self.school_day, kind=SchoolDayException.Kind.OFF
+        )
+        self.assertIsNone(services._exception_kind(self.org.id, date(2026, 10, 6)))
+
+    def test_is_lock_day_falls_back_to_weekly_pattern_without_exceptions(self):
+        settings_obj = SchoolTimeSettings.get_solo(self.org)
+        self.assertTrue(services.is_lock_day(settings_obj, self.school_day))
+        self.assertFalse(services.is_lock_day(settings_obj, self.day_off))
+
+    def test_exceptions_are_scoped_to_the_organization(self):
+        settings_obj = SchoolTimeSettings.get_solo(self.org)
+        # An exception for a different org must not affect this one.
+        from apps.organizations.models import Organization
+
+        other = Organization.objects.create(name="Other", slug="other-org")
+        SchoolDayException.objects.create(
+            organization=other, start_date=self.school_day, kind=SchoolDayException.Kind.OFF
+        )
+        self.assertTrue(services.is_lock_day(settings_obj, self.school_day))
