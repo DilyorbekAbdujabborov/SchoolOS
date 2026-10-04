@@ -103,7 +103,7 @@ export function TimetablePage() {
   });
   const { data: teachers } = useQuery({
     queryKey: ["teachers"],
-    queryFn: async () => (await api.get<Paginated<Teacher>>("/app/teachers/")).data,
+    queryFn: async () => (await api.get<Paginated<Teacher>>("/teachers/")).data,
   });
 
   const { data: timeConfig } = useQuery({

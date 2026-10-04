@@ -67,7 +67,7 @@ export function StudentsPage() {
     ],
     queryFn: async () =>
       (
-        await api.get<Paginated<Student>>("/app/students/", {
+        await api.get<Paginated<Student>>("/students/", {
           params: {
             search: debouncedSearch || undefined,
             school_class: classFilter || undefined,
@@ -87,7 +87,7 @@ export function StudentsPage() {
   const createStudent = useMutation({
     mutationFn: async (payload: StudentFormState) =>
       (
-        await api.post("/app/students/", {
+        await api.post("/students/", {
           ...payload,
           school_class: payload.school_class ? Number(payload.school_class) : null,
         })
@@ -104,7 +104,7 @@ export function StudentsPage() {
 
   const toggleActive = useMutation({
     mutationFn: async (student: Student) =>
-      (await api.patch(`/app/students/${student.id}/`, { is_active: !student.is_active })).data,
+      (await api.patch(`/students/${student.id}/`, { is_active: !student.is_active })).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["students"] });
       setConfirmTarget(null);

@@ -52,7 +52,7 @@ export function TeachersPage() {
     queryKey: ["teachers", { search: debouncedSearch, page }],
     queryFn: async () =>
       (
-        await api.get<Paginated<Teacher>>("/app/teachers/", {
+        await api.get<Paginated<Teacher>>("/teachers/", {
           params: { search: debouncedSearch || undefined, page },
         })
       ).data,
@@ -60,7 +60,7 @@ export function TeachersPage() {
   });
 
   const createTeacher = useMutation({
-    mutationFn: async (payload: TeacherFormState) => (await api.post("/app/teachers/", payload)).data,
+    mutationFn: async (payload: TeacherFormState) => (await api.post("/teachers/", payload)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["teachers"] });
       setModalOpen(false);
@@ -72,7 +72,7 @@ export function TeachersPage() {
 
   const toggleActive = useMutation({
     mutationFn: async (teacher: Teacher) =>
-      (await api.patch(`/app/teachers/${teacher.id}/`, { is_active: !teacher.is_active })).data,
+      (await api.patch(`/teachers/${teacher.id}/`, { is_active: !teacher.is_active })).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["teachers"] });
       setConfirmTarget(null);
