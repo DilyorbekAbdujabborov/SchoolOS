@@ -3,7 +3,9 @@ from unittest.mock import patch
 
 from django.http import HttpResponse
 from django.test import RequestFactory, TestCase
+from django.urls import reverse
 from django.utils import timezone
+from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.common.testing import (
@@ -192,7 +194,7 @@ class ClassAccessWindowTests(TestCase):
         with patch("apps.school_config.services.timezone") as mock_tz:
             mock_tz.localtime.return_value = now
             mock_tz.now.return_value = now
-            windows = services.open_access_for_teacher(self.teacher_user)
+            windows = services.open_access(self.teacher_user)
 
         self.assertEqual(len(windows), 1)
         self.assertEqual(windows[0].school_class, self.school_class)
@@ -204,7 +206,7 @@ class ClassAccessWindowTests(TestCase):
             opened_by=self.teacher_user,
             expires_at=timezone.now() + timedelta(hours=1),
         )
-        removed = services.close_access_for_teacher(self.teacher_user)
+        removed = services.close_access(self.teacher_user)
         self.assertEqual(removed, 1)
         self.assertFalse(ClassAccessWindow.objects.filter(school_class=self.school_class).exists())
 
@@ -214,10 +216,28 @@ class ClassAccessWindowTests(TestCase):
             opened_by=self.teacher_user,
             expires_at=timezone.now() + timedelta(hours=1),
         )
-        status = services.teacher_access_status(self.teacher_user)
+        status = services.access_status(self.teacher_user)
         self.assertTrue(status["open"])
         self.assertIsNotNone(status["expires_at"])
         self.assertEqual(status["classes"][0]["id"], self.school_class.id)
+
+    def test_director_opens_every_class_in_the_school(self):
+        other_class = make_school_class()  # not taught by self.teacher
+        director = make_director()
+        windows = services.open_access(director)
+        opened_ids = {w.school_class_id for w in windows}
+        self.assertIn(self.school_class.id, opened_ids)
+        self.assertIn(other_class.id, opened_ids)
+
+    def test_student_cannot_open_access(self):
+        client = APIClient()
+        client.force_authenticate(user=self.student_user)
+        self.assertEqual(client.post(reverse("class-access")).status_code, 403)
+
+    def test_teacher_can_reach_the_endpoint(self):
+        client = APIClient()
+        client.force_authenticate(user=self.teacher_user)
+        self.assertEqual(client.get(reverse("class-access")).status_code, 200)
 
 
 class SecondShiftTests(TestCase):

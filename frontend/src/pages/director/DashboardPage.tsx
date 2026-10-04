@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { ClassAccessControl } from "../../components/ClassAccessControl";
 import { ClassGrowthGrid } from "../../components/ClassGrowthGrid";
 import { DashboardHero } from "../../components/DashboardHero";
 import { StatCard } from "../../components/StatCard";
@@ -89,6 +90,8 @@ export function DirectorDashboardPage() {
 
       {data && (
         <>
+          <ClassAccessControl />
+
           {/* ── School size ──────────────────────────────────────────── */}
           <Section eyebrow="Maktab" title="Umumiy statistika" icon={School} iconTone="brand">
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

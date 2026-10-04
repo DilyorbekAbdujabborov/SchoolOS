@@ -75,8 +75,8 @@ export function ClassAccessControl() {
         <p className="font-medium text-ink">Dars vaqtida platforma</p>
         <p className="text-sm text-ink-muted">
           {isOpen && status?.expires_at
-            ? `O'quvchilaringiz uchun ochiq — soat ${formatTime(status.expires_at)} gacha.`
-            : "O'quvchilaringiz dars vaqtida platformadan foydalana olishi uchun oching."}
+            ? `O'quvchilar uchun ochiq — soat ${formatTime(status.expires_at)} gacha.`
+            : "Dars vaqtida o'quvchilar platformadan foydalana olishi uchun oching."}
         </p>
       </div>
 
