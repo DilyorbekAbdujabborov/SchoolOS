@@ -4,16 +4,18 @@ import { useNavigate } from "react-router-dom";
 
 import logoMark from "../assets/logo-mark.png";
 import { inputClass } from "../components/form";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { useAuth } from "../lib/auth";
 
 /**
  * The entry experience.
  *
- * A neutral charcoal panel, not a blue wall: brand blue appears once, on the
- * wordmark accent and the single primary action. The left panel carries an
- * abstract "learning graph" — a soft mesh, a plotted progress line and a
+ * A neutral charcoal panel, not a teal wall: the brand teal appears sparingly —
+ * on the wordmark accent and the single primary action. The left panel carries
+ * an abstract "learning graph" — a soft mesh, a plotted progress line and a
  * floating stat card — so the page reads as a product rather than a form with
- * a marketing panel bolted on, and it stays legible in both themes.
+ * a marketing panel bolted on, and it stays legible in both themes. A theme
+ * toggle sits in the form panel so a visitor can switch before signing in.
  */
 
 const FEATURES = [
@@ -116,15 +118,15 @@ export function LoginPage() {
 
   return (
     <div className="relative min-h-screen bg-canvas">
-      {/* Ambient wash behind the whole page. */}
+      {/* Ambient wash behind the whole page — brand teal and ember, no purple. */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
           className="absolute -left-40 -top-40 h-[32rem] w-[32rem] rounded-full opacity-60 blur-3xl"
-          style={{ background: "radial-gradient(circle, rgb(37 99 235 / 0.16), transparent 70%)" }}
+          style={{ background: "radial-gradient(circle, rgb(14 179 158 / 0.16), transparent 70%)" }}
         />
         <div
           className="absolute -bottom-52 -right-32 h-[30rem] w-[30rem] rounded-full opacity-50 blur-3xl"
-          style={{ background: "radial-gradient(circle, rgb(124 58 237 / 0.14), transparent 70%)" }}
+          style={{ background: "radial-gradient(circle, rgb(255 107 94 / 0.14), transparent 70%)" }}
         />
       </div>
 
@@ -178,11 +180,14 @@ export function LoginPage() {
 
           {/* ── Form panel ────────────────────────────────────────────── */}
           <div className="flex flex-col justify-center px-7 py-9 sm:px-10 sm:py-11">
-            <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
-              <Sparkles size={15} />
-              <span className="text-[11px] font-semibold uppercase tracking-[0.12em]">
-                Xush kelibsiz
-              </span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400">
+                <Sparkles size={15} />
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em]">
+                  Xush kelibsiz
+                </span>
+              </div>
+              <ThemeToggle />
             </div>
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink">Tizimga kirish</h2>
             <p className="mt-1.5 text-sm text-ink-muted">
