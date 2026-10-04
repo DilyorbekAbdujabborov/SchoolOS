@@ -4,6 +4,7 @@ import {
   Bell,
   CalendarDays,
   Check,
+  CheckCircle2,
   ClipboardCheck,
   FileText,
   Flame,
@@ -11,6 +12,7 @@ import {
   GraduationCap,
   Library,
   Lock,
+  Send,
   Shield,
   Sparkles,
   Swords,
@@ -18,16 +20,17 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
 
 import logoMark from "../assets/logo-mark.png";
+import { inputClass } from "../components/form";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { api, getApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
-// Where "Bepul demo so'rash" points. Replace with the real SchoolOS contact.
-const DEMO_URL = "https://t.me/sharqsoft";
-const PHONE_DISPLAY = "+998 90 583 01 55";
-const PHONE_HREF = "tel:+998905830155";
+// The demo CTA scrolls to the request form at the bottom of the page.
+const DEMO_HREF = "#demo";
 
 interface Feature {
   icon: LucideIcon;
@@ -93,9 +96,7 @@ function Nav() {
                 Kirish
               </Link>
               <a
-                href={DEMO_URL}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={DEMO_HREF}
                 className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700"
               >
                 Demo so'rash
@@ -139,9 +140,7 @@ function Hero() {
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a
-              href={DEMO_URL}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={DEMO_HREF}
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 sm:w-auto"
             >
               Bepul demo so'rash
@@ -325,37 +324,136 @@ function SecurityStrip() {
   );
 }
 
-function CtaBanner() {
+function DemoSection() {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [school, setSchool] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (isSubmitting) return;
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await api.post("/demo-requests/", {
+        name,
+        phone,
+        school_name: school,
+        message,
+      });
+      setDone(true);
+    } catch (err) {
+      setError(getApiError(err).detail);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
-    <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-      <div className="relative overflow-hidden rounded-3xl border border-brand-500/20 bg-gradient-to-br from-brand-600 to-brand-700 px-6 py-14 text-center sm:px-10">
+    <section id="demo" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 sm:px-6">
+      <div className="relative overflow-hidden rounded-3xl border border-brand-500/20 bg-gradient-to-br from-brand-600 to-brand-700 px-6 py-12 sm:px-10 sm:py-14">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{ backgroundImage: "radial-gradient(40% 60% at 85% 20%, rgb(255 107 94 / 0.35) 0%, transparent 60%)" }}
         />
-        <div className="relative">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Maktabingizni raqamlashtiring</h2>
-          <p className="mx-auto mt-3 max-w-xl text-white/85">
-            Bepul demo so'rang — tizimni maktabingiz ma'lumotlari bilan ko'rsatamiz va bosqichma-bosqich joriy etamiz.
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a
-              href={DEMO_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-brand-700 shadow-sm transition-transform hover:scale-[1.02] sm:w-auto"
-            >
-              Bepul demo so'rash
-              <ArrowRight size={17} />
-            </a>
-            <a
-              href={PHONE_HREF}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/30 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10 sm:w-auto"
-            >
-              {PHONE_DISPLAY}
-            </a>
+        <div className="relative grid items-center gap-10 lg:grid-cols-2">
+          <div className="text-center lg:text-left">
+            <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              Maktabingizni raqamlashtiring
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-white/85 lg:mx-0">
+              Bepul demo so'rang — tizimni maktabingiz ma'lumotlari bilan ko'rsatamiz va
+              bosqichma-bosqich joriy etamiz. Ism va telefon qoldiring, o'zimiz bog'lanamiz.
+            </p>
           </div>
+
+          {done ? (
+            <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-white/10 px-6 py-10 text-center ring-1 ring-inset ring-white/20">
+              <CheckCircle2 size={40} className="text-white" />
+              <p className="text-lg font-semibold text-white">So'rovingiz qabul qilindi</p>
+              <p className="max-w-xs text-sm text-white/85">
+                Rahmat! Tez orada siz bilan bog'lanamiz.
+              </p>
+            </div>
+          ) : (
+            <form
+              onSubmit={handleSubmit}
+              className="rounded-2xl bg-surface p-5 shadow-pop sm:p-6"
+            >
+              <div className="space-y-3.5">
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-ink-muted">Ism *</span>
+                  <input
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Ismingiz"
+                    className={inputClass}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-ink-muted">Telefon *</span>
+                  <input
+                    required
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+998 __ ___ __ __"
+                    className={inputClass}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-ink-muted">
+                    Maktab nomi
+                  </span>
+                  <input
+                    value={school}
+                    onChange={(e) => setSchool(e.target.value)}
+                    placeholder="Masalan: 5-maktab"
+                    className={inputClass}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-ink-muted">Xabar</span>
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    rows={3}
+                    placeholder="Qisqacha so'rovingiz (ixtiyoriy)"
+                    className={`${inputClass} resize-none`}
+                  />
+                </label>
+              </div>
+
+              {error && (
+                <p
+                  role="alert"
+                  className="pop mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300"
+                >
+                  {error}
+                </p>
+              )}
+
+              <button type="submit" disabled={isSubmitting} className="btn btn-lg btn-primary mt-4 w-full">
+                {isSubmitting ? (
+                  <>
+                    <span className="spinner" />
+                    Yuborilmoqda…
+                  </>
+                ) : (
+                  <>
+                    Demo so'rash
+                    <Send size={16} />
+                  </>
+                )}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </section>
@@ -375,8 +473,7 @@ function Footer() {
         </div>
         <div className="flex items-center gap-5 text-sm text-ink-muted">
           <Link to="/login" className="transition-colors hover:text-ink">Kirish</Link>
-          <a href={DEMO_URL} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-ink">Demo</a>
-          <a href={PHONE_HREF} className="transition-colors hover:text-ink">{PHONE_DISPLAY}</a>
+          <a href={DEMO_HREF} className="transition-colors hover:text-ink">Demo so'rash</a>
         </div>
       </div>
       <p className="pb-6 text-center text-xs text-ink-subtle">© {new Date().getFullYear()} SchoolOS</p>
@@ -394,7 +491,7 @@ export function LandingPage() {
         <Features />
         <LigaHighlight />
         <Roles />
-        <CtaBanner />
+        <DemoSection />
       </main>
       <Footer />
     </div>

@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "apps.remedial",
     "apps.games",
     "apps.materials",
+    "apps.leads",
 ]
 
 MIDDLEWARE = [
@@ -148,6 +149,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "100/hour",
         "user": "1000/hour",
+        "demo_request": "10/hour",
     },
 }
 
