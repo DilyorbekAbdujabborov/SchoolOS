@@ -155,6 +155,30 @@ class OrganizationTokenRefreshView(TokenViewBase):
         )
 
 
+class LogoutView(APIView):
+    """`/api/auth/logout/` — blacklists the given refresh token so it cannot mint
+    any more access tokens before its 14-day lifetime ends.
+
+    Takes no authentication: the refresh token in the body is what is being
+    invalidated, and the access token is usually about to be thrown away anyway.
+    Idempotent — an already-invalid or already-blacklisted token still returns a
+    clean 205, so the client can always complete logout."""
+
+    authentication_classes: ClassVar[list] = []
+    permission_classes: ClassVar[list[type[BasePermission]]] = [AllowAny]
+
+    def post(self, request):
+        refresh_token = request.data.get("refresh")
+        if not refresh_token:
+            return Response({"detail": "Refresh token topilmadi."}, status=400)
+        try:
+            RefreshToken(str(refresh_token)).blacklist()
+        except TokenError:
+            # Expired, malformed or already blacklisted — nothing left to do.
+            pass
+        return Response(status=205)
+
+
 class MyMembershipsView(APIView):
     """The caller's memberships, without a switch. Lets a client show which
     organizations are available without changing the active one."""

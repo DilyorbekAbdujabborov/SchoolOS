@@ -130,5 +130,11 @@ export async function login(email: string, password: string) {
 }
 
 export function logout() {
+  const refresh = tokenStorage.getRefresh();
   tokenStorage.clear();
+  if (refresh) {
+    // Fire-and-forget: blacklist the refresh token server-side so it can't be
+    // reused. The UI logs out immediately regardless of the result.
+    axios.post("/api/auth/logout/", { refresh }).catch(() => {});
+  }
 }

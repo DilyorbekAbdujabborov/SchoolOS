@@ -52,3 +52,29 @@ class TokenRefreshTests(APITestCase):
     def test_refresh_requires_a_token(self):
         response = self.client.post("/api/auth/refresh/", {}, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class LogoutTests(APITestCase):
+    def setUp(self):
+        self.user = make_director()
+        refresh = RefreshToken.for_user(self.user)
+        refresh[ORG_CLAIM] = self.user.active_organization_id
+        self.refresh = str(refresh)
+
+    def test_logout_blacklists_the_refresh_token(self):
+        logout = self.client.post("/api/auth/logout/", {"refresh": self.refresh}, format="json")
+        self.assertEqual(logout.status_code, status.HTTP_205_RESET_CONTENT)
+
+        # The blacklisted token can no longer be refreshed.
+        refreshed = self.client.post(
+            "/api/auth/refresh/", {"refresh": self.refresh}, format="json"
+        )
+        self.assertEqual(refreshed.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_logout_without_a_token_is_a_400(self):
+        response = self.client.post("/api/auth/logout/", {}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_logout_is_idempotent_for_a_bad_token(self):
+        response = self.client.post("/api/auth/logout/", {"refresh": "garbage"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_205_RESET_CONTENT)

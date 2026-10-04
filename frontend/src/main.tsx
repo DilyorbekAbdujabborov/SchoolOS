@@ -13,6 +13,12 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      // Without a staleTime, every query is stale the instant it resolves, so
+      // each component mount refetches — navigating into a section re-fires its
+      // requests even though the data was just loaded. 60s of freshness serves
+      // cached data on navigation; anything that needs to be live sets its own
+      // refetchInterval (lock screen, league board, class access).
+      staleTime: 60_000,
     },
   },
 });
