@@ -4,6 +4,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 
+from . import services
 from .models import SchoolTimeSettings
 
 EXEMPT_PATH_PREFIXES = (
@@ -45,6 +46,12 @@ class SchoolTimeLockMiddleware:
         if not settings_obj:
             return None
         if not settings_obj.is_locked_at(timezone.localtime().time()):
+            return None
+
+        # A teacher may have opened the platform for this student's class during
+        # a lesson — that lifts the time lock until the window expires.
+        profile = getattr(user, "student_profile", None)
+        if profile and services.class_is_open(profile.school_class_id):
             return None
 
         return JsonResponse(

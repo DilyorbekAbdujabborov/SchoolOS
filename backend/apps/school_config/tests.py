@@ -1,14 +1,24 @@
-from datetime import time
+from datetime import time, timedelta
 from unittest.mock import patch
 
 from django.http import HttpResponse
 from django.test import RequestFactory, TestCase
+from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.common.testing import default_organization, make_director, make_student, make_teacher
+from apps.common.testing import (
+    default_organization,
+    make_director,
+    make_lesson,
+    make_school_class,
+    make_student,
+    make_subject,
+    make_teacher,
+)
 
+from . import services
 from .middleware import SchoolTimeLockMiddleware
-from .models import SchoolTimeSettings
+from .models import ClassAccessWindow, SchoolTimeSettings
 
 
 class PeriodTimesTests(TestCase):
@@ -119,6 +129,95 @@ class SchoolTimeLockMiddlewareTests(TestCase):
         student_user, _ = make_student()
         response = self.middleware(self._authed_request(student_user))
         self.assertEqual(response.status_code, 423)
+
+
+class ClassAccessWindowTests(TestCase):
+    """A teacher opening the platform for their classes during a lesson lifts the
+    time lock for those classes until the window expires."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.middleware = SchoolTimeLockMiddleware(lambda request: HttpResponse("OK"))
+        self.settings_obj = SchoolTimeSettings.get_solo(default_organization())
+        self.settings_obj.start_time = time(8, 0)
+        self.settings_obj.end_time = time(13, 10)
+        self.settings_obj.save()
+
+        self.teacher_user, self.teacher = make_teacher()
+        self.school_class = make_school_class(class_teacher=self.teacher)
+        self.student_user, _ = make_student(school_class=self.school_class)
+
+    def _student_request(self):
+        token = str(RefreshToken.for_user(self.student_user).access_token)
+        return self.factory.get("/api/dashboard/student/", HTTP_AUTHORIZATION=f"Bearer {token}")
+
+    @patch("apps.school_config.middleware.timezone")
+    def test_open_window_lets_the_class_through_during_lock(self, mock_timezone):
+        mock_timezone.localtime.return_value.time.return_value = time(9, 0)
+        ClassAccessWindow.objects.create(
+            school_class=self.school_class,
+            opened_by=self.teacher_user,
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+        self.assertEqual(self.middleware(self._student_request()).status_code, 200)
+
+    @patch("apps.school_config.middleware.timezone")
+    def test_expired_window_keeps_the_class_locked(self, mock_timezone):
+        mock_timezone.localtime.return_value.time.return_value = time(9, 0)
+        ClassAccessWindow.objects.create(
+            school_class=self.school_class,
+            opened_by=self.teacher_user,
+            expires_at=timezone.now() - timedelta(minutes=1),
+        )
+        self.assertEqual(self.middleware(self._student_request()).status_code, 423)
+
+    @patch("apps.school_config.middleware.timezone")
+    def test_other_class_window_does_not_unlock_this_student(self, mock_timezone):
+        mock_timezone.localtime.return_value.time.return_value = time(9, 0)
+        other_class = make_school_class()
+        ClassAccessWindow.objects.create(
+            school_class=other_class,
+            opened_by=self.teacher_user,
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+        self.assertEqual(self.middleware(self._student_request()).status_code, 423)
+
+    def test_open_anchors_expiry_to_the_current_lesson_end(self):
+        subject = make_subject()
+        make_lesson(school_class=self.school_class, subject=subject, teacher=self.teacher)
+        # make_lesson defaults to 2026-09-21, 09:00–09:45; pretend "now" is 09:10.
+        now = timezone.localtime().replace(
+            year=2026, month=9, day=21, hour=9, minute=10, second=0, microsecond=0
+        )
+        with patch("apps.school_config.services.timezone") as mock_tz:
+            mock_tz.localtime.return_value = now
+            mock_tz.now.return_value = now
+            windows = services.open_access_for_teacher(self.teacher_user)
+
+        self.assertEqual(len(windows), 1)
+        self.assertEqual(windows[0].school_class, self.school_class)
+        self.assertEqual(timezone.localtime(windows[0].expires_at).time(), time(9, 45))
+
+    def test_close_removes_the_teacher_windows(self):
+        ClassAccessWindow.objects.create(
+            school_class=self.school_class,
+            opened_by=self.teacher_user,
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+        removed = services.close_access_for_teacher(self.teacher_user)
+        self.assertEqual(removed, 1)
+        self.assertFalse(ClassAccessWindow.objects.filter(school_class=self.school_class).exists())
+
+    def test_status_reports_open_state(self):
+        ClassAccessWindow.objects.create(
+            school_class=self.school_class,
+            opened_by=self.teacher_user,
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+        status = services.teacher_access_status(self.teacher_user)
+        self.assertTrue(status["open"])
+        self.assertIsNotNone(status["expires_at"])
+        self.assertEqual(status["classes"][0]["id"], self.school_class.id)
 
 
 class SecondShiftTests(TestCase):

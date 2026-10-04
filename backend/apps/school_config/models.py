@@ -1,6 +1,8 @@
 from datetime import date, datetime, time, timedelta
 
+from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.common.models import TimeStampedModel
@@ -104,6 +106,21 @@ class SchoolTimeSettings(TimeStampedModel):
             return self.second_short_period_minutes
         return self.period_duration_minutes
 
+    def current_period_end(self, now_time) -> time:
+        """End of the lesson period `now_time` sits in, or of the next one if it
+        sits in a break. Falls back to the lock window's end. Used as a last
+        resort for the class-access window when a teacher has no dated lesson to
+        anchor it to (see school_config.services)."""
+        period = 1
+        while period <= 20:  # a school day is never this long — just a guard
+            start, end = self.period_times(period, shift=1)
+            if start >= self.end_time:
+                break
+            if end > now_time:
+                return min(end, self.end_time)
+            period += 1
+        return self.end_time
+
     def period_times(self, period_number: int, shift: int = 1) -> tuple[time, time]:
         """Start/end time of the Nth period of `shift`, counting breaks since that
         shift's start.
@@ -124,3 +141,40 @@ class SchoolTimeSettings(TimeStampedModel):
         period_start = current.time()
         period_end = (current + timedelta(minutes=self.period_duration(period_number, shift))).time()
         return period_start, period_end
+
+
+class ClassAccessWindow(TimeStampedModel):
+    """A temporary lift of the School Time Lock for one class.
+
+    A teacher (including a class's own `class_teacher`) opens the platform for
+    their classes during a lesson; each opened class gets a row here that expires
+    at the end of the current period. The lock middleware lets a student through
+    while their class has a row whose `expires_at` is still in the future, so a
+    teacher who forgets to close it never leaves the class open past the bell.
+    """
+
+    school_class = models.OneToOneField(
+        "schools.SchoolClass",
+        verbose_name=_("class"),
+        related_name="access_window",
+        on_delete=models.CASCADE,
+    )
+    opened_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("opened by"),
+        related_name="opened_access_windows",
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    expires_at = models.DateTimeField(_("expires at"))
+
+    class Meta:
+        verbose_name = _("class access window")
+        verbose_name_plural = _("class access windows")
+        ordering = ("-expires_at",)
+
+    def __str__(self) -> str:
+        return f"{self.school_class} until {self.expires_at:%H:%M}"
+
+    def is_active(self, now=None) -> bool:
+        return self.expires_at > (now or timezone.now())

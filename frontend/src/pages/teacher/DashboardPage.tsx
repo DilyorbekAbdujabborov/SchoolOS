@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { ClassAccessControl } from "../../components/ClassAccessControl";
 import { DashboardHero } from "../../components/DashboardHero";
 import { GradientActionCard } from "../../components/GradientActionCard";
 import { LessonList } from "../../components/LessonList";
@@ -111,6 +112,8 @@ export function TeacherDashboardPage() {
 
       {data && (
         <>
+          <ClassAccessControl />
+
           {pendingAttendanceCount > 0 && (
             <GradientActionCard
               icon={ClipboardCheck}
