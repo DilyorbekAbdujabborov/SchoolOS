@@ -139,3 +139,68 @@ class ShuffleOptionsTests(TestCase):
         question = {"text": "2+2?", "options": ["4", "3", "5", "22"], "correct_index": 0}
         slots = {shuffle_options(question)["correct_index"] for _ in range(60)}
         self.assertGreater(len(slots), 1)
+
+
+class ExceptionEnvelopeTests(TestCase):
+    """The custom handler normalises every DRF error into one envelope:
+    {error_code, detail, errors}. HTTP status is never duplicated into the body.
+    """
+
+    def _handle(self, exc):
+        from .exceptions import custom_exception_handler
+
+        response = custom_exception_handler(exc, {})
+        return response
+
+    def test_plain_detail_exception(self):
+        from rest_framework.exceptions import PermissionDenied
+
+        data = self._handle(PermissionDenied("Ruxsat yo'q")).data
+        self.assertEqual(data["error_code"], "permission_denied")
+        self.assertEqual(data["detail"], "Ruxsat yo'q")
+        self.assertIsNone(data["errors"])
+
+    def test_validation_error_from_a_string_is_flattened(self):
+        from rest_framework.exceptions import ValidationError
+
+        # ValidationError("msg") renders as a bare list ["msg"] by default.
+        data = self._handle(ValidationError("Savol yetarli emas")).data
+        self.assertEqual(data["error_code"], "invalid")
+        self.assertEqual(data["detail"], "Savol yetarli emas")
+        self.assertIsNone(data["errors"])
+
+    def test_field_errors_are_kept_and_headlined(self):
+        from rest_framework.exceptions import ValidationError
+
+        data = self._handle(ValidationError({"end_time": ["Boshlanishdan keyin bo'lsin"]})).data
+        self.assertEqual(data["error_code"], "invalid")
+        self.assertEqual(data["detail"], "Boshlanishdan keyin bo'lsin")
+        self.assertEqual(data["errors"], {"end_time": ["Boshlanishdan keyin bo'lsin"]})
+
+    def test_non_field_errors_lead_the_headline(self):
+        from rest_framework.exceptions import ValidationError
+
+        data = self._handle(
+            ValidationError({"name": ["x"], "non_field_errors": ["Umumiy xato"]})
+        ).data
+        self.assertEqual(data["detail"], "Umumiy xato")
+        self.assertIn("name", data["errors"])
+
+    def test_app_error_carries_its_code(self):
+        from rest_framework import status
+
+        from .exceptions import AppError
+
+        class InsufficientXP(AppError):
+            status_code = status.HTTP_409_CONFLICT
+            default_detail = "XP yetarli emas."
+            default_code = "insufficient_xp"
+
+        response = self._handle(InsufficientXP())
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.data["error_code"], "insufficient_xp")
+        self.assertEqual(response.data["detail"], "XP yetarli emas.")
+
+    def test_unhandled_exception_is_left_for_django(self):
+        # A non-DRF exception returns None → Django renders its own 500.
+        self.assertIsNone(self._handle(KeyError("boom")))

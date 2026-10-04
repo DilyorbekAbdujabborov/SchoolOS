@@ -126,6 +126,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ---------- Django REST Framework ----------
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "EXCEPTION_HANDLER": "apps.common.exceptions.custom_exception_handler",
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "apps.organizations.authentication.OrganizationHeaderAuthentication",
         "rest_framework.authentication.SessionAuthentication",

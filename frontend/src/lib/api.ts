@@ -124,6 +124,36 @@ api.interceptors.response.use(
   },
 );
 
+/** The uniform error envelope the backend sends for every API error
+ * (see apps/common/exceptions.py): { error_code, detail, errors }. */
+export interface ApiError {
+  /** Machine-readable code, e.g. "invalid", "permission_denied", "insufficient_xp". */
+  errorCode: string;
+  /** One human-readable message, always present — safe to show in a toast. */
+  detail: string;
+  /** Field-level validation errors, or null for a non-field error. */
+  errors: Record<string, string[]> | null;
+}
+
+/**
+ * Normalise anything thrown by axios into an {@link ApiError}. Reads the
+ * backend envelope when present and falls back to a generic message for
+ * network failures or non-DRF responses, so callers never have to poke at
+ * `err.response.data` shapes themselves.
+ */
+export function getApiError(err: unknown): ApiError {
+  const data = (err as { response?: { data?: unknown } })?.response?.data;
+  if (data && typeof data === "object" && "detail" in data) {
+    const body = data as { error_code?: string; detail?: unknown; errors?: unknown };
+    return {
+      errorCode: typeof body.error_code === "string" ? body.error_code : "error",
+      detail: typeof body.detail === "string" ? body.detail : "Xatolik yuz berdi",
+      errors: (body.errors as Record<string, string[]> | null) ?? null,
+    };
+  }
+  return { errorCode: "error", detail: "Xatolik yuz berdi", errors: null };
+}
+
 export async function login(email: string, password: string) {
   const { data } = await axios.post("/api/auth/login/", { email, password });
   tokenStorage.set(data.access, data.refresh);

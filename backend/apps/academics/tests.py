@@ -254,7 +254,7 @@ class TimetableSlotAutoTimeTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 400)
-        self.assertIn("end_time", response.data)
+        self.assertIn("end_time", response.data["errors"])
 
     def test_patching_only_the_room_keeps_the_times(self):
         school_class = make_school_class()
