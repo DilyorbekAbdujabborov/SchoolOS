@@ -1,16 +1,17 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useState } from "react";
 
+import { Avatar } from "../../components/Avatar";
 import { Badge } from "../../components/Badge";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Field, Input, PrimaryButton, Select, SecondaryButton } from "../../components/form";
 import { Modal } from "../../components/Modal";
 import { PageHeader } from "../../components/PageHeader";
+import { Pagination } from "../../components/Pagination";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
 import { api } from "../../lib/api";
 import type { Paginated, SchoolClass, Student } from "../../types";
-
-const PAGE_SIZE = 20;
 
 interface StudentFormState {
   email: string;
@@ -28,6 +29,11 @@ const EMPTY_FORM: StudentFormState = {
   password: "",
 };
 
+/** Title-case a name the way the DB stores it, lowercasing with Uzbek rules. */
+function displayName(student: Student): string {
+  return `${student.first_name} ${student.last_name}`.trim();
+}
+
 export function StudentsPage() {
   const queryClient = useQueryClient();
   const [isModalOpen, setModalOpen] = useState(false);
@@ -39,6 +45,7 @@ export function StudentsPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [classFilter, setClassFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const [confirmTarget, setConfirmTarget] = useState<Student | null>(null);
 
@@ -51,16 +58,20 @@ export function StudentsPage() {
   // on page 5 of a result set that now has one page.
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, classFilter]);
+  }, [debouncedSearch, classFilter, statusFilter]);
 
   const { data, isLoading, isError, isFetching } = useQuery({
-    queryKey: ["students", { search: debouncedSearch, schoolClass: classFilter, page }],
+    queryKey: [
+      "students",
+      { search: debouncedSearch, schoolClass: classFilter, status: statusFilter, page },
+    ],
     queryFn: async () =>
       (
         await api.get<Paginated<Student>>("/students/", {
           params: {
             search: debouncedSearch || undefined,
             school_class: classFilter || undefined,
+            is_active: statusFilter || undefined,
             page,
           },
         })
@@ -106,10 +117,8 @@ export function StudentsPage() {
   }
 
   const total = data?.count ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const rangeEnd = Math.min(page * PAGE_SIZE, total);
-  const isFiltering = debouncedSearch !== "" || classFilter !== "";
+  const isFiltering = debouncedSearch !== "" || classFilter !== "" || statusFilter !== "";
+  const students = data?.results ?? [];
 
   return (
     <div className="space-y-6">
@@ -120,20 +129,19 @@ export function StudentsPage() {
       />
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
-          <Input
-            type="search"
-            placeholder="Ism yoki email bo'yicha qidirish..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="O'quvchi qidirish"
-          />
-        </div>
+        <Input
+          type="search"
+          placeholder="Ism yoki email bo'yicha qidirish..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="O'quvchi qidirish"
+          className="flex-1"
+        />
         <Select
           value={classFilter}
           onChange={(e) => setClassFilter(e.target.value)}
           aria-label="Sinf bo'yicha filtr"
-          className="sm:w-56"
+          className="sm:w-48"
         >
           <option value="">Barcha sinflar</option>
           {classes?.results.map((cls) => (
@@ -142,43 +150,63 @@ export function StudentsPage() {
             </option>
           ))}
         </Select>
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          aria-label="Holat bo'yicha filtr"
+          className="sm:w-40"
+        >
+          <option value="">Barcha holatlar</option>
+          <option value="true">Faol</option>
+          <option value="false">Faol emas</option>
+        </Select>
       </div>
 
       {isLoading && <LoadingState />}
       {isError && <ErrorState />}
-      {data && data.results.length === 0 && !isFiltering && (
+      {data && students.length === 0 && !isFiltering && (
         <EmptyState title="Hali o'quvchi yo'q" description="Yuqoridagi tugma orqali qo'shing." />
       )}
-      {data && data.results.length === 0 && isFiltering && (
+      {data && students.length === 0 && isFiltering && (
         <EmptyState
           title="Hech narsa topilmadi"
           description="Qidiruv yoki filtrni o'zgartirib ko'ring."
         />
       )}
 
-      {data && data.results.length > 0 && (
-        <>
-          <div aria-busy={isFetching}>
+      {students.length > 0 && (
+        <div className="space-y-4" aria-busy={isFetching}>
+          {/* Desktop: table. Mobile: stacked cards (below). */}
+          <div className="hidden sm:block">
             <Table>
               <Thead>
                 <Tr>
-                  <Th>Ism</Th>
+                  <Th>O'quvchi</Th>
                   <Th>Sinf</Th>
+                  <Th className="text-right">XP</Th>
                   <Th>Holat</Th>
                   <Th />
                 </Tr>
               </Thead>
               <Tbody>
-                {data.results.map((student) => (
+                {students.map((student) => (
                   <Tr key={student.id}>
-                    <Td className="font-medium capitalize text-slate-900 dark:text-slate-50">
-                      {student.first_name.toLocaleLowerCase("uz")}{" "}
-                      {student.last_name.toLocaleLowerCase("uz")}
+                    <Td>
+                      <div className="flex items-center gap-3">
+                        <Avatar name={displayName(student)} size={36} />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium capitalize text-slate-900 dark:text-slate-50">
+                            {displayName(student).toLocaleLowerCase("uz")}
+                          </p>
+                          <p className="truncate text-xs text-ink-muted">{student.email}</p>
+                        </div>
+                      </div>
                     </Td>
                     <Td className="text-slate-600 dark:text-slate-300">
-                      {student.school_class_name ?? (
-                        <span className="text-ink-subtle">—</span>
-                      )}
+                      {student.school_class_name ?? <span className="text-ink-subtle">—</span>}
+                    </Td>
+                    <Td className="text-right font-medium tabular-nums text-amber-600 dark:text-amber-400">
+                      {student.total_xp.toLocaleString("uz-UZ")}
                     </Td>
                     <Td>
                       <Badge tone={student.is_active ? "emerald" : "slate"}>
@@ -199,59 +227,68 @@ export function StudentsPage() {
             </Table>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-ink-muted">
-              {rangeStart}–{rangeEnd} / {total}
-            </p>
-            <div className="flex items-center gap-2">
-              <SecondaryButton
-                type="button"
-                disabled={!data.previous || isFetching}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Oldingi
-              </SecondaryButton>
-              <span className="text-sm text-ink-muted">
-                {page} / {totalPages}
-              </span>
-              <SecondaryButton
-                type="button"
-                disabled={!data.next || isFetching}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Keyingi
-              </SecondaryButton>
-            </div>
-          </div>
-        </>
+          {/* Mobile cards */}
+          <ul className="space-y-3 sm:hidden">
+            {students.map((student) => (
+              <li key={student.id} className="card space-y-3 p-4">
+                <div className="flex items-start gap-3">
+                  <Avatar name={displayName(student)} size={40} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium capitalize text-slate-900 dark:text-slate-50">
+                      {displayName(student).toLocaleLowerCase("uz")}
+                    </p>
+                    <p className="truncate text-xs text-ink-muted">{student.email}</p>
+                  </div>
+                  <Badge tone={student.is_active ? "emerald" : "slate"}>
+                    {student.is_active ? "Faol" : "Faol emas"}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-ink-muted">
+                    {student.school_class_name ?? "Sinfsiz"} ·{" "}
+                    <span className="font-medium text-amber-600 dark:text-amber-400">
+                      {student.total_xp.toLocaleString("uz-UZ")} XP
+                    </span>
+                  </span>
+                  <button
+                    onClick={() => setConfirmTarget(student)}
+                    className="shrink-0 font-medium text-brand-600 hover:underline dark:text-brand-400"
+                  >
+                    {student.is_active ? "Faolsizlantirish" : "Faollashtirish"}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <Pagination
+            page={page}
+            total={total}
+            hasPrev={Boolean(data?.previous)}
+            hasNext={Boolean(data?.next)}
+            onPrev={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => p + 1)}
+            busy={isFetching}
+          />
+        </div>
       )}
 
       {confirmTarget && (
-        <Modal
+        <ConfirmDialog
           title={confirmTarget.is_active ? "O'quvchini faolsizlantirish" : "O'quvchini faollashtirish"}
+          confirmLabel={confirmTarget.is_active ? "Faolsizlantirish" : "Faollashtirish"}
+          danger={confirmTarget.is_active}
+          loading={toggleActive.isPending}
+          onConfirm={() => toggleActive.mutate(confirmTarget)}
           onClose={() => setConfirmTarget(null)}
         >
-          <p className="text-sm text-ink-muted">
-            <span className="font-medium text-ink">
-              {confirmTarget.first_name} {confirmTarget.last_name}
-            </span>{" "}
-            {confirmTarget.is_active
-              ? "faolsizlantirilsinmi? U tizimga kira olmaydi."
-              : "qayta faollashtirilsinmi?"}
-          </p>
-          <div className="flex justify-end gap-2 pt-4">
-            <SecondaryButton type="button" onClick={() => setConfirmTarget(null)}>
-              Bekor qilish
-            </SecondaryButton>
-            <PrimaryButton
-              type="button"
-              disabled={toggleActive.isPending}
-              onClick={() => toggleActive.mutate(confirmTarget)}
-            >
-              {toggleActive.isPending ? "Bajarilmoqda..." : "Tasdiqlash"}
-            </PrimaryButton>
-          </div>
-        </Modal>
+          <span className="font-medium text-ink capitalize">
+            {displayName(confirmTarget).toLocaleLowerCase("uz")}
+          </span>{" "}
+          {confirmTarget.is_active
+            ? "faolsizlantirilsinmi? U tizimga kira olmaydi."
+            : "qayta faollashtirilsinmi?"}
+        </ConfirmDialog>
       )}
 
       {isModalOpen && (

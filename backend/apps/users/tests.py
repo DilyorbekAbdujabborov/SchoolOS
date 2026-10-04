@@ -284,3 +284,29 @@ class StudentSerializerTests(APITestCase):
         self.client.patch(f"/api/students/{profile.id}/", {"total_xp": 9999}, format="json")
         profile.refresh_from_db()
         self.assertEqual(profile.total_xp, 15)
+
+
+class StudentFilterTests(APITestCase):
+    def setUp(self):
+        self.director = make_director()
+        self.active_user, self.active_profile = make_student()
+        self.inactive_user, self.inactive_profile = make_student()
+        self.inactive_user.is_active = False
+        self.inactive_user.save(update_fields=["is_active"])
+
+    def _ids(self, response):
+        return {row["id"] for row in response.data["results"]}
+
+    def test_filter_is_active_true_returns_only_active_students(self):
+        self.client.force_authenticate(self.director)
+        response = self.client.get("/api/students/?is_active=true")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(self.active_profile.id, self._ids(response))
+        self.assertNotIn(self.inactive_profile.id, self._ids(response))
+
+    def test_filter_is_active_false_returns_only_inactive_students(self):
+        self.client.force_authenticate(self.director)
+        response = self.client.get("/api/students/?is_active=false")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(self.inactive_profile.id, self._ids(response))
+        self.assertNotIn(self.active_profile.id, self._ids(response))

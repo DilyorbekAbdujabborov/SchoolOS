@@ -1,6 +1,7 @@
 from dataclasses import asdict
 from typing import ClassVar
 
+import django_filters
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from rest_framework import viewsets
@@ -59,6 +60,17 @@ class TeacherViewSet(viewsets.ModelViewSet):
     search_fields = ("user__email", "user__first_name", "user__last_name")
 
 
+class StudentFilter(django_filters.FilterSet):
+    """`is_active` lives on the linked User, so expose it as a top-level filter
+    (?is_active=true/false) rather than making the client know the join path."""
+
+    is_active = django_filters.BooleanFilter(field_name="user__is_active")
+
+    class Meta:
+        model = StudentProfile
+        fields = ("school_class", "is_active")
+
+
 class StudentViewSet(viewsets.ModelViewSet):
     """Director: full CRUD. Teacher: students in classes they're involved with. Student: only themselves."""
 
@@ -66,7 +78,7 @@ class StudentViewSet(viewsets.ModelViewSet):
     permission_classes: ClassVar[list[type[BasePermission]]] = [IsDirectorOrReadOnly]
     http_method_names: ClassVar[list[str]] = ["get", "post", "patch", "put", "head", "options"]
     search_fields = ("user__email", "user__first_name", "user__last_name")
-    filterset_fields = ("school_class",)
+    filterset_class = StudentFilter
 
     def get_queryset(self):
         user = self.request.user
