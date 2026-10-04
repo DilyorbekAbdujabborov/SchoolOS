@@ -75,10 +75,6 @@ import { TeacherTasksPage } from "./pages/teacher/TasksPage";
 import { TeacherTestsPage } from "./pages/teacher/TestsPage";
 import { TeacherXpPage } from "./pages/teacher/XpPage";
 import type { NavGroup } from "./routes/DashboardLayout";
-
-function flattenNavGroups(groups: NavGroup[]): { to: string; label: string; icon: import("lucide-react").LucideIcon; end?: boolean }[] {
-  return groups.flatMap((g) => g.items);
-}
 import { DashboardLayout } from "./routes/DashboardLayout";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { ReportsPage } from "./pages/ReportsPage";
@@ -213,7 +209,7 @@ export default function App() {
         path="/director"
         element={
           <ProtectedRoute allowedRoles={["DIRECTOR"]}>
-            <DashboardLayout navItems={flattenNavGroups(DIRECTOR_NAV)} brand="Direktor paneli" />
+            <DashboardLayout navGroups={DIRECTOR_NAV} brand="Direktor paneli" />
           </ProtectedRoute>
         }
       >
@@ -242,7 +238,7 @@ export default function App() {
         path="/teacher"
         element={
           <ProtectedRoute allowedRoles={["TEACHER"]}>
-            <DashboardLayout navItems={flattenNavGroups(TEACHER_NAV)} brand="O'qituvchi paneli" />
+            <DashboardLayout navGroups={TEACHER_NAV} brand="O'qituvchi paneli" />
           </ProtectedRoute>
         }
       >
@@ -265,7 +261,7 @@ export default function App() {
         path="/student"
         element={
           <ProtectedRoute allowedRoles={["STUDENT"]}>
-            <DashboardLayout navItems={flattenNavGroups(STUDENT_NAV)} brand="O'quvchi paneli" vibrant />
+            <DashboardLayout navGroups={STUDENT_NAV} brand="O'quvchi paneli" vibrant />
           </ProtectedRoute>
         }
       >
