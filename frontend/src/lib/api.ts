@@ -83,7 +83,10 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refresh) return null;
   try {
     const { data } = await axios.post("/api/auth/refresh/", { refresh });
-    tokenStorage.set(data.access, refresh);
+    // ROTATE_REFRESH_TOKENS is on, so the response carries a fresh refresh
+    // token — store it, not the old one, so the chain keeps working if
+    // blacklisting is ever enabled.
+    tokenStorage.set(data.access, data.refresh ?? refresh);
     return data.access as string;
   } catch {
     tokenStorage.clear();

@@ -5,15 +5,18 @@ round trip.
 
 from typing import ClassVar
 
-from django.utils.translation import gettext_lazy as _
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework.authentication import get_authorization_header
-from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.settings import api_settings as jwt_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenViewBase
+
+User = get_user_model()
 
 from apps.organizations import services
 from apps.organizations.authentication import ORG_CLAIM
@@ -62,7 +65,6 @@ class OrganizationTokenObtainPairView(TokenObtainPairView):
 
         data = serializer.validated_data
         refresh_token = data.get("refresh")
-        access_token = data.get("access")
 
         user = serializer.user
         membership = _resolve_for_login(user, request.data.get("organization"))
@@ -89,9 +91,17 @@ class OrganizationTokenObtainPairView(TokenObtainPairView):
 class OrganizationTokenRefreshView(TokenViewBase):
     """`/api/auth/refresh/` — carries the old token's `org_id` into the new one,
     unless the request asks for a different organization, in which case that
-    one is validated as a real membership first."""
+    one is validated as a real membership first.
 
-    permission_classes: ClassVar[list[type[BasePermission]]] = [IsAuthenticated]
+    This endpoint must be reachable *without* a valid access token — the whole
+    reason to refresh is that the access token has expired. The refresh token in
+    the request body is the credential, and `post()` validates it itself, so the
+    view takes no authentication and is open. Requiring `IsAuthenticated` here
+    (with the base view running no authentication) made every refresh 401, which
+    logged users out the moment their 1-hour access token expired."""
+
+    authentication_classes: ClassVar[list] = []
+    permission_classes: ClassVar[list[type[BasePermission]]] = [AllowAny]
 
     @staticmethod
     def _extract_refresh_token(request):
@@ -114,7 +124,15 @@ class OrganizationTokenRefreshView(TokenViewBase):
         except TokenError as e:
             return Response({"detail": str(e)}, status=401)
 
-        user = token.user
+        # `RefreshToken` carries no `.user`; resolve it from the id claim the
+        # token was minted with (USER_ID_CLAIM/USER_ID_FIELD from SIMPLE_JWT).
+        try:
+            user = User.objects.get(
+                **{jwt_settings.USER_ID_FIELD: token[jwt_settings.USER_ID_CLAIM]}
+            )
+        except (KeyError, User.DoesNotExist):
+            return Response({"detail": "Foydalanuvchi topilmadi."}, status=401)
+
         requested = request.data.get("organization")
         if requested in (None, ""):
             membership = services.resolve_membership(user, token.get(ORG_CLAIM))
