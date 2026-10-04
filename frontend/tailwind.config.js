@@ -35,20 +35,20 @@ export default {
           inverse: "rgb(var(--c-ink-inverse) / <alpha-value>)",
         },
 
-        // The app's single accent — a clean, vivid blue. Used sparingly (primary
-        // actions, active nav, key stats), never as a page-wide wash — see the
-        // design-system brief this palette implements.
+        // The app's single accent — Reef teal, the SchoolOS brand colour. Used
+        // sparingly (primary actions, active nav, key stats), never as a
+        // page-wide wash — see the brand book this palette implements.
         brand: {
-          50: "#eff6ff",
-          100: "#dbeafe",
-          200: "#bfdbfe",
-          300: "#93c5fd",
-          400: "#60a5fa",
-          500: "#3b82f6",
-          600: "#2563eb",
-          700: "#1d4ed8",
-          800: "#1e40af",
-          900: "#1e3a8a",
+          50: "#ecfdf9",
+          100: "#d0f7ee",
+          200: "#a6efdf",
+          300: "#6fe3ce",
+          400: "#2fd3bc",
+          500: "#0eb39e",
+          600: "#0a8f80",
+          700: "#0c7267",
+          800: "#0e5a52",
+          900: "#114a44",
         },
         // A true cool neutral (not blue- or violet-tinted) — overriding `slate`
         // itself reskins every existing bg-slate-*/text-slate-*/border-slate-*

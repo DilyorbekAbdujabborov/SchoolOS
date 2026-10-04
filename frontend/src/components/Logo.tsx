@@ -6,7 +6,7 @@ export function Logo({ subtitle }: { subtitle: string }) {
       <img src={logoMark} alt="" className="h-10 w-10 shrink-0" />
       <div className="min-w-0">
         <p className="truncate text-base font-bold leading-tight text-slate-900 dark:text-slate-50">
-          School<span className="text-teal-500 dark:text-teal-400">OS</span>
+          School<span className="text-brand-500 dark:text-brand-400">OS</span>
         </p>
         <p className="truncate text-xs leading-tight text-slate-500 dark:text-slate-400">{subtitle}</p>
       </div>

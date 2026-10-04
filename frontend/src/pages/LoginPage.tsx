@@ -41,17 +41,17 @@ function BrandBackdrop() {
     >
       <defs>
         <radialGradient id="glow-brand" cx="0" cy="0" r="1" gradientTransform="translate(150 120) rotate(38) scale(420 380)">
-          <stop stopColor="#3b82f6" stopOpacity="0.30" />
-          <stop offset="1" stopColor="#3b82f6" stopOpacity="0" />
+          <stop stopColor="#0eb39e" stopOpacity="0.30" />
+          <stop offset="1" stopColor="#0eb39e" stopOpacity="0" />
         </radialGradient>
         <radialGradient id="glow-violet" cx="0" cy="0" r="1" gradientTransform="translate(520 700) rotate(-40) scale(420 360)">
-          <stop stopColor="#8b5cf6" stopOpacity="0.26" />
-          <stop offset="1" stopColor="#8b5cf6" stopOpacity="0" />
+          <stop stopColor="#ff6b5e" stopOpacity="0.26" />
+          <stop offset="1" stopColor="#ff6b5e" stopOpacity="0" />
         </radialGradient>
         <linearGradient id="spark" x1="0" y1="0" x2="1" y2="0">
-          <stop stopColor="#60a5fa" stopOpacity="0.1" />
-          <stop offset="0.5" stopColor="#60a5fa" />
-          <stop offset="1" stopColor="#a78bfa" stopOpacity="0.15" />
+          <stop stopColor="#2fd3bc" stopOpacity="0.1" />
+          <stop offset="0.5" stopColor="#2fd3bc" />
+          <stop offset="1" stopColor="#ff6b5e" stopOpacity="0.15" />
         </linearGradient>
       </defs>
 
@@ -81,9 +81,9 @@ function BrandBackdrop() {
         [580, 170],
       ].map(([cx, cy], i) => (
         <g key={cx}>
-          <circle cx={cx} cy={cy} r="16" fill="#60a5fa" fillOpacity="0.12" />
-          <circle cx={cx} cy={cy} r="4.5" fill="#93c5fd" />
-          {i === 2 && <circle cx={cx} cy={cy} r="4.5" fill="#a78bfa" />}
+          <circle cx={cx} cy={cy} r="16" fill="#2fd3bc" fillOpacity="0.12" />
+          <circle cx={cx} cy={cy} r="4.5" fill="#6fe3ce" />
+          {i === 2 && <circle cx={cx} cy={cy} r="4.5" fill="#ff6b5e" />}
         </g>
       ))}
     </svg>
