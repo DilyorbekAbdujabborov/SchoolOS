@@ -20,39 +20,42 @@ class SchoolTimeLockMiddleware:
         self.jwt_authenticator = JWTAuthentication()
 
     def __call__(self, request):
-        if self._is_locked_out(request):
-            settings_obj = self._get_settings(request)
-            return JsonResponse(
-                {
-                    "detail": (
-                        "Iltimos, darsga qatnashing. Platformadan foydalanish "
-                        f"soat {settings_obj.end_time:%H:%M} dan keyin ochiladi."
-                    )
-                },
-                status=423,
-            )
+        locked_response = self._locked_response(request)
+        if locked_response is not None:
+            return locked_response
         return self.get_response(request)
 
-    def _is_locked_out(self, request) -> bool:
+    def _locked_response(self, request):
+        """The 423 to return, or None if this request may pass.
+
+        Authentication is decoded exactly once here — the settings lookup and
+        the message both reuse that same user, so a locked request never pays
+        for the JWT twice.
+        """
         if not request.path.startswith("/api/"):
-            return False
+            return None
         if request.path.startswith(EXEMPT_PATH_PREFIXES):
-            return False
+            return None
 
         user = self._authenticate(request)
         if user is None or not user.is_authenticated or not user.is_student:
-            return False
+            return None
 
         settings_obj = self._get_settings_for_user(user)
         if not settings_obj:
-            return False
-        return settings_obj.is_locked_at(timezone.localtime().time())
+            return None
+        if not settings_obj.is_locked_at(timezone.localtime().time()):
+            return None
 
-    def _get_settings(self, request):
-        user = self._authenticate(request)
-        if user and user.is_authenticated:
-            return self._get_settings_for_user(user)
-        return SchoolTimeSettings.objects.first()
+        return JsonResponse(
+            {
+                "detail": (
+                    "Iltimos, darsga qatnashing. Platformadan foydalanish "
+                    f"soat {settings_obj.end_time:%H:%M} dan keyin ochiladi."
+                )
+            },
+            status=423,
+        )
 
     def _get_settings_for_user(self, user):
         if hasattr(user, 'active_organization_id') and user.active_organization_id:

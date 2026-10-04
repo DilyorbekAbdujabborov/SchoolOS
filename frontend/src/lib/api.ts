@@ -24,6 +24,48 @@ export class SchoolTimeLockedError extends Error {
   }
 }
 
+/* ── App-wide School Time Lock ──────────────────────────────────────────────
+   The lock is a *global* condition, not a per-request one: during school hours
+   every gated endpoint answers 423, so if each query surfaced its own error the
+   student would see a wall of "failed to load" messages. Instead any 423 flips
+   one shared flag and the whole app shows the lock screen; the first 2xx from a
+   gated endpoint (i.e. school is over) clears it again. */
+
+type SchoolLockListener = (detail: string | null) => void;
+const schoolLockListeners = new Set<SchoolLockListener>();
+let schoolLockDetail: string | null = null;
+
+/**
+ * Subscribe to School Time Lock changes. The listener fires immediately with
+ * the current state, then only on transitions (locked ↔ unlocked). Returns an
+ * unsubscribe function.
+ */
+export function onSchoolTimeLock(listener: SchoolLockListener): () => void {
+  schoolLockListeners.add(listener);
+  listener(schoolLockDetail);
+  return () => {
+    schoolLockListeners.delete(listener);
+  };
+}
+
+function setSchoolLock(detail: string | null): void {
+  if (detail === schoolLockDetail) return;
+  schoolLockDetail = detail;
+  schoolLockListeners.forEach((listener) => listener(detail));
+}
+
+// Mirror of the backend's lock exemptions (SchoolTimeLockMiddleware): these
+// endpoints answer even during the lock, so a 2xx from one of them tells us
+// nothing about whether the lock has lifted — it must not clear the flag.
+const LOCK_EXEMPT_PREFIXES = ["/auth/", "/schema", "/docs", "/redoc"];
+
+function isLockExempt(url: string | undefined): boolean {
+  if (!url) return false;
+  const path = url.replace(/^https?:\/\/[^/]+/, "").replace(/^\/api/, "");
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return LOCK_EXEMPT_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+}
+
 export const api = axios.create({ baseURL: "/api" });
 
 api.interceptors.request.use((config) => {
@@ -50,10 +92,17 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // A gated endpoint answering means school is over — lift the lock app-wide.
+    // Exempt endpoints answer during the lock too, so they must not clear it.
+    if (!isLockExempt(response.config?.url)) setSchoolLock(null);
+    return response;
+  },
   async (error) => {
     if (error.response?.status === 423) {
-      return Promise.reject(new SchoolTimeLockedError(error.response.data?.detail ?? "Locked"));
+      const detail = error.response.data?.detail ?? "Locked";
+      setSchoolLock(detail);
+      return Promise.reject(new SchoolTimeLockedError(detail));
     }
 
     const original = error.config;
