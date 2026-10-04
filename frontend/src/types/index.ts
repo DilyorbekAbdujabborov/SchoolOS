@@ -257,6 +257,8 @@ export interface NotificationItem {
 export interface SchoolTimeConfig {
   start_time: string;
   end_time: string;
+  /** ISO weekdays (1=Mon … 7=Sun) the time lock is active on. */
+  school_days: number[];
   period_duration_minutes: number;
   short_break_minutes: number;
   long_break_after_period: number;

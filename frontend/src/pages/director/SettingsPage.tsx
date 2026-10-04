@@ -9,6 +9,17 @@ import { TelegramConnect } from "../../components/TelegramConnect";
 import { api } from "../../lib/api";
 import type { SchoolTimeConfig } from "../../types";
 
+/** ISO weekday → short Uzbek label, in week order (Mon first). */
+const WEEKDAYS = [
+  { value: 1, label: "Dush" },
+  { value: 2, label: "Sesh" },
+  { value: 3, label: "Chor" },
+  { value: 4, label: "Pay" },
+  { value: 5, label: "Juma" },
+  { value: 6, label: "Shan" },
+  { value: 7, label: "Yak" },
+];
+
 export function SettingsPage() {
   const queryClient = useQueryClient();
   const [startTime, setStartTime] = useState("");
@@ -17,6 +28,7 @@ export function SettingsPage() {
   const [shortBreak, setShortBreak] = useState("5");
   const [longBreakAfterPeriod, setLongBreakAfterPeriod] = useState("4");
   const [longBreak, setLongBreak] = useState("20");
+  const [schoolDays, setSchoolDays] = useState<number[]>([1, 2, 3, 4, 5, 6]);
   const [saved, setSaved] = useState(false);
 
   const { data, isLoading, isError } = useQuery({
@@ -32,8 +44,15 @@ export function SettingsPage() {
       setShortBreak(String(data.short_break_minutes));
       setLongBreakAfterPeriod(String(data.long_break_after_period));
       setLongBreak(String(data.long_break_minutes));
+      if (Array.isArray(data.school_days)) setSchoolDays(data.school_days);
     }
   }, [data]);
+
+  function toggleDay(day: number) {
+    setSchoolDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort((a, b) => a - b),
+    );
+  }
 
   const save = useMutation({
     mutationFn: async () =>
@@ -45,6 +64,7 @@ export function SettingsPage() {
           short_break_minutes: Number(shortBreak),
           long_break_after_period: Number(longBreakAfterPeriod),
           long_break_minutes: Number(longBreak),
+          school_days: schoolDays,
         })
       ).data,
     onSuccess: () => {
@@ -96,6 +116,34 @@ export function SettingsPage() {
                   className="py-2.5"
                 />
               </Field>
+            </div>
+
+            <div className="mt-5">
+              <span className="mb-2 block text-sm font-medium text-ink-muted">Dars kunlari</span>
+              <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+                Cheklov faqat tanlangan kunlarda ishlaydi. Dam olish kunlari (masalan yakshanba)
+                platforma ochiq bo'ladi.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {WEEKDAYS.map((weekday) => {
+                  const active = schoolDays.includes(weekday.value);
+                  return (
+                    <button
+                      key={weekday.value}
+                      type="button"
+                      onClick={() => toggleDay(weekday.value)}
+                      aria-pressed={active}
+                      className={`select-none rounded-lg border px-3.5 py-2 text-sm font-medium transition-colors ${
+                        active
+                          ? "border-brand-600 bg-brand-600 text-white shadow-sm"
+                          : "border-line bg-surface text-ink-muted hover:bg-surface-raised"
+                      }`}
+                    >
+                      {weekday.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </section>
 
