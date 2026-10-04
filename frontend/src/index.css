@@ -79,6 +79,21 @@
     @apply bg-brand-500/25;
   }
 
+  /* Controls and chrome are tapped, not read. On touch, long-pressing a
+     button, nav item, badge or icon shouldn't paint a blue text selection —
+     it makes the UI feel like a document instead of an app. Real content
+     (prose, names, emails, table cells) stays selectable; inputs are forced
+     back to selectable below in case a chrome rule's `none` would inherit in. */
+  :where(button, summary, [role="button"], [role="tab"], nav a, .btn, .chip) {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  :where(input, textarea, [contenteditable="true"]) {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
   /* Slim scrollbars, so long nav lists and wide tables don't shout. */
   * {
     scrollbar-width: thin;

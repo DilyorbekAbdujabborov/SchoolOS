@@ -34,7 +34,7 @@ function SidebarContent({ navItems, brand, onNavigate }: { navItems: NavItem[]; 
 
   return (
     <>
-      <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
+      <div className="select-none border-b border-slate-200 px-6 py-5 dark:border-slate-800">
         <p className="text-lg font-bold text-brand-700 dark:text-brand-400">SchoolOS</p>
         <p className="text-xs text-slate-500 dark:text-slate-400">{brand}</p>
       </div>
@@ -93,12 +93,12 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
         >
           <Menu size={20} />
         </button>
-        <p className="text-lg font-bold text-brand-700 md:hidden dark:text-brand-400">SchoolOS</p>
+        <p className="select-none text-lg font-bold text-brand-700 md:hidden dark:text-brand-400">SchoolOS</p>
       </div>
 
       <div className="flex items-center gap-2 md:gap-3">
         {stats && (
-          <div className="hidden items-center gap-2 sm:flex">
+          <div className="hidden select-none items-center gap-2 sm:flex">
             <span className="flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">
               {stats.level}-daraja
             </span>
