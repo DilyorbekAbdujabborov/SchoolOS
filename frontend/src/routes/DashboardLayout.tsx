@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { Avatar } from "../components/Avatar";
+import { PushPrompt } from "../components/PushPrompt";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { useAuth } from "../lib/auth";
 import { useStudentTopStats } from "../lib/useStudentTopStats";
@@ -185,6 +186,8 @@ export function DashboardLayout({
           <Outlet />
         </main>
       </div>
+
+      <PushPrompt />
     </div>
   );
 }
