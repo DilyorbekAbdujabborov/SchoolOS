@@ -175,7 +175,7 @@ function TopStudentsCard({ entries }: { entries: StudentLeaderboardEntry[] }) {
         icon={Trophy}
         tone="amber"
         action={
-          <Link to="/student/leaderboard" className="link-more">
+          <Link to="/app/student/leaderboard" className="link-more">
             Reyting
           </Link>
         }
@@ -304,7 +304,7 @@ export function StudentDashboardPage() {
       title: test.title,
       subtitle: test.subject_name,
       maxXp: test.max_xp,
-      to: `/student/tests/${test.id}`,
+      to: `/app/student/tests/${test.id}`,
       icon: FileText,
     })),
     ...upcomingActivities.map((activity) => ({
@@ -312,7 +312,7 @@ export function StudentDashboardPage() {
       title: activity.title,
       subtitle: activity.subject_name,
       maxXp: activity.max_xp,
-      to: "/student/activities",
+      to: "/app/student/activities",
       icon: ClipboardList,
     })),
   ].slice(0, 5);
@@ -377,7 +377,7 @@ export function StudentDashboardPage() {
               icon={FileText}
               title={`${upcomingTests.length} ta ochiq test bor`}
               subtitle="Hoziroq ishlab, natijangizni oshiring"
-              to="/student/tests"
+              to="/app/student/tests"
               tone="brand"
             />
           )}
@@ -386,7 +386,7 @@ export function StudentDashboardPage() {
               icon={CalendarDays}
               title={`Bugun ${data.today_lessons.length} ta dars`}
               subtitle="Dars jadvalini ko'rib chiqing"
-              to="/student/lessons"
+              to="/app/student/lessons"
               tone="ember"
             />
           )}
@@ -413,7 +413,7 @@ export function StudentDashboardPage() {
             eyebrow="Yutuqlar"
             icon={Award}
             iconTone="amber"
-            action={<SectionLink to="/student/achievements">Hammasi</SectionLink>}
+            action={<SectionLink to="/app/student/achievements">Hammasi</SectionLink>}
           >
             {unlockedAchievements.length === 0 ? (
               <EmptyState

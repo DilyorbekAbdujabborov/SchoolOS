@@ -119,7 +119,7 @@ export function TeacherDashboardPage() {
               icon={ClipboardCheck}
               title={`${pendingAttendanceCount} ta darsda davomat hali belgilanmagan`}
               subtitle="Davomatni belgilash uchun bosing"
-              to="/teacher/attendance"
+              to="/app/teacher/attendance"
               tone="amber"
             />
           )}
@@ -133,28 +133,28 @@ export function TeacherDashboardPage() {
               <StatCard
                 label="Sinflarim"
                 value={data.my_classes_count}
-                to="/teacher/classes"
+                to="/app/teacher/classes"
                 icon={Users}
                 tone="brand"
               />
               <StatCard
                 label="Testlarim"
                 value={tests?.results.length ?? 0}
-                to="/teacher/tests"
+                to="/app/teacher/tests"
                 icon={FileText}
                 tone="ember"
               />
               <StatCard
                 label="Topshiriqlarim"
                 value={activities?.results.length ?? 0}
-                to="/teacher/activities"
+                to="/app/teacher/activities"
                 icon={ClipboardList}
                 tone="amber"
               />
               <StatCard
                 label="Xabarlar"
                 value={data.unread_notifications}
-                to="/teacher/notifications"
+                to="/app/teacher/notifications"
                 icon={Bell}
                 tone="rose"
               />
@@ -168,7 +168,7 @@ export function TeacherDashboardPage() {
                 title="So'nggi o'quvchi natijalari"
                 icon={Trophy}
                 iconTone="emerald"
-                action={<SectionLink to="/teacher/xp">Hammasi</SectionLink>}
+                action={<SectionLink to="/app/teacher/xp">Hammasi</SectionLink>}
               >
                 {recentResults.length === 0 ? (
                   <EmptyState
@@ -213,10 +213,10 @@ export function TeacherDashboardPage() {
               <Section eyebrow="Havola" title="Tezkor amallar">
                 <Card className="p-2">
                   {[
-                    { to: "/teacher/attendance", label: "Davomat olish", icon: ClipboardCheck, tone: "emerald" as Tone },
-                    { to: "/teacher/tasks", label: "Vazifa berish", icon: Send, tone: "ember" as Tone },
-                    { to: "/teacher/tests", label: "Test yaratish", icon: FileText, tone: "brand" as Tone },
-                    { to: "/teacher/reports", label: "Hisobotlar", icon: BarChart3, tone: "amber" as Tone },
+                    { to: "/app/teacher/attendance", label: "Davomat olish", icon: ClipboardCheck, tone: "emerald" as Tone },
+                    { to: "/app/teacher/tasks", label: "Vazifa berish", icon: Send, tone: "ember" as Tone },
+                    { to: "/app/teacher/tests", label: "Test yaratish", icon: FileText, tone: "brand" as Tone },
+                    { to: "/app/teacher/reports", label: "Hisobotlar", icon: BarChart3, tone: "amber" as Tone },
                   ].map((link) => (
                     <Link
                       key={link.to}

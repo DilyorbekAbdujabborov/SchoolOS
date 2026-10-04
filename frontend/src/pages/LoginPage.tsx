@@ -106,7 +106,7 @@ export function LoginPage() {
     setIsSubmitting(true);
     try {
       await login(email, password);
-      navigate("/", { replace: true });
+      navigate("/app", { replace: true });
     } catch {
       setError("Login yoki parol noto'g'ri.");
     } finally {

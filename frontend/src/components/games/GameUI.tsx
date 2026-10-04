@@ -207,7 +207,7 @@ export function GameResultScreen({
   onRetry,
   onPrimary,
   primaryLabel = "Yana o'ynash",
-  secondaryTo = "/student/games",
+  secondaryTo = "/app/student/games",
   secondaryLabel = "O'yinlar ro'yxatiga qaytish",
   remedialSessionId,
   children,
@@ -285,7 +285,7 @@ export function GameResultScreen({
 
       {remedialSessionId && (
         <Link
-          to={`/student/remedial/${remedialSessionId}`}
+          to={`/app/student/remedial/${remedialSessionId}`}
           className="flex items-center gap-3 rounded-2xl border border-ember-200 bg-ember-50 p-4 text-left transition-colors hover:bg-ember-100 dark:border-ember-500/30 dark:bg-ember-500/10 dark:hover:bg-ember-500/15"
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ember-600 text-white">
@@ -432,7 +432,7 @@ export function GameStartActions({
         title={NO_QUESTIONS_TITLE}
         description={NO_QUESTIONS_HINT}
         action={
-          <Link to="/student/games" className="btn-ghost mt-2">
+          <Link to="/app/student/games" className="btn-ghost mt-2">
             <ChevronRight size={16} />
             Boshqa fanni tanlash
           </Link>

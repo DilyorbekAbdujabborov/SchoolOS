@@ -22,6 +22,7 @@ import { Link } from "react-router-dom";
 
 import logoMark from "../assets/logo-mark.png";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { useAuth } from "../lib/auth";
 
 // Where "Bepul demo so'rash" points. Replace with the real SchoolOS contact.
 const DEMO_URL = "https://t.me/sharqsoft";
@@ -59,6 +60,7 @@ const ROLES: Role[] = [
 ];
 
 function Nav() {
+  const { isAuthenticated } = useAuth();
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-canvas/80 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
@@ -75,20 +77,31 @@ function Nav() {
         </nav>
         <div className="flex items-center gap-2 sm:gap-3">
           <ThemeToggle />
-          <Link
-            to="/login"
-            className="rounded-lg px-3 py-2 text-sm font-semibold text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink"
-          >
-            Kirish
-          </Link>
-          <a
-            href={DEMO_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700"
-          >
-            Demo so'rash
-          </a>
+          {isAuthenticated ? (
+            <Link
+              to="/app"
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700"
+            >
+              Boshqaruv panelim
+            </Link>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="rounded-lg px-3 py-2 text-sm font-semibold text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink"
+              >
+                Kirish
+              </Link>
+              <a
+                href={DEMO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700"
+              >
+                Demo so'rash
+              </a>
+            </>
+          )}
         </div>
       </div>
     </header>
@@ -96,6 +109,7 @@ function Nav() {
 }
 
 function Hero() {
+  const { isAuthenticated } = useAuth();
   return (
     <section className="relative overflow-hidden">
       {/* Ambient teal→ember glow. */}
@@ -134,10 +148,10 @@ function Hero() {
               <ArrowRight size={17} />
             </a>
             <Link
-              to="/login"
+              to={isAuthenticated ? "/app" : "/login"}
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-line-strong bg-surface px-6 py-3 text-sm font-semibold text-ink transition-colors hover:bg-surface-raised sm:w-auto"
             >
-              Tizimga kirish
+              {isAuthenticated ? "Boshqaruv panelim" : "Tizimga kirish"}
             </Link>
           </div>
         </div>

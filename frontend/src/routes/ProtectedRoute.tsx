@@ -27,7 +27,8 @@ export function ProtectedRoute({
   }
 
   if (!allowedRoles.includes(user.role)) {
-    return <Navigate to="/login" replace />;
+    // Signed in but on the wrong role's path — bounce to their own dashboard.
+    return <Navigate to="/app" replace />;
   }
 
   return <>{children}</>;

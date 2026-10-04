@@ -128,7 +128,7 @@ export function StudentGamesPage() {
   const startGame = useMutation({
     mutationFn: async ({ game_type, difficulty }: { game_type: GameType; difficulty?: GameDifficulty }) =>
       (await api.post<GameSession>("/games/", { subject: selectedSubject, game_type, difficulty })).data,
-    onSuccess: (session) => navigate(`/student/games/${session.id}`),
+    onSuccess: (session) => navigate(`/app/student/games/${session.id}`),
   });
 
   return (

@@ -212,7 +212,7 @@ function RemedialResult({ session, ropePosition }: { session: RemedialSession; r
         </p>
       </div>
       <Link
-        to={session.source === "GAME" ? "/student/games" : "/student/tests"}
+        to={session.source === "GAME" ? "/app/student/games" : "/app/student/tests"}
         className="inline-flex items-center gap-0.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
       >
         <ChevronLeft className="h-4 w-4" />{" "}

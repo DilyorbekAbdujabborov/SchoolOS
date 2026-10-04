@@ -45,7 +45,7 @@ function CreateDuelModal({ onClose }: { onClose: () => void }) {
     mutationFn: async () => (await api.post<DuelListItem>("/duels/", { opponent: Number(opponent) })).data,
     onSuccess: (duel) => {
       queryClient.invalidateQueries({ queryKey: ["duels"] });
-      navigate(`/student/duels/${duel.id}`);
+      navigate(`/app/student/duels/${duel.id}`);
     },
     onError: (err: unknown) => {
       const detail = (err as { response?: { data?: Record<string, string[] | string> } })?.response?.data;
@@ -195,7 +195,7 @@ export function StudentDuelsPage() {
                 </div>
               );
               return needsAction ? (
-                <Link key={duel.id} to={`/student/duels/${duel.id}`} className="block">
+                <Link key={duel.id} to={`/app/student/duels/${duel.id}`} className="block">
                   {content}
                 </Link>
               ) : (

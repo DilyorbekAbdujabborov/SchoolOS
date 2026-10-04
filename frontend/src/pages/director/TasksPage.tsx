@@ -41,17 +41,17 @@ export function DirectorTasksPage() {
 
   const { data: teachers } = useQuery({
     queryKey: ["teachers"],
-    queryFn: async () => (await api.get<Paginated<Teacher>>("/teachers/")).data,
+    queryFn: async () => (await api.get<Paginated<Teacher>>("/app/teachers/")).data,
   });
 
   const { data: tasks, isLoading, isError } = useQuery({
     queryKey: ["teacher-tasks"],
-    queryFn: async () => (await api.get<Paginated<TeacherTaskSummary>>("/teacher-tasks/")).data,
+    queryFn: async () => (await api.get<Paginated<TeacherTaskSummary>>("/app/teacher-tasks/")).data,
   });
 
   const createTask = useMutation({
     mutationFn: async (payload: TaskFormState) =>
-      api.post("/teacher-tasks/", {
+      api.post("/app/teacher-tasks/", {
         title: payload.title,
         description: payload.description,
         category: payload.category,

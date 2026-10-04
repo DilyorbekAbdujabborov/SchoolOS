@@ -176,7 +176,7 @@ export function DirectorTestsPage() {
   });
   const { data: teachers } = useQuery({
     queryKey: ["teachers"],
-    queryFn: async () => (await api.get<Paginated<Teacher>>("/teachers/")).data,
+    queryFn: async () => (await api.get<Paginated<Teacher>>("/app/teachers/")).data,
   });
 
   const { data: tests, isLoading, isError } = useQuery({

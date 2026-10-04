@@ -581,7 +581,7 @@ function Lobby({
         <span className="rounded-full border border-white/10 bg-slate-900/70 px-3 py-1 text-slate-300">
           Qiyinlik: <b className="text-white">{DIFFICULTY_LABEL[race.difficulty]}</b>
         </span>
-        <Link to="/student/games" className="rounded-full px-3 py-1 font-semibold text-cyan-300 hover:underline">
+        <Link to="/app/student/games" className="rounded-full px-3 py-1 font-semibold text-cyan-300 hover:underline">
           Fan yoki qiyinlikni o'zgartirish
         </Link>
       </div>

@@ -1,0 +1,12 @@
+# SchoolOS — https://crm.sharqsoft.uz
+User-agent: *
+Allow: /$
+Allow: /favicon.png
+Allow: /og-image.png
+
+# Signed-in app and auth pages are private — keep them out of the index.
+Disallow: /app
+Disallow: /login
+Disallow: /api/
+
+Sitemap: https://crm.sharqsoft.uz/sitemap.xml

@@ -167,7 +167,7 @@ export function useLiveGame(
         game_type: session.game_type,
         ...(session.difficulty ? { difficulty: session.difficulty } : {}),
       })
-      .then(({ data }) => navigate(`/student/games/${data.id}`, { replace: true, state: { autoStart: true } }));
+      .then(({ data }) => navigate(`/app/student/games/${data.id}`, { replace: true, state: { autoStart: true } }));
   }
 
   function optionState(index: number): GameOptionState {

@@ -55,7 +55,7 @@ export function StudentTestsPage() {
                   </div>
                 ) : (
                   <Link
-                    to={`/student/tests/${test.id}`}
+                    to={`/app/student/tests/${test.id}`}
                     className="rounded-md bg-brand-600 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-brand-700"
                   >
                     {attempt ? "Davom ettirish" : "Boshlash"}

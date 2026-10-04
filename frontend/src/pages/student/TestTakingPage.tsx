@@ -234,7 +234,7 @@ function TestResult({
             Natijangiz past bo'ldi — AI ustoz mavzuni tushuntirib beradi, keyin arqon tortish o'yinida mashq qilasiz.
           </p>
           <Link
-            to={`/student/remedial/${finished.remedial_session_id}`}
+            to={`/app/student/remedial/${finished.remedial_session_id}`}
             className="mt-3 inline-flex items-center gap-1 rounded-lg bg-ember-600 px-4 py-2 text-sm font-semibold text-white hover:bg-ember-700"
           >
             Mashq qilishni boshlash
@@ -258,7 +258,7 @@ function TestResult({
       ))}
 
       <Link
-        to="/student/tests"
+        to="/app/student/tests"
         className="inline-flex items-center gap-0.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
       >
         <ChevronLeft className="h-4 w-4" /> Testlar ro'yxatiga qaytish

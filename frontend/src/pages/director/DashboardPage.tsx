@@ -98,28 +98,28 @@ export function DirectorDashboardPage() {
               <StatCard
                 label="O'quvchilar"
                 value={data.total_students}
-                to="/director/students"
+                to="/app/director/students"
                 icon={Users}
                 tone="brand"
               />
               <StatCard
                 label="O'qituvchilar"
                 value={data.total_teachers}
-                to="/director/teachers"
+                to="/app/director/teachers"
                 icon={GraduationCap}
                 tone="ember"
               />
               <StatCard
                 label="Sinflar"
                 value={data.total_classes}
-                to="/director/classes"
+                to="/app/director/classes"
                 icon={School}
                 tone="amber"
               />
               <StatCard
                 label="Bugungi darslar"
                 value={data.today_lessons}
-                to="/director/lessons"
+                to="/app/director/lessons"
                 icon={CalendarDays}
                 tone="emerald"
               />
@@ -186,7 +186,7 @@ export function DirectorDashboardPage() {
               <StatCard
                 label="Berilgan XP"
                 value={data.total_xp_awarded}
-                to="/director/rankings"
+                to="/app/director/rankings"
                 icon={Trophy}
                 tone="amber"
               />
@@ -194,7 +194,7 @@ export function DirectorDashboardPage() {
                 label="Yetakchi sinf"
                 value={data.top_class ? data.top_class.name : "—"}
                 hint={data.top_class ? `${data.top_class.total_xp} XP` : undefined}
-                to="/director/rankings"
+                to="/app/director/rankings"
                 icon={BookOpen}
                 tone="emerald"
               />
@@ -215,7 +215,7 @@ export function DirectorDashboardPage() {
               <Section
                 eyebrow="Reyting"
                 title="Sinflar reytingi"
-                action={<SectionLink to="/director/rankings">Batafsil</SectionLink>}
+                action={<SectionLink to="/app/director/rankings">Batafsil</SectionLink>}
               >
                 {allClasses.length === 0 ? (
                   <EmptyState
@@ -231,7 +231,7 @@ export function DirectorDashboardPage() {
                       return (
                         <Link
                           key={entry.rank}
-                          to="/director/rankings"
+                          to="/app/director/rankings"
                           className="flex items-center gap-4 border-b border-line-soft px-4 py-3 transition-colors last:border-0 hover:bg-surface-raised/60 sm:px-5"
                         >
                           <span
@@ -274,12 +274,12 @@ export function DirectorDashboardPage() {
               <Section eyebrow="Navigatsiya" title="Tezkor havolalar">
                 <Card className="p-2">
                   {[
-                    { to: "/director/attendance", label: "Davomat hisoboti", icon: ClipboardCheck, tone: "emerald" },
-                    { to: "/director/rankings", label: "XP va reyting", icon: Trophy, tone: "amber" },
-                    { to: "/director/achievements", label: "Yutuqlar", icon: Award, tone: "ember" },
-                    { to: "/director/reports", label: "Hisobotlar", icon: BarChart3, tone: "brand" },
-                    { to: "/director/settings", label: "Sozlamalar", icon: Settings, tone: "slate" },
-                    { to: "/director/guide", label: "Qo'llanma", icon: HelpCircle, tone: "slate" },
+                    { to: "/app/director/attendance", label: "Davomat hisoboti", icon: ClipboardCheck, tone: "emerald" },
+                    { to: "/app/director/rankings", label: "XP va reyting", icon: Trophy, tone: "amber" },
+                    { to: "/app/director/achievements", label: "Yutuqlar", icon: Award, tone: "ember" },
+                    { to: "/app/director/reports", label: "Hisobotlar", icon: BarChart3, tone: "brand" },
+                    { to: "/app/director/settings", label: "Sozlamalar", icon: Settings, tone: "slate" },
+                    { to: "/app/director/guide", label: "Qo'llanma", icon: HelpCircle, tone: "slate" },
                   ].map((link) => (
                     <Link
                       key={link.to}
@@ -306,7 +306,7 @@ export function DirectorDashboardPage() {
                       Har bir sinf o'quvchilari, o'qituvchilari va o'sish ko'rsatkichlari bo'yicha
                       alohida tahlil qilinadi.
                     </p>
-                    <Link to="/director/classes" className="btn btn-secondary btn-sm mt-4 w-full">
+                    <Link to="/app/director/classes" className="btn btn-secondary btn-sm mt-4 w-full">
                       Sinflarni ko'rish
                     </Link>
                   </Card>

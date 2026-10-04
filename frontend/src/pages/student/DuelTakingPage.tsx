@@ -129,7 +129,7 @@ function DuelResult({ duel }: { duel: DuelListItem }) {
         title="Javobingiz qabul qilindi"
         subtitle={`${opponentName} hali javob bermadi — u topshirgach natija shu yerda chiqadi.`}
         stats={[]}
-        secondaryTo="/student/duels"
+        secondaryTo="/app/student/duels"
         secondaryLabel="Duellar ro'yxatiga qaytish"
       />
     );
@@ -148,7 +148,7 @@ function DuelResult({ duel }: { duel: DuelListItem }) {
         { label: "Siz", value: `${duel.my_score_percent?.toFixed(0) ?? 0}%` },
         { label: opponentName, value: `${duel.opponent_score_percent?.toFixed(0) ?? 0}%` },
       ]}
-      secondaryTo="/student/duels"
+      secondaryTo="/app/student/duels"
       secondaryLabel="Duellar ro'yxatiga qaytish"
     />
   );
