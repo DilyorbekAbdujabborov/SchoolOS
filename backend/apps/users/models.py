@@ -47,6 +47,19 @@ class User(AbstractUser):
         help_text=_("Set when a temporary password was issued (e.g. bulk import)."),
     )
     avatar = models.ImageField(_("avatar"), upload_to="avatars/", null=True, blank=True)
+    handle = models.SlugField(
+        _("handle"),
+        max_length=30,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text=_("Ommaviy profil manzili: /p/<handle>/. Bo'sh bo'lsa profil ochilmaydi."),
+    )
+    is_profile_public = models.BooleanField(
+        _("public profile"),
+        default=False,
+        help_text=_("Yoqilsa, handle orqali profil hamma uchun ochiq bo'ladi."),
+    )
     active_organization = models.ForeignKey(
         "organizations.Organization",
         verbose_name=_("active organization"),

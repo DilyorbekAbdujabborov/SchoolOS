@@ -1,9 +1,43 @@
+import re
+
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from .models import StudentProfile, TeacherProfile
 
 User = get_user_model()
+
+# Handles that would shadow a frontend route, an API prefix, or just confuse —
+# a user may never claim one of these as their public profile handle.
+RESERVED_HANDLES = frozenset(
+    {
+        "admin",
+        "api",
+        "app",
+        "assets",
+        "auth",
+        "director",
+        "help",
+        "login",
+        "logout",
+        "me",
+        "media",
+        "null",
+        "p",
+        "profile",
+        "register",
+        "settings",
+        "static",
+        "student",
+        "support",
+        "teacher",
+        "undefined",
+        "user",
+        "users",
+    }
+)
+
+HANDLE_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,28}[a-z0-9]$")
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -41,6 +75,8 @@ class MeSerializer(serializers.ModelSerializer):
             "total_xp",
             "avatar_url",
             "teacher_profile_id",
+            "handle",
+            "is_profile_public",
         )
         read_only_fields = fields
 
@@ -84,6 +120,48 @@ class ParentContactSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentProfile
         fields = ("parent_phone_number",)
+
+
+class PublicProfileSettingsSerializer(serializers.ModelSerializer):
+    """Lets a user set their own public-profile handle and visibility.
+
+    The handle is the `/p/<handle>/` slug, so it is normalised to lowercase,
+    checked against a reserved-word list, and must be unique account-wide. An
+    empty handle clears it (and the profile stops resolving)."""
+
+    handle = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=30)
+
+    class Meta:
+        model = User
+        fields = ("handle", "is_profile_public")
+
+    def validate_handle(self, value):
+        value = (value or "").strip().lower()
+        if not value:
+            return None
+        if not HANDLE_RE.match(value):
+            raise serializers.ValidationError(
+                "Handle 2-30 ta belgidan iborat: faqat kichik harf, raqam va "
+                "defis (boshida/oxirida defis bo'lmasin)."
+            )
+        if value in RESERVED_HANDLES:
+            raise serializers.ValidationError("Bu handle band — boshqasini tanlang.")
+        queryset = User.objects.filter(handle=value)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError("Bu handle allaqachon olingan.")
+        return value
+
+    def validate(self, attrs):
+        # Can't go public without a handle — the profile would never resolve.
+        wants_public = attrs.get("is_profile_public", getattr(self.instance, "is_profile_public", False))
+        handle = attrs.get("handle", getattr(self.instance, "handle", None))
+        if wants_public and not handle:
+            raise serializers.ValidationError(
+                {"handle": "Profilni ommaviy qilishdan oldin handle tanlang."}
+            )
+        return attrs
 
 
 MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024

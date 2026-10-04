@@ -310,3 +310,175 @@ class StudentFilterTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn(self.inactive_profile.id, self._ids(response))
         self.assertNotIn(self.active_profile.id, self._ids(response))
+
+
+class PublicProfileSettingsAPITests(APITestCase):
+    def test_anonymous_cannot_read_settings(self):
+        response = self.client.get("/api/auth/public-profile/")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_defaults_are_private_and_handleless(self):
+        user, _ = make_student()
+        self.client.force_authenticate(user)
+        response = self.client.get("/api/auth/public-profile/")
+        self.assertIsNone(response.data["handle"])
+        self.assertFalse(response.data["is_profile_public"])
+
+    def test_sets_handle_lowercased_and_public(self):
+        user, _ = make_student()
+        self.client.force_authenticate(user)
+        response = self.client.patch(
+            "/api/auth/public-profile/",
+            {"handle": "DilyorBek", "is_profile_public": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertEqual(user.handle, "dilyorbek")
+        self.assertTrue(user.is_profile_public)
+
+    def test_reserved_handle_is_rejected(self):
+        user, _ = make_student()
+        self.client.force_authenticate(user)
+        response = self.client.patch(
+            "/api/auth/public-profile/", {"handle": "admin"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("handle", response.data["errors"])
+
+    def test_invalid_handle_format_is_rejected(self):
+        user, _ = make_student()
+        self.client.force_authenticate(user)
+        # (uppercase is accepted — it is lowercased, like the frontend does)
+        for bad in ["a", "-x", "x_y", "has space", "symbol!"]:
+            response = self.client.patch(
+                "/api/auth/public-profile/", {"handle": bad}, format="json"
+            )
+            self.assertEqual(
+                response.status_code, status.HTTP_400_BAD_REQUEST, msg=f"accepted {bad!r}"
+            )
+
+    def test_duplicate_handle_is_rejected(self):
+        first, _ = make_student()
+        first.handle = "taken"
+        first.save(update_fields=["handle"])
+        second, _ = make_student()
+        self.client.force_authenticate(second)
+        response = self.client.patch(
+            "/api/auth/public-profile/", {"handle": "taken"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cannot_go_public_without_a_handle(self):
+        user, _ = make_student()
+        self.client.force_authenticate(user)
+        response = self.client.patch(
+            "/api/auth/public-profile/", {"is_profile_public": True}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_empty_handle_clears_it(self):
+        user, _ = make_student()
+        user.handle = "oldhandle"
+        user.save(update_fields=["handle"])
+        self.client.force_authenticate(user)
+        response = self.client.patch(
+            "/api/auth/public-profile/",
+            {"handle": "", "is_profile_public": False},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertIsNone(user.handle)
+
+
+class PublicProfileViewTests(APITestCase):
+    def _make_public_student(self, handle="dilyorbekdev"):
+        user, profile = make_student()
+        user.handle = handle
+        user.is_profile_public = True
+        user.save(update_fields=["handle", "is_profile_public"])
+        return user, profile
+
+    def test_404_when_handle_unknown(self):
+        response = self.client.get("/api/p/nobody/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_404_when_profile_private(self):
+        user, _ = make_student()
+        user.handle = "shy"
+        user.is_profile_public = False
+        user.save(update_fields=["handle", "is_profile_public"])
+        response = self.client.get("/api/p/shy/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_404_when_user_inactive(self):
+        user, _ = self._make_public_student(handle="ghost")
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+        response = self.client.get("/api/p/ghost/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_anonymous_can_read_a_public_student_card(self):
+        self._make_public_student()
+        response = self.client.get("/api/p/dilyorbekdev/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["handle"], "dilyorbekdev")
+        self.assertTrue(response.data["is_student"])
+
+    def test_card_never_leaks_private_identity_fields(self):
+        user, profile = self._make_public_student()
+        profile.pinfl = "12345678901234"
+        profile.phone_number = "+998901234567"
+        profile.save(update_fields=["pinfl", "phone_number"])
+        response = self.client.get("/api/p/dilyorbekdev/")
+        body = str(response.data)
+        self.assertNotIn(user.email, body)
+        self.assertNotIn("12345678901234", body)
+        self.assertNotIn("+998901234567", body)
+        self.assertNotIn("pinfl", response.data)
+        self.assertNotIn("email", response.data)
+
+    def test_student_card_carries_gamification(self):
+        from apps.gamification.models import (
+            Achievement,
+            LeagueStanding,
+            Streak,
+            StudentAchievement,
+        )
+
+        user, profile = self._make_public_student()
+        org = user.active_organization
+        profile.total_xp = 350
+        profile.save(update_fields=["total_xp"])
+        LeagueStanding.objects.create(organization=org, student=profile, tier=3)
+        Streak.objects.create(
+            organization=org, student=profile, current_streak=5, longest_streak=9
+        )
+        achievement = Achievement.objects.create(
+            name="Birinchi test", description="x", icon="🎯"
+        )
+        StudentAchievement.objects.create(
+            organization=org, student=profile, achievement=achievement
+        )
+
+        response = self.client.get("/api/p/dilyorbekdev/")
+        self.assertEqual(response.data["total_xp"], 350)
+        self.assertEqual(response.data["league"]["tier"], 3)
+        self.assertEqual(response.data["streak"]["current"], 5)
+        self.assertEqual(response.data["streak"]["longest"], 9)
+        names = [a["name"] for a in response.data["achievements"]]
+        self.assertIn("Birinchi test", names)
+
+    def test_teacher_card_shows_bio_not_students_gamification(self):
+        user, profile = make_teacher()
+        profile.bio = "Matematika o'qituvchisi"
+        profile.save(update_fields=["bio"])
+        user.handle = "ustoz"
+        user.is_profile_public = True
+        user.save(update_fields=["handle", "is_profile_public"])
+        response = self.client.get("/api/p/ustoz/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["is_teacher"])
+        self.assertEqual(response.data["bio"], "Matematika o'qituvchisi")
+        self.assertNotIn("total_xp", response.data)

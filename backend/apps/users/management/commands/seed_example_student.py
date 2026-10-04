@@ -17,6 +17,7 @@ EMAIL = "dilyorbek.abdujabborov@example.com"
 USERNAME = "dilyorbek.abdujabborov"
 PASSWORD = "student123"
 CLASS_NAME = "11-A"
+HANDLE = "dilyorbekdev"
 
 # Mapped from the digital.uz person payload (sample record).
 PROFILE = {
@@ -52,6 +53,10 @@ class Command(BaseCommand):
         user.role = User.Role.STUDENT
         user.first_name = PROFILE["first_name"]
         user.last_name = PROFILE["last_name"]
+        # Give the example account a live public profile at /p/dilyorbekdev/.
+        if not User.objects.exclude(pk=user.pk).filter(handle=HANDLE).exists():
+            user.handle = HANDLE
+            user.is_profile_public = True
         user.set_password(PASSWORD)
         user.must_change_password = False
         user.save()

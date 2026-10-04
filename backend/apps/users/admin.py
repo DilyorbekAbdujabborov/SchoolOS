@@ -24,6 +24,7 @@ class CustomUserAdmin(UserAdmin):
         (None, {"fields": ("email", "password")}),
         ("Personal info", {"fields": ("username", "first_name", "last_name")}),
         ("Role", {"fields": ("role",)}),
+        ("Public profile", {"fields": ("handle", "is_profile_public")}),
         (
             "Permissions",
             {

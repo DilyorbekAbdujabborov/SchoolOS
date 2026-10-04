@@ -4,6 +4,7 @@ import { GraduationCap, School, Users } from "lucide-react";
 import { ChangePasswordForm } from "../../components/ChangePasswordForm";
 import { PageHeader } from "../../components/PageHeader";
 import { ProfileHeaderCard } from "../../components/ProfileHeaderCard";
+import { PublicProfileSettings } from "../../components/PublicProfileSettings";
 import { StatCard } from "../../components/StatCard";
 import { TelegramConnect } from "../../components/TelegramConnect";
 import { api } from "../../lib/api";
@@ -57,6 +58,11 @@ export function DirectorProfilePage() {
           <h2 className="mb-3 font-semibold text-slate-900 dark:text-slate-50">Parolni o'zgartirish</h2>
           <ChangePasswordForm />
         </div>
+      </div>
+
+      <div className="card p-6">
+        <h2 className="mb-1 font-semibold text-slate-900 dark:text-slate-50">Ommaviy profil</h2>
+        <PublicProfileSettings />
       </div>
 
       <div className="card p-6">

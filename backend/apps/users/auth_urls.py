@@ -7,7 +7,13 @@ from apps.organizations.auth_views import (
     OrganizationTokenRefreshView,
 )
 
-from .views import AvatarView, ChangePasswordView, MeView, ParentContactView
+from .views import (
+    AvatarView,
+    ChangePasswordView,
+    MeView,
+    ParentContactView,
+    PublicProfileSettingsView,
+)
 
 urlpatterns = [
     path("login/", OrganizationTokenObtainPairView.as_view(), name="token_obtain_pair"),
@@ -18,4 +24,5 @@ urlpatterns = [
     path("change-password/", ChangePasswordView.as_view(), name="change-password"),
     path("avatar/", AvatarView.as_view(), name="avatar"),
     path("parent-contact/", ParentContactView.as_view(), name="parent-contact"),
+    path("public-profile/", PublicProfileSettingsView.as_view(), name="public-profile-settings"),
 ]

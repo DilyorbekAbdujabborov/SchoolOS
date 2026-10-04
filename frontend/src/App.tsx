@@ -30,6 +30,7 @@ import { useAuth } from "./lib/auth";
 import { GuidePage } from "./pages/GuidePage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
+import { PublicProfilePage } from "./pages/PublicProfilePage";
 import { MaterialsPage } from "./pages/MaterialsPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { DirectorAchievementsPage } from "./pages/director/AchievementsPage";
@@ -208,6 +209,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<LandingPage />} />
+      <Route path="/p/:handle" element={<PublicProfilePage />} />
       <Route path="/app" element={<AppIndex />} />
 
       <Route

@@ -11,6 +11,33 @@ export interface CurrentUser {
   total_xp: number | null;
   avatar_url: string | null;
   teacher_profile_id: number | null;
+  handle: string | null;
+  is_profile_public: boolean;
+}
+
+/** What `/auth/public-profile/` reads and writes — the user's own settings. */
+export interface PublicProfileSettings {
+  handle: string | null;
+  is_profile_public: boolean;
+}
+
+/** The anonymous, read-only card served at `/p/<handle>/`. */
+export interface PublicProfile {
+  handle: string;
+  full_name: string;
+  avatar_url: string | null;
+  role: Role;
+  is_student: boolean;
+  is_teacher: boolean;
+  member_since: number | null;
+  // Students only:
+  school_class_name?: string | null;
+  total_xp?: number;
+  league?: { tier: number; name: string; icon: string };
+  streak?: { current: number; longest: number };
+  achievements?: { name: string; icon: string; unlocked_at: string }[];
+  // Teachers only:
+  bio?: string;
 }
 
 export interface AttendanceCounts {

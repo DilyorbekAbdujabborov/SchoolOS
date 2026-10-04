@@ -8,7 +8,7 @@ from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.parsers import MultiPartParser
-from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -16,11 +16,13 @@ from apps.common.permissions import IsDirector, IsDirectorOrReadOnly, IsStudent
 
 from . import services
 from .models import StudentProfile, TeacherProfile
+from .public_profile import build_public_profile
 from .serializers import (
     AvatarSerializer,
     ChangePasswordSerializer,
     MeSerializer,
     ParentContactSerializer,
+    PublicProfileSettingsSerializer,
     StudentSerializer,
     TeacherSerializer,
     UserSerializer,
@@ -177,3 +179,45 @@ class ParentContactView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
+class PublicProfileSettingsView(APIView):
+    """Lets any user read/set their own public-profile handle and visibility."""
+
+    permission_classes: ClassVar[list[type[BasePermission]]] = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(PublicProfileSettingsSerializer(request.user).data)
+
+    def patch(self, request):
+        serializer = PublicProfileSettingsSerializer(
+            request.user, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+class PublicProfileView(APIView):
+    """Anonymous, read-only gamified card at `/api/p/<handle>/`.
+
+    404 unless the account exists, is active, has opted in
+    (`is_profile_public`), and the handle matches — so a handle leaks nothing
+    about accounts that have not chosen to be public."""
+
+    permission_classes: ClassVar[list[type[BasePermission]]] = [AllowAny]
+    authentication_classes: ClassVar[list] = []
+
+    def get(self, request, handle):
+        from django.http import Http404
+
+        user = (
+            User.objects.filter(
+                handle=handle.lower(), is_profile_public=True, is_active=True
+            )
+            .select_related("student_profile__school_class", "teacher_profile")
+            .first()
+        )
+        if user is None:
+            raise Http404("Profil topilmadi.")
+        return Response(build_public_profile(user, request=request))
