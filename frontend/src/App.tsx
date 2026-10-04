@@ -28,6 +28,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { LoadingState } from "./components/states";
 import { useAuth } from "./lib/auth";
 import { GuidePage } from "./pages/GuidePage";
+import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MaterialsPage } from "./pages/MaterialsPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
@@ -195,8 +196,9 @@ const STUDENT_NAV: NavGroup[] = [
 function HomeRedirect() {
   const { user, isLoading } = useAuth();
   if (isLoading) return <LoadingState />;
-  if (!user) return <Navigate to="/login" replace />;
-  return <Navigate to={`/${user.role.toLowerCase()}`} replace />;
+  // Signed in → straight to the role dashboard; a guest sees the landing page.
+  if (user) return <Navigate to={`/${user.role.toLowerCase()}`} replace />;
+  return <LandingPage />;
 }
 
 export default function App() {
