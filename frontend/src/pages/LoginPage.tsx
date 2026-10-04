@@ -18,7 +18,7 @@ import { useAuth } from "../lib/auth";
 
 const FEATURES = [
   { icon: BookOpen, label: "Darslar, materiallar va topshiriqlar", tone: "text-brand-400" },
-  { icon: ListChecks, label: "Testlar, o'zlashtirish va natijalar", tone: "text-violet-400" },
+  { icon: ListChecks, label: "Testlar, o'zlashtirish va natijalar", tone: "text-ember-400" },
   { icon: UserCheck, label: "Davomat: keldi, kechikdi, kelmadi", tone: "text-emerald-400" },
   { icon: Trophy, label: "XP, reyting, yutuqlar va o'yinlar", tone: "text-amber-400" },
 ];
@@ -44,7 +44,7 @@ function BrandBackdrop() {
           <stop stopColor="#0eb39e" stopOpacity="0.30" />
           <stop offset="1" stopColor="#0eb39e" stopOpacity="0" />
         </radialGradient>
-        <radialGradient id="glow-violet" cx="0" cy="0" r="1" gradientTransform="translate(520 700) rotate(-40) scale(420 360)">
+        <radialGradient id="glow-ember" cx="0" cy="0" r="1" gradientTransform="translate(520 700) rotate(-40) scale(420 360)">
           <stop stopColor="#ff6b5e" stopOpacity="0.26" />
           <stop offset="1" stopColor="#ff6b5e" stopOpacity="0" />
         </radialGradient>
@@ -56,7 +56,7 @@ function BrandBackdrop() {
       </defs>
 
       <rect width="600" height="800" fill="url(#glow-brand)" />
-      <rect width="600" height="800" fill="url(#glow-violet)" />
+      <rect width="600" height="800" fill="url(#glow-ember)" />
 
       {/* A faint grid — structure, not decoration. */}
       <g stroke="#ffffff" strokeOpacity="0.05">

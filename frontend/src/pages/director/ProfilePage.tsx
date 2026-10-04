@@ -32,7 +32,7 @@ export function DirectorProfilePage() {
         stats={
           <>
             <StatCard label="O'quvchilar" value={data?.total_students ?? 0} icon={Users} tone="brand" />
-            <StatCard label="O'qituvchilar" value={data?.total_teachers ?? 0} icon={GraduationCap} tone="violet" />
+            <StatCard label="O'qituvchilar" value={data?.total_teachers ?? 0} icon={GraduationCap} tone="ember" />
             <StatCard label="Sinflar" value={data?.total_classes ?? 0} icon={School} tone="amber" />
           </>
         }

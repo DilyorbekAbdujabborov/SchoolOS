@@ -50,6 +50,22 @@ export default {
           800: "#0e5a52",
           900: "#114a44",
         },
+        // Ember — the brand's secondary/accent (coral). Carries "secondary or
+        // compared metric, your personal data, a highlighted AI moment": the
+        // warm counterpart to Reef teal, and the colour that replaced the old
+        // violet so nothing in the UI reads as purple.
+        ember: {
+          50: "#fff3f1",
+          100: "#ffe4e0",
+          200: "#ffc9c2",
+          300: "#ffa398",
+          400: "#ff8475",
+          500: "#ff6b5e",
+          600: "#e8442f",
+          700: "#c0301e",
+          800: "#9e291a",
+          900: "#83231b",
+        },
         // A true cool neutral (not blue- or violet-tinted) — overriding `slate`
         // itself reskins every existing bg-slate-*/text-slate-*/border-slate-*
         // usage across the app in one place. Dark and light are tuned as two

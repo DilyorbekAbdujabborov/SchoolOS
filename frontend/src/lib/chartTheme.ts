@@ -17,11 +17,11 @@ import { useTheme } from "./theme";
  */
 
 /** A named role in a chart, resolved to a real colour per theme. */
-export type ChartTone = "brand" | "violet" | "emerald" | "amber" | "rose" | "slate";
+export type ChartTone = "brand" | "ember" | "emerald" | "amber" | "rose" | "slate";
 
 const LIGHT: Record<ChartTone, string> = {
   brand: "#0a8f80",
-  violet: "#7c3aed",
+  ember: "#e8442f",
   emerald: "#059669",
   amber: "#d97706",
   rose: "#e11d48",
@@ -30,15 +30,15 @@ const LIGHT: Record<ChartTone, string> = {
 
 const DARK: Record<ChartTone, string> = {
   brand: "#2fd3bc",
-  violet: "#a78bfa",
+  ember: "#ff8475",
   emerald: "#34d399",
   amber: "#fbbf24",
   rose: "#fb7185",
   slate: "#64748b",
 };
 
-const SERIES_LIGHT = ["#0a8f80", "#7c3aed", "#059669", "#d97706", "#e11d48", "#0891b2", "#94a3b8"];
-const SERIES_DARK = ["#2fd3bc", "#a78bfa", "#34d399", "#fbbf24", "#fb7185", "#22d3ee", "#64748b"];
+const SERIES_LIGHT = ["#0a8f80", "#e8442f", "#059669", "#d97706", "#e11d48", "#0891b2", "#94a3b8"];
+const SERIES_DARK = ["#2fd3bc", "#ff8475", "#34d399", "#fbbf24", "#fb7185", "#22d3ee", "#64748b"];
 
 export interface ChartTheme {
   /** Fill for a single-series chart. */

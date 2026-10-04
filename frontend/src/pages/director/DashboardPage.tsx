@@ -78,7 +78,7 @@ export function DirectorDashboardPage() {
           data
             ? [
                 { label: `${data.total_students} o'quvchi`, tone: "brand" as const },
-                { label: `${data.total_teachers} o'qituvchi`, tone: "violet" as const },
+                { label: `${data.total_teachers} o'qituvchi`, tone: "ember" as const },
                 { label: `Bugun ${data.today_lessons} ta dars`, tone: "slate" as const },
               ]
             : []
@@ -107,7 +107,7 @@ export function DirectorDashboardPage() {
                 value={data.total_teachers}
                 to="/director/teachers"
                 icon={GraduationCap}
-                tone="violet"
+                tone="ember"
               />
               <StatCard
                 label="Sinflar"
@@ -174,14 +174,14 @@ export function DirectorDashboardPage() {
           </Section>
 
           {/* ── Academic activity ────────────────────────────────────── */}
-          <Section eyebrow="O'quv faolligi" title="Testlar, topshiriqlar va XP" icon={BarChart3} iconTone="violet">
+          <Section eyebrow="O'quv faolligi" title="Testlar, topshiriqlar va XP" icon={BarChart3} iconTone="ember">
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <StatCard label="Jami testlar" value={data.total_tests} icon={FileText} tone="brand" />
               <StatCard
                 label="Jami topshiriqlar"
                 value={data.total_activities}
                 icon={ClipboardList}
-                tone="violet"
+                tone="ember"
               />
               <StatCard
                 label="Berilgan XP"
@@ -276,7 +276,7 @@ export function DirectorDashboardPage() {
                   {[
                     { to: "/director/attendance", label: "Davomat hisoboti", icon: ClipboardCheck, tone: "emerald" },
                     { to: "/director/rankings", label: "XP va reyting", icon: Trophy, tone: "amber" },
-                    { to: "/director/achievements", label: "Yutuqlar", icon: Award, tone: "violet" },
+                    { to: "/director/achievements", label: "Yutuqlar", icon: Award, tone: "ember" },
                     { to: "/director/reports", label: "Hisobotlar", icon: BarChart3, tone: "brand" },
                     { to: "/director/settings", label: "Sozlamalar", icon: Settings, tone: "slate" },
                     { to: "/director/guide", label: "Qo'llanma", icon: HelpCircle, tone: "slate" },

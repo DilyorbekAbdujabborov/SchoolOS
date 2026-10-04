@@ -153,7 +153,7 @@ export function ReportsPage() {
             />
             <StatCard
               icon={Gamepad2}
-              tone="violet"
+              tone="ember"
               label="O'yinlar"
               value={report.summary.games_played}
               hint={report.summary.game_avg === null ? undefined : `o'rtacha ${pct(report.summary.game_avg)}`}
@@ -220,14 +220,14 @@ function AiSummaryCard({
   onGenerate: (refresh: boolean) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5 dark:border-violet-500/30 dark:bg-violet-500/10">
+    <div className="rounded-2xl border border-ember-200 bg-ember-50 p-5 dark:border-ember-500/30 dark:bg-ember-500/10">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ember-600 text-white">
             <Bot size={20} />
           </span>
           <div>
-            <p className="font-semibold text-violet-700 dark:text-violet-300">AI tahlil</p>
+            <p className="font-semibold text-ember-700 dark:text-ember-300">AI tahlil</p>
             <p className="text-xs text-slate-600 dark:text-slate-300">
               Kim qanday ketyapti, kimga e'tibor kerak va nima qilish kerak — qisqa xulosa.
             </p>
@@ -238,7 +238,7 @@ function AiSummaryCard({
             type="button"
             onClick={() => onGenerate(true)}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-violet-300 px-3 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-60 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/15"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-ember-300 px-3 py-2 text-xs font-semibold text-ember-700 hover:bg-ember-100 disabled:opacity-60 dark:border-ember-500/40 dark:text-ember-300 dark:hover:bg-ember-500/15"
           >
             <RefreshCw size={13} className={loading ? "animate-spin" : undefined} /> Yangilash
           </button>
@@ -247,7 +247,7 @@ function AiSummaryCard({
             type="button"
             onClick={() => onGenerate(false)}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-ember-600 px-4 py-2 text-sm font-semibold text-white hover:bg-ember-700 disabled:opacity-60"
           >
             <Sparkles size={15} /> {loading ? "Tahlil qilinmoqda..." : "AI tahlil qilish"}
           </button>
@@ -278,7 +278,7 @@ function AiText({ text }: { text: string }) {
       {lines.map((line, i) =>
         line.startsWith("- ") || line.startsWith("• ") ? (
           <p key={i} className="flex gap-2 pl-1">
-            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
+            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-ember-500" />
             <span>{line.slice(2)}</span>
           </p>
         ) : line.length < 60 && !line.endsWith(".") ? (

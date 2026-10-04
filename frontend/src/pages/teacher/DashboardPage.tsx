@@ -41,7 +41,7 @@ const SOURCE_LABEL: Record<XPTransaction["source"], string> = {
 
 const SOURCE_TONE: Record<XPTransaction["source"], Tone> = {
   TEST: "brand",
-  ACTIVITY: "violet",
+  ACTIVITY: "ember",
 };
 
 /**
@@ -142,7 +142,7 @@ export function TeacherDashboardPage() {
                 value={tests?.results.length ?? 0}
                 to="/teacher/tests"
                 icon={FileText}
-                tone="violet"
+                tone="ember"
               />
               <StatCard
                 label="Topshiriqlarim"
@@ -214,7 +214,7 @@ export function TeacherDashboardPage() {
                 <Card className="p-2">
                   {[
                     { to: "/teacher/attendance", label: "Davomat olish", icon: ClipboardCheck, tone: "emerald" as Tone },
-                    { to: "/teacher/tasks", label: "Vazifa berish", icon: Send, tone: "violet" as Tone },
+                    { to: "/teacher/tasks", label: "Vazifa berish", icon: Send, tone: "ember" as Tone },
                     { to: "/teacher/tests", label: "Test yaratish", icon: FileText, tone: "brand" as Tone },
                     { to: "/teacher/reports", label: "Hisobotlar", icon: BarChart3, tone: "amber" as Tone },
                   ].map((link) => (

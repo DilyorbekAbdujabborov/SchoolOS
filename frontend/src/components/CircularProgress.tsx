@@ -68,7 +68,7 @@ export function CircularProgress({
 export function SegmentedRing({
   value,
   tone = "brand",
-  restTone = "violet",
+  restTone = "ember",
   size = 96,
   strokeWidth = 9,
   children,

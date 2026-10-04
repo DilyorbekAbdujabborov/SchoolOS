@@ -227,7 +227,7 @@ export const TRACKS: TrackTheme[] = [
     road: "#0b0a18",
     rail: "#22d3ee",
     railAlt: "#e879f9",
-    glow: "rgba(232,121,249,0.45)",
+    glow: "rgba(255,107,94,0.45)",
     feature: "skyline",
   },
   {

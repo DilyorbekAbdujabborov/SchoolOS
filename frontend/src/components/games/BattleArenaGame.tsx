@@ -316,7 +316,7 @@ function ArenaBackdrop() {
         }}
       />
       <div className="absolute inset-x-0 top-[54%] h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
-      <div className="absolute inset-x-[15%] top-[56%] h-px bg-gradient-to-r from-transparent via-violet-400/40 to-transparent" />
+      <div className="absolute inset-x-[15%] top-[56%] h-px bg-gradient-to-r from-transparent via-ember-400/40 to-transparent" />
 
       {PARTICLES.map((p, i) => (
         <span

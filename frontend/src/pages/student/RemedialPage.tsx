@@ -91,7 +91,7 @@ export function StudentRemedialPage() {
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <div className="flex items-center gap-2">
-        <Sparkles className="text-violet-600 dark:text-violet-400" size={20} />
+        <Sparkles className="text-ember-600 dark:text-ember-400" size={20} />
         <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">{session.subject_name} — mashq</h1>
       </div>
 
@@ -112,12 +112,12 @@ export function StudentRemedialPage() {
 
       {phase === "explained" && session.explanation && (
         <div className="space-y-4">
-          <div className="flex items-start gap-3 rounded-2xl border border-violet-200 bg-violet-50 p-5 dark:border-violet-500/30 dark:bg-violet-500/10">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white">
+          <div className="flex items-start gap-3 rounded-2xl border border-ember-200 bg-ember-50 p-5 dark:border-ember-500/30 dark:bg-ember-500/10">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ember-600 text-white">
               <Bot size={18} />
             </span>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ember-600 dark:text-ember-400">
                 AI Ustoz
               </p>
               <p className="mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-200">{session.explanation}</p>

@@ -1,6 +1,6 @@
 const PALETTE = [
   "bg-brand-500",
-  "bg-violet-500",
+  "bg-ember-500",
   "bg-emerald-500",
   "bg-amber-500",
   "bg-rose-500",

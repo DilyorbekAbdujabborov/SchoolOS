@@ -40,7 +40,7 @@ export function TeacherProfilePage() {
         stats={
           <>
             <StatCard label="Sinflarim" value={data?.my_classes_count ?? 0} icon={Users} tone="brand" />
-            <StatCard label="Testlarim" value={tests?.results.length ?? 0} icon={FileText} tone="violet" />
+            <StatCard label="Testlarim" value={tests?.results.length ?? 0} icon={FileText} tone="ember" />
             <StatCard label="Topshiriqlarim" value={activities?.results.length ?? 0} icon={ClipboardList} tone="amber" />
           </>
         }

@@ -245,7 +245,7 @@ export function NeonRacingGame({ session }: { session: GameSession }) {
   return (
     <GameDarkShell>
       <div className="flex items-center justify-between gap-2">
-        <p className="shrink-0 whitespace-nowrap bg-gradient-to-r from-cyan-300 via-sky-200 to-fuchsia-300 bg-clip-text font-black tracking-[0.2em] text-transparent">
+        <p className="shrink-0 whitespace-nowrap bg-gradient-to-r from-cyan-300 via-sky-200 to-ember-300 bg-clip-text font-black tracking-[0.2em] text-transparent">
           NEON RACING
         </p>
         <p className="truncate text-xs text-slate-400">
@@ -409,7 +409,7 @@ function ProgressStrip({ race, total }: { race: RaceState; total: number }) {
     <div className="pointer-events-none absolute inset-x-4 bottom-2 z-[125] sm:inset-x-8">
       <div className="relative h-1.5 rounded-full bg-white/10">
         <div
-          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-cyan-400 to-fuchsia-400 transition-[width] duration-700"
+          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-cyan-400 to-ember-400 transition-[width] duration-700"
           style={{ width: `${progress * 100}%` }}
         />
         {Array.from({ length: race.checkpoints_total }, (_, k) => (
@@ -465,7 +465,7 @@ function NitroControl({
       aria-label={ready ? "Nitroni yoqish (N)" : `Nitro ${race.nitro}%`}
       className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 md:flex-col md:items-stretch md:justify-center ${
         armed
-          ? "border-fuchsia-300 bg-fuchsia-500/20 shadow-[0_0_30px_rgba(232,121,249,0.6)]"
+          ? "border-ember-300 bg-ember-500/20 shadow-[0_0_30px_rgba(255,107,94,0.6)]"
           : ready
             ? "border-cyan-300 bg-cyan-400/15 shadow-[0_0_28px_rgba(34,211,238,0.55)] hover:-translate-y-0.5"
             : "border-white/10 bg-slate-950/60"
@@ -479,7 +479,7 @@ function NitroControl({
         <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-slate-800">
           <div
             className={`h-full rounded-full bg-gradient-to-r transition-[width] duration-500 ${
-              ready || armed ? "from-cyan-300 to-fuchsia-400" : "from-cyan-600 to-sky-400"
+              ready || armed ? "from-cyan-300 to-ember-400" : "from-cyan-600 to-sky-400"
             }`}
             style={{ width: `${armed ? 100 : race.nitro}%` }}
           />
@@ -568,7 +568,7 @@ function Lobby({
           <p className="font-mono text-[11px] font-bold uppercase tracking-[0.35em] text-cyan-200/90">
             EduGames Championship
           </p>
-          <h1 className="mt-1 bg-gradient-to-r from-cyan-200 via-white to-fuchsia-300 bg-clip-text text-4xl font-black italic tracking-[0.12em] text-transparent drop-shadow-[0_0_28px_rgba(34,211,238,0.5)] sm:text-6xl">
+          <h1 className="mt-1 bg-gradient-to-r from-cyan-200 via-white to-ember-300 bg-clip-text text-4xl font-black italic tracking-[0.12em] text-transparent drop-shadow-[0_0_28px_rgba(34,211,238,0.5)] sm:text-6xl">
             NEON RACING
           </h1>
         </div>
@@ -708,7 +708,7 @@ function RaceResult({
     >
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 text-left dark:border-slate-800 dark:bg-slate-900">
         {record?.is_record && (
-          <p className="flex animate-pop-in items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-fuchsia-500 py-2 text-sm font-black uppercase tracking-wider text-white shadow-[0_0_20px_rgba(34,211,238,0.5)]">
+          <p className="flex animate-pop-in items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-ember-500 py-2 text-sm font-black uppercase tracking-wider text-white shadow-[0_0_20px_rgba(34,211,238,0.5)]">
             <Zap size={16} /> Yangi shaxsiy rekord!
           </p>
         )}

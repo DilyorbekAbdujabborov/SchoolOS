@@ -125,7 +125,7 @@ function TaskChecklistCard({ entries }: { entries: ChecklistEntry[] }) {
 
   return (
     <Card className="p-5">
-      <CardTitle icon={Target} tone="violet">Yaqin vazifalar</CardTitle>
+      <CardTitle icon={Target} tone="ember">Yaqin vazifalar</CardTitle>
       {entries.length === 0 ? (
         <EmptyState
           title="Hozircha yangi vazifa yo'q"
@@ -213,7 +213,7 @@ function AchievementsRow({ items }: { items: Achievement[] }) {
   );
 }
 
-/** Rank/trophies block — violet, because ranking is the student's own progress. */
+/** Rank/trophies block — ember, because ranking is the student's own progress. */
 function RankCard({
   label,
   value,
@@ -325,7 +325,7 @@ export function StudentDashboardPage() {
         name={fullName(user)}
         avatarSrc={user?.avatar_url}
         subtitle="Bugun ham bilim sari bir qadam."
-        tone="violet"
+        tone="ember"
         chips={[
           ...(data?.school_class ? [{ label: data.school_class, tone: "slate" as const }] : []),
           ...(attendancePercent !== null
@@ -355,7 +355,7 @@ export function StudentDashboardPage() {
           value={rank?.class_rank ? `#${rank.class_rank}` : "—"}
           hint={rank ? `${rank.total_classes} sinfdan` : undefined}
           icon={Medal}
-          tone="violet"
+          tone="ember"
         />
         <RankCard
           label="Umumiy reyting"
@@ -387,7 +387,7 @@ export function StudentDashboardPage() {
               title={`Bugun ${data.today_lessons.length} ta dars`}
               subtitle="Dars jadvalini ko'rib chiqing"
               to="/student/lessons"
-              tone="violet"
+              tone="ember"
             />
           )}
         </div>
@@ -420,7 +420,7 @@ export function StudentDashboardPage() {
                 title="Hali yutuqlar yo'q"
                 description="Test yoki topshiriqni bajarib birinchi yutuqingizni oching."
                 icon={Sparkles}
-                tone="violet"
+                tone="ember"
               />
             ) : (
               <AchievementsRow items={unlockedAchievements} />
@@ -462,8 +462,8 @@ export function StudentDashboardPage() {
           )}
 
           {/* Next milestone — a quiet, non-numeric goal. */}
-          <Card accent="violet" className="p-5">
-            <CardTitle icon={Sparkles} tone="violet">
+          <Card accent="ember" className="p-5">
+            <CardTitle icon={Sparkles} tone="ember">
               Keyingi maqsad
             </CardTitle>
             <p className="text-sm text-ink-muted">
@@ -472,7 +472,7 @@ export function StudentDashboardPage() {
                 : "Har kuni kamida bitta test yoki topshiriq bajaring — XP reytingni tez ko'taradi."}
             </p>
             <div className="mt-3 flex items-center gap-2 text-xs text-ink-subtle">
-              <span className={`h-1.5 w-1.5 rounded-full ${TONE_DOT.violet}`} />
+              <span className={`h-1.5 w-1.5 rounded-full ${TONE_DOT.ember}`} />
               Kunlik seriya: <span className="tabular font-semibold text-ink">{streak?.current_streak ?? 0}</span> kun
             </div>
           </Card>

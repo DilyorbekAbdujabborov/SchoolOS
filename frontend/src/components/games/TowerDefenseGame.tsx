@@ -395,7 +395,7 @@ function Hud({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="bg-gradient-to-r from-sky-300 via-cyan-200 to-violet-300 bg-clip-text font-black tracking-[0.2em] text-transparent">
+        <p className="bg-gradient-to-r from-sky-300 via-cyan-200 to-ember-300 bg-clip-text font-black tracking-[0.2em] text-transparent">
           TOWER DEFENSE
         </p>
         <p className="truncate text-xs text-slate-400">
@@ -408,7 +408,7 @@ function Hud({
           <p className="font-mono text-lg font-black">
             {state.wave}
             <span className="text-slate-500">/{state.waves_total}</span>
-            {state.boss_wave && <span className="ml-2 text-xs text-fuchsia-300">BOSS</span>}
+            {state.boss_wave && <span className="ml-2 text-xs text-ember-300">BOSS</span>}
           </p>
         </HudPanel>
         <HudPanel className="order-first col-span-2 md:order-none md:col-span-1">
@@ -468,7 +468,7 @@ function ComboTag({ combo, boost }: { combo: number; boost: DefenseBoost }) {
         key={boost}
         className={`animate-combo-pop rounded-md px-2 py-0.5 text-white motion-reduce:animate-none ${
           overcharge
-            ? "bg-gradient-to-r from-violet-500 to-fuchsia-500 shadow-[0_0_16px_rgba(192,132,252,0.7)]"
+            ? "bg-gradient-to-r from-ember-500 to-ember-500 shadow-[0_0_16px_rgba(255,107,94,0.7)]"
             : "bg-gradient-to-r from-amber-500 to-orange-500 shadow-[0_0_16px_rgba(251,191,36,0.6)]"
         }`}
       >
@@ -598,8 +598,8 @@ function Battlefield({
           className="absolute aspect-square -translate-x-1/2 -translate-y-1/2"
           style={{ left: `${spawn.x}%`, top: `${spawn.y}%`, width: wide ? "11%" : "30%" }}
         >
-          <div className="absolute inset-0 animate-[spin_6s_linear_infinite] rounded-full border-2 border-dashed border-fuchsia-400/60 motion-reduce:animate-none" />
-          <div className="absolute inset-[18%] rounded-full bg-[radial-gradient(circle,rgba(232,121,249,0.55),rgba(88,28,135,0.2)_60%,transparent_70%)] shadow-[0_0_40px_rgba(192,132,252,0.6)]" />
+          <div className="absolute inset-0 animate-[spin_6s_linear_infinite] rounded-full border-2 border-dashed border-ember-400/60 motion-reduce:animate-none" />
+          <div className="absolute inset-[18%] rounded-full bg-[radial-gradient(circle,rgba(255,107,94,0.55),rgba(88,28,135,0.2)_60%,transparent_70%)] shadow-[0_0_40px_rgba(255,107,94,0.6)]" />
         </div>
 
         {/* Tower + base */}
@@ -701,12 +701,12 @@ function EnemyUnit({
       {alive && !boss && (
         <div className="absolute -top-2 left-[10%] right-[10%] h-1.5 overflow-hidden rounded-full bg-slate-900/90 ring-1 ring-white/10">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-rose-400 transition-[width] duration-300"
+            className="h-full rounded-full bg-gradient-to-r from-ember-500 to-rose-400 transition-[width] duration-300"
             style={{ width: `${hpPercent}%` }}
           />
           {enemy.max_shield > 0 && enemy.shield > 0 && (
             <div
-              className="absolute inset-y-0 left-0 bg-violet-200/80"
+              className="absolute inset-y-0 left-0 bg-ember-200/80"
               style={{ width: `${(enemy.shield / enemy.max_shield) * 100}%` }}
             />
           )}
@@ -720,7 +720,7 @@ function BossBar({ boss }: { boss: DefenseEnemy }) {
   const percent = (boss.hp / boss.max_hp) * 100;
   return (
     <div className="absolute inset-x-[8%] top-3 z-10 animate-fade-in">
-      <div className="flex items-center justify-between font-mono text-[10px] font-black uppercase tracking-[0.3em] text-fuchsia-300">
+      <div className="flex items-center justify-between font-mono text-[10px] font-black uppercase tracking-[0.3em] text-ember-300">
         <span className="flex items-center gap-1">
           <Skull size={11} /> Boss wave
         </span>
@@ -728,9 +728,9 @@ function BossBar({ boss }: { boss: DefenseEnemy }) {
           {boss.hp}/{boss.max_hp}
         </span>
       </div>
-      <div className="mt-1 h-3 overflow-hidden rounded-full bg-slate-900/90 ring-1 ring-fuchsia-400/40">
+      <div className="mt-1 h-3 overflow-hidden rounded-full bg-slate-900/90 ring-1 ring-ember-400/40">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-violet-600 via-fuchsia-500 to-rose-400 shadow-[0_0_14px_rgba(232,121,249,0.7)] transition-[width] duration-500"
+          className="h-full rounded-full bg-gradient-to-r from-ember-600 via-ember-500 to-rose-400 shadow-[0_0_14px_rgba(255,107,94,0.7)] transition-[width] duration-500"
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -811,7 +811,7 @@ function WaveBanner({ wave, total, boss }: { wave: number; total: number; boss: 
       <p
         className={`animate-banner-in text-center font-black ${
           boss
-            ? "bg-gradient-to-b from-white via-fuchsia-200 to-fuchsia-500 bg-clip-text text-4xl text-transparent drop-shadow-[0_0_30px_rgba(232,121,249,0.8)] md:text-6xl"
+            ? "bg-gradient-to-b from-white via-ember-200 to-ember-500 bg-clip-text text-4xl text-transparent drop-shadow-[0_0_30px_rgba(255,107,94,0.8)] md:text-6xl"
             : "text-3xl text-white drop-shadow-[0_0_24px_rgba(56,189,248,0.8)] md:text-5xl"
         }`}
       >
@@ -885,7 +885,7 @@ function Briefing({
           <p className="font-mono text-[11px] font-bold uppercase tracking-[0.35em] text-sky-300/90">
             {session.subject_name} · {DIFFICULTY_LABEL[state.difficulty]}
           </p>
-          <h1 className="mt-1 bg-gradient-to-r from-sky-200 via-white to-violet-200 bg-clip-text text-3xl font-black tracking-[0.18em] text-transparent drop-shadow-[0_0_24px_rgba(56,189,248,0.45)] sm:text-5xl">
+          <h1 className="mt-1 bg-gradient-to-r from-sky-200 via-white to-ember-200 bg-clip-text text-3xl font-black tracking-[0.18em] text-transparent drop-shadow-[0_0_24px_rgba(56,189,248,0.45)] sm:text-5xl">
             TOWER DEFENSE
           </h1>
         </div>
@@ -896,7 +896,7 @@ function Briefing({
           <div key={type} className="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-900/70 p-3">
             <DefenseEnemyArt type={type} shielded={type === "shield"} className="h-10 w-10 shrink-0" />
             <div className="min-w-0">
-              <p className={`font-black tracking-[0.15em] ${type === "boss" ? "text-fuchsia-300" : "text-white"}`}>
+              <p className={`font-black tracking-[0.15em] ${type === "boss" ? "text-ember-300" : "text-white"}`}>
                 {ENEMY_INFO[type].name}
               </p>
               <p className="truncate text-xs text-slate-400">{ENEMY_INFO[type].trait}</p>

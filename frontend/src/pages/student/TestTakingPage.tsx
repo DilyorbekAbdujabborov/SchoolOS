@@ -225,17 +225,17 @@ function TestResult({
       </div>
 
       {finished.remedial_session_id && (
-        <div className="animate-pop-in rounded-2xl border border-violet-200 bg-violet-50 p-5 text-left dark:border-violet-500/30 dark:bg-violet-500/10">
+        <div className="animate-pop-in rounded-2xl border border-ember-200 bg-ember-50 p-5 text-left dark:border-ember-500/30 dark:bg-ember-500/10">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 shrink-0 text-violet-600 dark:text-violet-400" />
-            <p className="font-semibold text-violet-700 dark:text-violet-300">Bu mavzuni birga mustahkamlaymizmi?</p>
+            <Sparkles className="h-5 w-5 shrink-0 text-ember-600 dark:text-ember-400" />
+            <p className="font-semibold text-ember-700 dark:text-ember-300">Bu mavzuni birga mustahkamlaymizmi?</p>
           </div>
-          <p className="mt-1 text-sm text-violet-700/80 dark:text-violet-300/80">
+          <p className="mt-1 text-sm text-ember-700/80 dark:text-ember-300/80">
             Natijangiz past bo'ldi — AI ustoz mavzuni tushuntirib beradi, keyin arqon tortish o'yinida mashq qilasiz.
           </p>
           <Link
             to={`/student/remedial/${finished.remedial_session_id}`}
-            className="mt-3 inline-flex items-center gap-1 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+            className="mt-3 inline-flex items-center gap-1 rounded-lg bg-ember-600 px-4 py-2 text-sm font-semibold text-white hover:bg-ember-700"
           >
             Mashq qilishni boshlash
           </Link>

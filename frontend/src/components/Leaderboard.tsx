@@ -10,7 +10,7 @@ import { SegmentedControl } from "./form";
 import { EmptyState, ErrorState, TableSkeleton } from "./states";
 
 /** Top three get a medal and a real hue; everyone else is just a number. */
-const MEDAL_TONE: Record<number, Tone> = { 1: "amber", 2: "slate", 3: "violet" };
+const MEDAL_TONE: Record<number, Tone> = { 1: "amber", 2: "slate", 3: "ember" };
 
 function RankBadge({ rank }: { rank: number }) {
   const tone = MEDAL_TONE[rank];
@@ -191,9 +191,9 @@ export function LeaderboardPodium({ entries }: { entries: StudentLeaderboardEntr
     3: {
       height: "h-10 sm:h-12",
       avatarSize: 34,
-      avatarRing: "ring-2 ring-violet-400/80 ring-offset-1 ring-offset-surface",
-      badgeClass: "bg-violet-600 text-white",
-      bgGradient: "bg-gradient-to-t from-violet-700 to-violet-600",
+      avatarRing: "ring-2 ring-ember-400/80 ring-offset-1 ring-offset-surface",
+      badgeClass: "bg-ember-600 text-white",
+      bgGradient: "bg-gradient-to-t from-ember-700 to-ember-600",
       badgeIcon: <Medal size={10} className="text-white" />,
     },
   };

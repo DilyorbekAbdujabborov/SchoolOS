@@ -286,20 +286,20 @@ export function GameResultScreen({
       {remedialSessionId && (
         <Link
           to={`/student/remedial/${remedialSessionId}`}
-          className="flex items-center gap-3 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-left transition-colors hover:bg-violet-100 dark:border-violet-500/30 dark:bg-violet-500/10 dark:hover:bg-violet-500/15"
+          className="flex items-center gap-3 rounded-2xl border border-ember-200 bg-ember-50 p-4 text-left transition-colors hover:bg-ember-100 dark:border-ember-500/30 dark:bg-ember-500/10 dark:hover:bg-ember-500/15"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ember-600 text-white">
             <Bot size={20} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold text-violet-700 dark:text-violet-300">
+            <span className="block text-sm font-semibold text-ember-700 dark:text-ember-300">
               AI Ustoz yordam beradi
             </span>
             <span className="block text-xs text-slate-600 dark:text-slate-300">
               Xato qilgan savollaringiz mavzusini tushuntirib, qisqa mashq beradi.
             </span>
           </span>
-          <ChevronRight size={18} className="shrink-0 text-violet-500" />
+          <ChevronRight size={18} className="shrink-0 text-ember-500" />
         </Link>
       )}
 

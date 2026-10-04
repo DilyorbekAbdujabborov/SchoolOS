@@ -7,7 +7,7 @@ import { TONE_CHIP, type Tone } from "../lib/tones";
  * The title row every non-dashboard page opens with.
  *
  * The icon sits in a tone-tinted chip rather than being painted blue inline —
- * a page's accent comes from its subject (violet for gamification, emerald for
+ * a page's accent comes from its subject (ember for gamification, emerald for
  * attendance, amber for planning), which is one small change that stops every
  * page header from looking identical and blue.
  */
