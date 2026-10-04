@@ -229,4 +229,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.games.tasks.refill_low_pools",
         "schedule": 21_600.0,  # every 6 hours — pools drain slowly, no need to poll often
     },
+    "run-weekly-league-promotion": {
+        "task": "apps.gamification.tasks.run_league_promotion",
+        # Monday 00:10 Asia/Tashkent — the week has just rolled over, so the race
+        # that ended Sunday night is scored and leagues are updated. Idempotent,
+        # so an extra Monday run is harmless.
+        "schedule": crontab(hour=0, minute=10, day_of_week="mon"),
+    },
 }

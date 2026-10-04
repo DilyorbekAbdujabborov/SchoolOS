@@ -17,6 +17,7 @@ import {
   School,
   Send,
   Settings,
+  Shield,
   Swords,
   Trophy,
   UserCircle,
@@ -56,6 +57,7 @@ import { StudentDuelsPage } from "./pages/student/DuelsPage";
 import { StudentGamePlayPage } from "./pages/student/GamePlayPage";
 import { StudentGamesPage } from "./pages/student/GamesPage";
 import { StudentLeaderboardPage } from "./pages/student/LeaderboardPage";
+import { StudentLeaguePage } from "./pages/student/LeaguePage";
 import { StudentLessonsPage } from "./pages/student/LessonsPage";
 import { StudentProfilePage } from "./pages/student/ProfilePage";
 import { StudentRemedialPage } from "./pages/student/RemedialPage";
@@ -177,6 +179,7 @@ const STUDENT_NAV: NavGroup[] = [
   {
     label: "Reyting & yutuqlar",
     items: [
+      { to: "/student/league", label: "Liga", icon: Shield },
       { to: "/student/xp", label: "Mening XP", icon: Trophy },
       { to: "/student/leaderboard", label: "Reyting", icon: BarChart3 },
       { to: "/student/achievements", label: "Yutuqlar", icon: Award },
@@ -280,6 +283,7 @@ export default function App() {
         <Route path="games" element={<StudentGamesPage />} />
         <Route path="games/:id" element={<ExamGuard><StudentGamePlayPage /></ExamGuard>} />
         <Route path="xp" element={<StudentXpPage />} />
+        <Route path="league" element={<StudentLeaguePage />} />
         <Route path="leaderboard" element={<StudentLeaderboardPage />} />
         <Route path="achievements" element={<StudentAchievementsPage />} />
         <Route path="streak" element={<StudentStreakPage />} />

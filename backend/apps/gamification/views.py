@@ -19,6 +19,7 @@ from .serializers import (
     ClassLeaderboardSerializer,
     StreakSerializer,
     StudentLeaderboardSerializer,
+    WeeklyGoalUpdateSerializer,
     XPTransactionSerializer,
 )
 
@@ -230,3 +231,43 @@ class AchievementManageViewSet(viewsets.ModelViewSet):
     serializer_class = AchievementManageSerializer
     queryset = Achievement.objects.all()
     permission_classes: ClassVar[list[type[BasePermission]]] = [IsDirector]
+
+
+class LeagueView(APIView):
+    """A student's weekly league board. Ranks the members of a tier (the
+    caller's own by default, or `?tier=N` to browse another) by XP earned this
+    week, and marks the promotion/relegation zones. Student-only — it reads the
+    caller's `student_profile`."""
+
+    permission_classes: ClassVar[list[type[BasePermission]]] = [IsStudent]
+
+    def get(self, request):
+        from . import league
+
+        tier = request.query_params.get("tier")
+        try:
+            tier = int(tier) if tier is not None else None
+        except ValueError:
+            tier = None
+        data = league.board(request.user, tier=tier, request=request)
+        return Response(data)
+
+
+class WeeklyGoalView(APIView):
+    """A student's weekly XP goal and progress. GET reads it; PATCH sets the
+    target."""
+
+    permission_classes: ClassVar[list[type[BasePermission]]] = [IsStudent]
+
+    def get(self, request):
+        from . import league
+
+        return Response(league.weekly_goal_status(request.user, request=request))
+
+    def patch(self, request):
+        from . import league
+
+        serializer = WeeklyGoalUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        league.set_weekly_goal(request.user, serializer.validated_data["target_xp"])
+        return Response(league.weekly_goal_status(request.user, request=request))

@@ -6,9 +6,11 @@ from .views import (
     AchievementManageViewSet,
     ClassGrowthView,
     ClassLeaderboardView,
+    LeagueView,
     MyRankView,
     MyStreakView,
     StudentLeaderboardView,
+    WeeklyGoalView,
     XPHistoryView,
 )
 
@@ -23,5 +25,7 @@ urlpatterns = [
     path("leaderboard/me/", MyRankView.as_view(), name="leaderboard-me"),
     path("achievements/", AchievementListView.as_view(), name="achievements"),
     path("streaks/me/", MyStreakView.as_view(), name="my-streak"),
+    path("league/", LeagueView.as_view(), name="league"),
+    path("weekly-goal/", WeeklyGoalView.as_view(), name="weekly-goal"),
     *router.urls,
 ]

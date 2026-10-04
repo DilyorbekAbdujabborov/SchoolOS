@@ -268,6 +268,52 @@ export interface SchoolTimeConfig {
   second_short_period_minutes: number;
 }
 
+/** Weekly league (gamification "Liga" page). */
+export interface LeagueTierSummary {
+  tier: number;
+  name: string;
+  icon: string;
+  count: number;
+  is_mine: boolean;
+}
+
+export type LeagueZone = "up" | "down" | "stay";
+
+export interface LeagueMember {
+  rank: number;
+  name: string;
+  avatar_url: string | null;
+  school_class_name: string | null;
+  weekly_xp: number;
+  is_me: boolean;
+  zone: LeagueZone;
+}
+
+export interface LeagueBoard {
+  tier: number;
+  tier_name: string;
+  tier_icon: string;
+  my_tier: number;
+  week_start: string;
+  resets_on: string;
+  promote_count: number;
+  demote_count: number;
+  my_rank: number | null;
+  my_weekly_xp: number;
+  members: LeagueMember[];
+  tiers: LeagueTierSummary[];
+}
+
+export interface WeeklyGoalStatus {
+  target_xp: number;
+  earned_xp: number;
+  met: boolean;
+  goal_streak: number;
+  best_goal_streak: number;
+  week_start: string;
+  resets_on: string;
+}
+
 /** A calendar override of the weekly school schedule. */
 export type SchoolDayExceptionKind = "OFF" | "SCHOOL";
 

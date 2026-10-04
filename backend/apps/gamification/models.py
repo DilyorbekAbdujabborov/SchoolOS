@@ -188,3 +188,120 @@ class Streak(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.student} @ {self.organization}: {self.current_streak} day streak"
+
+
+class LeagueStanding(TimeStampedModel):
+    """Which weekly league tier a student currently sits in, per organization.
+
+    Tiers are plain integers (1 = Bronza … 9 = Afsona — see
+    `apps.gamification.league.LEAGUE_TIERS`). Ranking *inside* a tier is by XP
+    earned this week and is computed live from `XPTransaction`, so it is never
+    stored here; only the tier itself persists, because that is what carries over
+    between weeks as students are promoted and relegated.
+    """
+
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="league_standings",
+        on_delete=models.CASCADE,
+    )
+    student = models.ForeignKey(
+        "users.StudentProfile",
+        verbose_name=_("student"),
+        related_name="league_standings",
+        on_delete=models.CASCADE,
+    )
+    tier = models.PositiveSmallIntegerField(_("tier"), default=1)
+
+    class Meta:
+        verbose_name = _("league standing")
+        verbose_name_plural = _("league standings")
+        ordering = ("-tier",)
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.UniqueConstraint(
+                fields=["organization", "student"], name="unique_league_standing_per_org"
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.student_id is not None:
+            from apps.common.org import org_id_from_student
+
+            self.organization_id = org_id_from_student(self.student)
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.student} @ tier {self.tier}"
+
+
+class WeeklyGoal(TimeStampedModel):
+    """A student's personal weekly XP target and how many weeks running they have
+    hit it. Progress toward the current week is computed live from `XPTransaction`;
+    only the target and the streak counters persist here. `last_completed_week`
+    (a Monday date) makes the weekly roll-up idempotent — a week is counted once.
+    """
+
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="weekly_goals",
+        on_delete=models.CASCADE,
+    )
+    student = models.ForeignKey(
+        "users.StudentProfile",
+        verbose_name=_("student"),
+        related_name="weekly_goals",
+        on_delete=models.CASCADE,
+    )
+    target_xp = models.PositiveIntegerField(_("weekly XP target"), default=500)
+    goal_streak = models.PositiveIntegerField(_("weeks hit in a row"), default=0)
+    best_goal_streak = models.PositiveIntegerField(_("best weekly streak"), default=0)
+    last_completed_week = models.DateField(_("last completed week"), null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("weekly goal")
+        verbose_name_plural = _("weekly goals")
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.UniqueConstraint(
+                fields=["organization", "student"], name="unique_weekly_goal_per_org"
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.organization_id is None and self.student_id is not None:
+            from apps.common.org import org_id_from_student
+
+            self.organization_id = org_id_from_student(self.student)
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.student}: {self.target_xp} XP/week"
+
+
+class LeagueCycle(TimeStampedModel):
+    """A marker that one organization's weekly league roll-up has already run for
+    a given (just-ended) week. Promotion/relegation is not idempotent on its own —
+    running it twice would move everyone twice — so the weekly task records the
+    week here and skips a week it has already processed."""
+
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="league_cycles",
+        on_delete=models.CASCADE,
+    )
+    week_start = models.DateField(_("processed week (Monday)"))
+
+    class Meta:
+        verbose_name = _("league cycle")
+        verbose_name_plural = _("league cycles")
+        ordering = ("-week_start",)
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.UniqueConstraint(
+                fields=["organization", "week_start"], name="unique_league_cycle_per_org_week"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.organization} · week of {self.week_start}"

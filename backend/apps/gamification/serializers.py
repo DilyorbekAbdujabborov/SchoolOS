@@ -121,3 +121,9 @@ class AchievementManageSerializer(serializers.ModelSerializer):
             "xp_reward",
             "is_active",
         )
+
+
+class WeeklyGoalUpdateSerializer(serializers.Serializer):
+    """Validates a student setting their own weekly XP target."""
+
+    target_xp = serializers.IntegerField(min_value=50, max_value=100_000)
