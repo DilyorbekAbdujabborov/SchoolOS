@@ -57,5 +57,13 @@ class TeacherProfileAdmin(admin.ModelAdmin):
 
 @admin.register(StudentProfile)
 class StudentProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "birth_date", "phone_number")
-    search_fields = ("user__email", "user__first_name", "user__last_name")
+    list_display = ("user", "pinfl", "gender", "region", "birth_date", "phone_number")
+    list_filter = ("gender", "region")
+    search_fields = (
+        "user__email",
+        "user__first_name",
+        "user__last_name",
+        "pinfl",
+        "passport_number",
+        "middle_name",
+    )

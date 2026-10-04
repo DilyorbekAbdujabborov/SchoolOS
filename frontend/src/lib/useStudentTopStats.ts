@@ -8,7 +8,7 @@ import { getLevelInfo } from "./gamification";
 /** Compact stats shown in the top bar — student role only. */
 export function useStudentTopStats() {
   const { user } = useAuth();
-  const isStudent = user?.role === "STUDENT";
+  const isStudent = user?.role === "student";
 
   const { data: streak } = useQuery({
     queryKey: ["streak", "me"],

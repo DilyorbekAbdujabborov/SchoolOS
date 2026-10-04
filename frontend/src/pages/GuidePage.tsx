@@ -415,14 +415,14 @@ const DIRECTOR_SECTIONS: GuideSection[] = [
 ];
 
 const SECTIONS_BY_ROLE: Record<Role, GuideSection[]> = {
-  STUDENT: STUDENT_SECTIONS,
-  TEACHER: TEACHER_SECTIONS,
-  DIRECTOR: DIRECTOR_SECTIONS,
+  student: STUDENT_SECTIONS,
+  teacher: TEACHER_SECTIONS,
+  director: DIRECTOR_SECTIONS,
 };
 
 export function GuidePage() {
   const { user } = useAuth();
-  const sections = SECTIONS_BY_ROLE[user?.role ?? "STUDENT"];
+  const sections = SECTIONS_BY_ROLE[user?.role ?? "student"];
   const [activeIndex, setActiveIndex] = useState(0);
   const active = sections[activeIndex];
 

@@ -75,7 +75,7 @@ const EMPTY_FORM: FormState = { title: "", description: "", subject: "", link: "
 export function MaterialsPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const canManage = user?.role === "TEACHER" || user?.role === "DIRECTOR";
+  const canManage = user?.role === "teacher" || user?.role === "director";
 
   const [subjectFilter, setSubjectFilter] = useState("");
   const [kindFilter, setKindFilter] = useState("");

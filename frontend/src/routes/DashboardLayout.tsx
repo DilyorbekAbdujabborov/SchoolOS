@@ -24,9 +24,9 @@ export interface NavGroup {
 }
 
 const ROLE_LABEL: Record<string, string> = {
-  DIRECTOR: "Direktor",
-  TEACHER: "O'qituvchi",
-  STUDENT: "O'quvchi",
+  director: "Direktor",
+  teacher: "O'qituvchi",
+  student: "O'quvchi",
 };
 
 /** Remembered across sessions so the sidebar keeps the width the user chose. */
@@ -169,7 +169,7 @@ function StatPill({
 function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
   const { user } = useAuth();
   const stats = useStudentTopStats();
-  const notificationsPath = user ? `/app/${user.role.toLowerCase()}/notifications` : "/login";
+  const notificationsPath = user ? `/app/${user.role}/notifications` : "/login";
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white/80 px-4 backdrop-blur md:px-6 dark:border-slate-800 dark:bg-slate-950/80">

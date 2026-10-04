@@ -199,7 +199,7 @@ const STUDENT_NAV: NavGroup[] = [
 function AppIndex() {
   const { user, isLoading } = useAuth();
   if (isLoading) return <LoadingState />;
-  if (user) return <Navigate to={`/app/${user.role.toLowerCase()}`} replace />;
+  if (user) return <Navigate to={`/app/${user.role}`} replace />;
   return <Navigate to="/login" replace />;
 }
 
@@ -213,7 +213,7 @@ export default function App() {
       <Route
         path="/app/director"
         element={
-          <ProtectedRoute allowedRoles={["DIRECTOR"]}>
+          <ProtectedRoute allowedRoles={["director"]}>
             <DashboardLayout navGroups={DIRECTOR_NAV} brand="Direktor paneli" />
           </ProtectedRoute>
         }
@@ -242,7 +242,7 @@ export default function App() {
       <Route
         path="/app/teacher"
         element={
-          <ProtectedRoute allowedRoles={["TEACHER"]}>
+          <ProtectedRoute allowedRoles={["teacher"]}>
             <DashboardLayout navGroups={TEACHER_NAV} brand="O'qituvchi paneli" />
           </ProtectedRoute>
         }
@@ -265,7 +265,7 @@ export default function App() {
       <Route
         path="/app/student"
         element={
-          <ProtectedRoute allowedRoles={["STUDENT"]}>
+          <ProtectedRoute allowedRoles={["student"]}>
             <DashboardLayout navGroups={STUDENT_NAV} brand="O'quvchi paneli" vibrant />
           </ProtectedRoute>
         }

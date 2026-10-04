@@ -2,8 +2,12 @@ from typing import ClassVar
 
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.models import UserManager as DjangoUserManager
+from django.core.validators import RegexValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
+#: Uzbek national ID (PINFL/JSHSHIR) — exactly 14 digits.
+pinfl_validator = RegexValidator(r"^\d{14}$", _("PINFL 14 ta raqamdan iborat bo'lishi kerak."))
 
 # No import cycle: apps.organizations.models refers to the user model by
 # `settings.AUTH_USER_MODEL` string and never imports apps.users.
@@ -20,9 +24,11 @@ class UserManager(DjangoUserManager):
 
 class User(AbstractUser):
     class Role(models.TextChoices):
-        DIRECTOR = "DIRECTOR", _("Director")
-        TEACHER = "TEACHER", _("Teacher")
-        STUDENT = "STUDENT", _("Student")
+        # Stored lowercase so the value matches the `/app/<role>` route segment
+        # and the frontend's Role union without a .toLowerCase() dance.
+        DIRECTOR = "director", _("Director")
+        TEACHER = "teacher", _("Teacher")
+        STUDENT = "student", _("Student")
 
     email = models.EmailField(
         _("email address"),
@@ -176,7 +182,16 @@ class TeacherProfile(models.Model):
 
 
 class StudentProfile(models.Model):
-    """Extra data for users with role=STUDENT."""
+    """Extra data for users with role=STUDENT.
+
+    The identity fields (PINFL, passport, middle name, gender, address, region)
+    mirror the national IT-City/`digital.uz` person registry, so a student can
+    be matched to or imported from that source without reshaping the data.
+    """
+
+    class Gender(models.TextChoices):
+        MALE = "male", _("Male")
+        FEMALE = "female", _("Female")
 
     user = models.OneToOneField(
         User,
@@ -192,6 +207,20 @@ class StudentProfile(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
     )
+    pinfl = models.CharField(
+        _("PINFL"),
+        max_length=14,
+        null=True,
+        blank=True,
+        unique=True,
+        validators=[pinfl_validator],
+        help_text=_("Jismoniy shaxsning identifikatsiya raqami (14 raqam)."),
+    )
+    passport_number = models.CharField(_("passport number"), max_length=20, blank=True)
+    middle_name = models.CharField(_("middle name"), max_length=150, blank=True)
+    gender = models.CharField(_("gender"), max_length=10, choices=Gender.choices, blank=True)
+    address = models.CharField(_("address"), max_length=255, blank=True)
+    region = models.CharField(_("region"), max_length=120, blank=True)
     birth_date = models.DateField(_("birth date"), null=True, blank=True)
     phone_number = models.CharField(_("phone number"), max_length=20, blank=True)
     parent_phone_number = models.CharField(_("parent phone number"), max_length=20, blank=True)

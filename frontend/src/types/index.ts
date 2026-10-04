@@ -1,4 +1,4 @@
-export type Role = "DIRECTOR" | "TEACHER" | "STUDENT";
+export type Role = "director" | "teacher" | "student";
 
 export interface CurrentUser {
   id: number;
@@ -74,6 +74,8 @@ export interface Teacher {
   bio: string;
 }
 
+export type Gender = "male" | "female" | "";
+
 export interface Student {
   id: number;
   email: string;
@@ -82,6 +84,12 @@ export interface Student {
   is_active: boolean;
   school_class: number | null;
   school_class_name: string | null;
+  pinfl: string | null;
+  passport_number: string;
+  middle_name: string;
+  gender: Gender;
+  address: string;
+  region: string;
   birth_date: string | null;
   phone_number: string;
   parent_phone_number: string;

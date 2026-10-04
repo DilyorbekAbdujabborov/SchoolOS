@@ -35,5 +35,5 @@ export function fullName(user: CurrentUser | null | undefined): string {
 /** Rolga qarab: o'quvchiga to'liq ism, ustoz/direktorga "Familiya + bosh harf". */
 export function publicName(user: CurrentUser | null | undefined): string {
   if (!user) return "";
-  return user.role === "STUDENT" ? fullName(user) : shortName(user);
+  return user.role === "student" ? fullName(user) : shortName(user);
 }
