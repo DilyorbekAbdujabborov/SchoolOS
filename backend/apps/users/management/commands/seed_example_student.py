@@ -10,6 +10,7 @@ person. Idempotent: re-running updates the same account.
 
 from django.core.management.base import BaseCommand
 
+from apps.organizations.models import Organization, OrganizationMembership
 from apps.schools.models import SchoolClass
 from apps.users.models import StudentProfile, User
 
@@ -60,6 +61,23 @@ class Command(BaseCommand):
         user.set_password(PASSWORD)
         user.must_change_password = False
         user.save()
+
+        # Attach to an organization so the example shows up in the director's
+        # (org-scoped) student list and its gamification resolves. Picks the
+        # first organization — on crm that is the single "Maktab" org.
+        organization = Organization.objects.order_by("id").first()
+        if organization is not None:
+            OrganizationMembership.objects.update_or_create(
+                user=user,
+                organization=organization,
+                defaults={
+                    "role": OrganizationMembership.Role.STUDENT,
+                    "status": OrganizationMembership.Status.ACTIVE,
+                },
+            )
+            if user.active_organization_id != organization.id:
+                user.active_organization = organization
+                user.save(update_fields=["active_organization"])
 
         profile, _ = StudentProfile.objects.update_or_create(
             user=user,

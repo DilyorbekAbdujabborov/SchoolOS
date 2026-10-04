@@ -48,6 +48,7 @@ import { DirectorTasksPage } from "./pages/director/TasksPage";
 import { DirectorTestsPage } from "./pages/director/TestsPage";
 import { TeachersPage } from "./pages/director/TeachersPage";
 import { TimetablePage } from "./pages/director/TimetablePage";
+import { UserProfilePage } from "./pages/director/UserProfilePage";
 import { StudentActivitiesPage } from "./pages/student/ActivitiesPage";
 import { StudentAchievementsPage } from "./pages/student/AchievementsPage";
 import { StudentAttendancePage } from "./pages/student/AttendancePage";
@@ -222,6 +223,7 @@ export default function App() {
       >
         <Route index element={<DirectorDashboardPage />} />
         <Route path="students" element={<StudentsPage />} />
+        <Route path="users/:id" element={<UserProfilePage />} />
         <Route path="teachers" element={<TeachersPage />} />
         <Route path="classes" element={<ClassesPage />} />
         <Route path="subjects" element={<SubjectsPage />} />

@@ -1,5 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowUpRight } from "lucide-react";
 
 import { Avatar } from "../../components/Avatar";
 import { Badge } from "../../components/Badge";
@@ -541,6 +543,12 @@ function StudentDetail({ student, onClose }: { student: Student; onClose: () => 
             </div>
           ))}
         </dl>
+
+        <div className="flex justify-end border-t border-line-soft pt-4">
+          <Link to={`/app/director/users/${student.user_id}`} className="btn btn-primary btn-md">
+            To'liq profil sahifasi <ArrowUpRight size={16} />
+          </Link>
+        </div>
       </div>
     </Modal>
   );

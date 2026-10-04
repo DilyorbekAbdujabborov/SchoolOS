@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { Badge } from "../../components/Badge";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -139,12 +140,20 @@ export function TeachersPage() {
                       </Badge>
                     </Td>
                     <Td className="text-right">
-                      <button
-                        onClick={() => setConfirmTarget(teacher)}
-                        className="text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
-                      >
-                        {teacher.is_active ? "Faolsizlantirish" : "Faollashtirish"}
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        <Link
+                          to={`/app/director/users/${teacher.user_id}`}
+                          className="text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+                        >
+                          Profil
+                        </Link>
+                        <button
+                          onClick={() => setConfirmTarget(teacher)}
+                          className="text-sm font-medium text-ink-muted hover:text-ink hover:underline"
+                        >
+                          {teacher.is_active ? "Faolsizlantirish" : "Faollashtirish"}
+                        </button>
+                      </div>
                     </Td>
                   </Tr>
                 ))}

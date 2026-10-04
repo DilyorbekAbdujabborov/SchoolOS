@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     BulkImportStudentsView,
+    FullUserProfileView,
     PublicProfileView,
     StudentViewSet,
     TeacherViewSet,
@@ -16,6 +17,7 @@ router.register("students", StudentViewSet, basename="student")
 
 urlpatterns = [
     path("students/bulk-import/", BulkImportStudentsView.as_view(), name="students-bulk-import"),
+    path("users/<int:pk>/profile/", FullUserProfileView.as_view(), name="user-full-profile"),
     path("p/<slug:handle>/", PublicProfileView.as_view(), name="public-profile"),
     *router.urls,
 ]

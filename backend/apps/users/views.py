@@ -16,7 +16,7 @@ from apps.common.permissions import IsDirector, IsDirectorOrReadOnly, IsStudent
 
 from . import services
 from .models import StudentProfile, TeacherProfile
-from .public_profile import build_public_profile
+from .public_profile import build_full_profile, build_public_profile
 from .serializers import (
     AvatarSerializer,
     ChangePasswordSerializer,
@@ -196,6 +196,32 @@ class PublicProfileSettingsView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
+class FullUserProfileView(APIView):
+    """Director-only, in-app full view of any user in their organization.
+
+    Unlike the public card, this exposes everything a director is entitled to
+    see: email, login, status, and every identity field (PINFL, passport, phone,
+    address, …) alongside the gamification. Scoped to the director's active
+    organization so one school's director can never read another's users;
+    org-less accounts (e.g. the seeded example) stay visible in the single-org
+    deployment."""
+
+    permission_classes: ClassVar[list[type[BasePermission]]] = [IsDirector]
+
+    def get(self, request, pk):
+        from django.http import Http404
+        from django.shortcuts import get_object_or_404
+
+        target = get_object_or_404(
+            User.objects.select_related("student_profile__school_class", "teacher_profile"),
+            pk=pk,
+        )
+        director_org = request.user.active_organization_id
+        if director_org and target.active_organization_id and target.active_organization_id != director_org:
+            raise Http404("Foydalanuvchi topilmadi.")
+        return Response(build_full_profile(target, request=request))
 
 
 class PublicProfileView(APIView):

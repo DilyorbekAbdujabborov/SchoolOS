@@ -482,3 +482,61 @@ class PublicProfileViewTests(APITestCase):
         self.assertTrue(response.data["is_teacher"])
         self.assertEqual(response.data["bio"], "Matematika o'qituvchisi")
         self.assertNotIn("total_xp", response.data)
+
+
+class FullUserProfileViewTests(APITestCase):
+    def test_director_sees_full_student_data_including_private_fields(self):
+        director = make_director()
+        student_user, profile = make_student()
+        profile.pinfl = "12345678901234"
+        profile.phone_number = "+998901234567"
+        profile.total_xp = 120
+        profile.save(update_fields=["pinfl", "phone_number", "total_xp"])
+
+        self.client.force_authenticate(director)
+        response = self.client.get(f"/api/users/{student_user.id}/profile/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["email"], student_user.email)
+        self.assertEqual(response.data["pinfl"], "12345678901234")
+        self.assertEqual(response.data["phone_number"], "+998901234567")
+        self.assertEqual(response.data["total_xp"], 120)
+        self.assertIn("league", response.data)
+
+    def test_non_director_is_forbidden(self):
+        student_user, _ = make_student()
+        other_user, _ = make_student()
+        self.client.force_authenticate(other_user)
+        response = self.client.get(f"/api/users/{student_user.id}/profile/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonymous_is_unauthorized(self):
+        student_user, _ = make_student()
+        response = self.client.get(f"/api/users/{student_user.id}/profile/")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_director_cannot_read_a_user_from_another_org(self):
+        from apps.common.testing import add_membership, make_organization
+
+        director = make_director()
+        other_org = make_organization()
+        outsider, _ = make_student()
+        add_membership(outsider, other_org)
+
+        self.client.force_authenticate(director)
+        response = self.client.get(f"/api/users/{outsider.id}/profile/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_teacher_profile_shows_bio_and_phone(self):
+        director = make_director()
+        teacher_user, profile = make_teacher()
+        profile.bio = "Fizika o'qituvchisi"
+        profile.phone_number = "+998900000000"
+        profile.save(update_fields=["bio", "phone_number"])
+
+        self.client.force_authenticate(director)
+        response = self.client.get(f"/api/users/{teacher_user.id}/profile/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["is_teacher"])
+        self.assertEqual(response.data["bio"], "Fizika o'qituvchisi")
+        self.assertEqual(response.data["phone_number"], "+998900000000")

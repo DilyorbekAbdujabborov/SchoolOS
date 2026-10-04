@@ -93,6 +93,7 @@ export interface Paginated<T> {
 
 export interface Teacher {
   id: number;
+  user_id: number;
   email: string;
   first_name: string;
   last_name: string;
@@ -105,6 +106,7 @@ export type Gender = "male" | "female" | "";
 
 export interface Student {
   id: number;
+  user_id: number;
   email: string;
   first_name: string;
   last_name: string;
@@ -121,6 +123,29 @@ export interface Student {
   phone_number: string;
   parent_phone_number: string;
   total_xp: number;
+}
+
+/** The complete, director-only in-app view at /api/users/<id>/profile/. */
+export interface FullUserProfile extends PublicProfile {
+  id: number;
+  email: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+  role_label: string;
+  is_active: boolean;
+  is_profile_public: boolean;
+  date_joined: string | null;
+  // Student identity (director sees the private fields the public card hides):
+  passport_number?: string;
+  gender?: Gender;
+  gender_label?: string;
+  birth_date?: string | null;
+  pinfl?: string | null;
+  phone_number?: string;
+  parent_phone_number?: string;
+  address?: string;
+  region?: string;
 }
 
 export interface SchoolClass {

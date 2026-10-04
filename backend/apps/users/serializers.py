@@ -189,10 +189,13 @@ class TeacherSerializer(serializers.ModelSerializer):
     is_active = serializers.BooleanField(source="user.is_active", required=False)
     password = serializers.CharField(write_only=True, required=False, min_length=8)
 
+    user_id = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = TeacherProfile
         fields = (
             "id",
+            "user_id",
             "email",
             "first_name",
             "last_name",
@@ -252,10 +255,13 @@ class StudentSerializer(serializers.ModelSerializer):
     # or a second blank-PINFL student would trip the unique constraint.
     pinfl = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=14)
 
+    user_id = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = StudentProfile
         fields = (
             "id",
+            "user_id",
             "email",
             "first_name",
             "last_name",
