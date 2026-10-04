@@ -72,8 +72,8 @@ export function PushPrompt() {
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-4">
-      <div className="flex w-full max-w-xl flex-col gap-3 rounded-2xl border border-line bg-surface p-4 shadow-xl sm:flex-row sm:items-center">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-4">
+      <div className="pointer-events-auto flex w-full max-w-xl flex-col gap-3 rounded-2xl border border-line bg-surface p-4 shadow-xl sm:flex-row sm:items-center">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
           <Bell size={20} />
         </span>
