@@ -170,6 +170,9 @@ class StudentSerializer(serializers.ModelSerializer):
     is_active = serializers.BooleanField(source="user.is_active", required=False)
     password = serializers.CharField(write_only=True, required=False, min_length=8)
     school_class_name = serializers.CharField(source="school_class.name", read_only=True)
+    # PINFL is unique but optional: a blank value must become NULL, not "",
+    # or a second blank-PINFL student would trip the unique constraint.
+    pinfl = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=14)
 
     class Meta:
         model = StudentProfile
@@ -194,6 +197,19 @@ class StudentSerializer(serializers.ModelSerializer):
             "total_xp",
         )
         read_only_fields = ("total_xp",)
+
+    def validate_pinfl(self, value):
+        value = (value or "").strip()
+        if not value:
+            return None
+        if not (value.isdigit() and len(value) == 14):
+            raise serializers.ValidationError("PINFL 14 ta raqamdan iborat bo'lishi kerak.")
+        queryset = StudentProfile.objects.filter(pinfl=value)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError("Bu PINFL allaqachon ro'yxatda.")
+        return value
 
     def validate_email(self, value):
         queryset = User.objects.filter(email__iexact=value)
