@@ -1,0 +1,12 @@
+[Unit]
+Description=SchoolOS tochna.uz tenant SSL sync (token-free HTTP-01)
+Documentation=file:/var/www/SchoolOS/deploy/tochna-ssl/README.md
+After=network-online.target postgresql.service nginx.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/sync_tochna_ssl.sh
+# certbot + nginx edits need root; keep privileges minimal otherwise.
+User=root
+Nice=10

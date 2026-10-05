@@ -1,0 +1,13 @@
+[Unit]
+Description=Periodically sync tochna.uz tenant SSL certificates
+
+[Timer]
+# Shortly after boot, then every 30 min. A new organization gets a valid
+# certificate within one interval with no manual step.
+OnBootSec=3min
+OnUnitActiveSec=30min
+RandomizedDelaySec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
