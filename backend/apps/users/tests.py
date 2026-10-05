@@ -540,3 +540,49 @@ class FullUserProfileViewTests(APITestCase):
         self.assertTrue(response.data["is_teacher"])
         self.assertEqual(response.data["bio"], "Fizika o'qituvchisi")
         self.assertEqual(response.data["phone_number"], "+998900000000")
+
+
+class UserListScopingTests(APITestCase):
+    """`/api/users/` is scoped to the director's own organization.
+
+    Regression: the list returned `User.objects.all()`, so every school's
+    director saw every account on the platform — the same user list appeared
+    under every tenant.
+    """
+
+    def test_director_sees_only_their_own_organizations_users(self):
+        from apps.common.testing import make_organization
+
+        director = make_director()
+        teammate, _ = make_student()  # same (default) organization
+        other_org = make_organization()
+        outsider, _ = make_student(organization=other_org)
+
+        self.client.force_authenticate(director)
+        response = self.client.get("/api/users/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        emails = {row["email"] for row in response.data["results"]}
+        self.assertIn(director.email, emails)
+        self.assertIn(teammate.email, emails)
+        self.assertNotIn(outsider.email, emails)
+
+
+class TeacherListScopingTests(APITestCase):
+    """`/api/teachers/` is scoped to the viewer's own organization (same leak)."""
+
+    def test_teacher_list_excludes_other_organizations(self):
+        from apps.common.testing import make_organization
+
+        director = make_director()
+        ours, _ = make_teacher()  # default organization
+        other_org = make_organization()
+        theirs, _ = make_teacher(organization=other_org)
+
+        self.client.force_authenticate(director)
+        response = self.client.get("/api/teachers/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        emails = {row["email"] for row in response.data["results"]}
+        self.assertIn(ours.email, emails)
+        self.assertNotIn(theirs.email, emails)

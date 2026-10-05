@@ -32,7 +32,7 @@ User = get_user_model()
 
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
-    """Director-only endpoint listing every account in the system."""
+    """Director-only endpoint listing the accounts in the director's own organization."""
 
     serializer_class = UserSerializer
     queryset = User.objects.all()
@@ -40,6 +40,13 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_fields = ("role", "is_active", "is_staff")
     search_fields = ("email", "username", "first_name", "last_name")
     ordering_fields = ("email", "username", "date_joined")
+
+    def get_queryset(self):
+        # Scope to the acting organization so one school's director never sees
+        # another school's accounts (the active org is pinned per request by the
+        # auth layer: token claim, X-Organization-Id, or the tenant subdomain).
+        user = self.request.user
+        return User.objects.filter(active_organization_id=user.active_organization_id)
 
 
 class MeView(RetrieveAPIView):
@@ -60,6 +67,18 @@ class TeacherViewSet(viewsets.ModelViewSet):
     http_method_names: ClassVar[list[str]] = ["get", "post", "patch", "put", "head", "options"]
     queryset = TeacherProfile.objects.select_related("user").order_by("user__first_name")
     search_fields = ("user__email", "user__first_name", "user__last_name")
+
+    def get_queryset(self):
+        # Scope to the acting organization: directors and readers alike only ever
+        # see teachers of their own school. Mirrors StudentViewSet's scoping.
+        user = self.request.user
+        return (
+            TeacherProfile.objects.filter(
+                user__active_organization_id=user.active_organization_id
+            )
+            .select_related("user")
+            .order_by("user__first_name")
+        )
 
 
 class StudentFilter(django_filters.FilterSet):
