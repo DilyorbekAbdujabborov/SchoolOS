@@ -24,6 +24,24 @@ from apps.organizations import services
 ORG_CLAIM = "org_id"
 
 
+def _apply_membership(request, user, membership) -> None:
+    """Make `membership` the acting organization for this request *and* for the
+    user object the views see.
+
+    Two layers read "the current organization": `request.organization` (set by
+    this auth class) and `user.active_membership` / `user.active_organization`
+    (read directly by querysets like StudentViewSet and by all gamification). If
+    only the request side were set, a token claim, an `X-Organization-Id` header
+    or a tenant subdomain would re-scope some endpoints but not others. Binding
+    both — in memory, never persisted here — keeps the whole request consistently
+    inside one organization.
+    """
+    request.organization_membership = membership
+    request.organization = membership.organization
+    user.active_organization = membership.organization
+    user._active_membership_cache = membership
+
+
 class OrganizationJWTAuthentication(JWTAuthentication):
     """`JWTAuthentication` plus an active-organization membership on the request."""
 
@@ -44,8 +62,7 @@ class OrganizationJWTAuthentication(JWTAuthentication):
 
         request.user = user
         request.organization = None
-        request.organization_membership = services.resolve_membership(user, claim)
-        request.organization = request.organization_membership.organization
+        _apply_membership(request, user, services.resolve_membership(user, claim))
         return result
 
 
@@ -65,19 +82,25 @@ class OrganizationHeaderAuthentication(OrganizationJWTAuthentication):
             return None
 
         user = request.user
+
         header = request.META.get(self.HEADER)
-        if not header:
-            return result
+        if header:
+            try:
+                organization_id = int(header)
+            except (TypeError, ValueError):
+                raise exceptions.AuthenticationFailed(
+                    _("X-Organization-Id sarlavhasi noto'g'ri."), code="invalid_org"
+                )
+            _apply_membership(request, user, services.resolve_membership(user, organization_id))
 
-        try:
-            organization_id = int(header)
-        except (TypeError, ValueError):
-            raise exceptions.AuthenticationFailed(
-                _("X-Organization-Id sarlavhasi noto'g'ri."), code="invalid_org"
-            )
+        # A tenant subdomain is authoritative: on `<slug>.tochna.uz` the request
+        # acts in that organization whatever the token claims, and a non-member
+        # is refused (403) rather than silently acting in some other org. Wins
+        # over both the claim and the X-Organization-Id header.
+        tenant = getattr(request, "tenant", None)
+        if tenant is not None:
+            _apply_membership(request, user, services.resolve_membership(user, tenant.id))
 
-        request.organization_membership = services.resolve_membership(user, organization_id)
-        request.organization = request.organization_membership.organization
         return result
 
 

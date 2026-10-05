@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import timedelta
 from pathlib import Path
 
@@ -16,6 +17,15 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", default="change-me-in-production")
 DEBUG = env("DJANGO_DEBUG", default="True").lower() in ("true", "1", "yes")
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["*"])
+
+# ---------- Multi-tenancy (subdomain) ----------
+# Each organization has its own entrance at `<org-slug>.<TENANT_BASE_DOMAIN>`;
+# see apps.organizations.tenancy. The legacy sharqsoft.uz host stays valid during
+# the move to tochna.uz.
+TENANT_BASE_DOMAIN = env("TENANT_BASE_DOMAIN", default="tochna.uz")
+for _tenant_host in (f".{TENANT_BASE_DOMAIN}", ".sharqsoft.uz"):
+    if "*" not in ALLOWED_HOSTS and _tenant_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_tenant_host)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -57,6 +67,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "apps.organizations.middleware.TenantMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -175,6 +186,19 @@ SPECTACULAR_SETTINGS = {
 # ---------- CORS ----------
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_ALLOW_CREDENTIALS = True
+# Any tenant subdomain may call the API (the SPA is served from the same host,
+# so this mostly matters for tooling/dev and stays scoped to our base domains).
+_tenant_domain_re = re.escape(TENANT_BASE_DOMAIN)
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    rf"^https://[a-z0-9-]+\.{_tenant_domain_re}$",
+    r"^https://[a-z0-9-]+\.sharqsoft\.uz$",
+]
+
+# Django admin and any session/CSRF POST on a tenant host must trust it.
+CSRF_TRUSTED_ORIGINS = env.list(
+    "CSRF_TRUSTED_ORIGINS",
+    default=[f"https://*.{TENANT_BASE_DOMAIN}", "https://*.sharqsoft.uz"],
+)
 
 # ---------- Telegram bot ----------
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")

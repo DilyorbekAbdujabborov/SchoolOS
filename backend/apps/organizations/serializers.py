@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from .models import Organization, OrganizationMembership
+from .tenancy import InvalidTenantSlug, validate_tenant_slug
 
 User = get_user_model()
 
@@ -53,6 +54,10 @@ class CreateOrganizationSerializer(serializers.ModelSerializer):
         read_only_fields = ("id",)
 
     def validate_slug(self, value):
+        try:
+            value = validate_tenant_slug(value)
+        except InvalidTenantSlug as exc:
+            raise serializers.ValidationError(str(exc))
         if Organization.objects.filter(slug=value).exists():
             raise serializers.ValidationError("Bu slug allaqach band.")
         return value

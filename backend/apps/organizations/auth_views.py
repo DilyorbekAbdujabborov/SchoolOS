@@ -67,7 +67,14 @@ class OrganizationTokenObtainPairView(TokenObtainPairView):
         refresh_token = data.get("refresh")
 
         user = serializer.user
-        membership = _resolve_for_login(user, request.data.get("organization"))
+        # On a tenant subdomain (`<slug>.tochna.uz`) the organization is implied
+        # by the host, so the client needs to send nothing — a non-member hits
+        # the same "not yours" 403 as any other cross-org attempt.
+        requested_organization = request.data.get("organization")
+        tenant = getattr(request, "tenant", None)
+        if tenant is not None and requested_organization in (None, ""):
+            requested_organization = tenant.id
+        membership = _resolve_for_login(user, requested_organization)
 
         refresh = RefreshToken(refresh_token)
         _with_organization(refresh, membership.organization)
