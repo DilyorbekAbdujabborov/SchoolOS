@@ -154,9 +154,68 @@ export function getApiError(err: unknown): ApiError {
   return { errorCode: "error", detail: "Xatolik yuz berdi", errors: null };
 }
 
-export async function login(email: string, password: string) {
+const HANDOFF_COOKIE = "schoolos.handoff";
+
+/** The base domain shared by every tenant — `<slug>.<base>` minus its first
+ *  label. "toshloq-44.tochna.uz" -> "tochna.uz"; "tochna.uz" -> "tochna.uz". */
+function baseDomainOf(host: string): string {
+  const name = host.split(":")[0];
+  const parts = name.split(".");
+  return parts.length > 2 ? parts.slice(1).join(".") : name;
+}
+
+/** If the login happened on the main/apex host but the account lives on a
+ *  tenant subdomain, move the session there. The tokens travel in a short-lived
+ *  cookie scoped to the base domain (readable by the subdomain, never put in the
+ *  URL, never sent to logs), and the browser does a full navigation.
+ *  Returns true when a redirect was started — the caller must stop, the page is
+ *  unloading. */
+export function redirectToTenantHost(redirectTo: string | null | undefined): boolean {
+  if (!redirectTo) return false;
+  const { host, hostname } = window.location;
+  if (redirectTo === host || redirectTo === hostname) return false;
+
+  const base = redirectTo.split(".").slice(1).join(".");
+  // Only move within the same base domain; never bounce a dev/other host off to
+  // production because the API happened to compute a tenant host.
+  if (!base || !(hostname === base || hostname.endsWith(`.${base}`))) return false;
+
+  const access = tokenStorage.getAccess();
+  const refresh = tokenStorage.getRefresh();
+  if (access && refresh) {
+    const value = encodeURIComponent(JSON.stringify({ a: access, r: refresh }));
+    document.cookie =
+      `${HANDOFF_COOKIE}=${value}; domain=${base}; path=/; max-age=60; secure; samesite=Lax`;
+  }
+  window.location.assign(`https://${redirectTo}/app`);
+  return true;
+}
+
+/** On boot, adopt a session handed off from the main host (see
+ *  redirectToTenantHost) and scrub the cookie. Safe to call unconditionally. */
+export function absorbTenantHandoff(): void {
+  const match = document.cookie.match(/(?:^|;\s*)schoolos\.handoff=([^;]+)/);
+  const base = baseDomainOf(window.location.host);
+  if (match) {
+    try {
+      const { a, r } = JSON.parse(decodeURIComponent(match[1]));
+      if (a && r) tokenStorage.set(a, r);
+    } catch {
+      /* malformed handoff — ignore, just clear it below */
+    }
+    // One-time: delete on the base domain it was set on.
+    document.cookie = `${HANDOFF_COOKIE}=; domain=${base}; path=/; max-age=0`;
+  }
+}
+
+export async function login(
+  email: string,
+  password: string,
+): Promise<{ redirecting: boolean }> {
   const { data } = await axios.post("/api/auth/login/", { email, password });
   tokenStorage.set(data.access, data.refresh);
+  const redirecting = redirectToTenantHost(data.redirect_to);
+  return { redirecting };
 }
 
 export function logout() {

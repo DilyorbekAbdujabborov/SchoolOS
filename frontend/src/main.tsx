@@ -4,9 +4,15 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
 import App from "./App";
+import { absorbTenantHandoff } from "./lib/api";
 import { AuthProvider } from "./lib/auth";
 import { ThemeProvider } from "./lib/theme";
 import "./index.css";
+
+// A login on the main/apex host hands the session to the tenant subdomain via a
+// short-lived base-domain cookie; adopt it into this host's storage before the
+// auth layer reads tokens, so the user lands signed in without re-entering.
+absorbTenantHandoff();
 
 const queryClient = new QueryClient({
   defaultOptions: {

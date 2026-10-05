@@ -107,8 +107,10 @@ export function LoginPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await login(email, password);
-      navigate("/app", { replace: true });
+      const redirecting = await login(email, password);
+      // On a cross-host handoff the browser is already navigating to the tenant
+      // subdomain; routing here would just flash the dashboard on the wrong host.
+      if (!redirecting) navigate("/app", { replace: true });
     } catch {
       setError("Login yoki parol noto'g'ri.");
     } finally {

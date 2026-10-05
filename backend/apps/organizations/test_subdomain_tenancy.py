@@ -55,6 +55,21 @@ class SubdomainLoginTests(APITestCase):
         response = self._login(outsider.email, "alfa.tochna.uz")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_login_on_main_host_redirects_to_the_org_subdomain(self):
+        org = make_organization(name="Alfa", slug="alfa")
+        director = make_director(organization=org)
+        for host in ["tochna.uz", "app.tochna.uz", "www.tochna.uz"]:
+            response = self._login(director.email, host)
+            self.assertEqual(response.status_code, status.HTTP_200_OK, msg=host)
+            self.assertEqual(response.data["redirect_to"], "alfa.tochna.uz", msg=host)
+
+    def test_login_on_the_tenant_subdomain_has_no_redirect(self):
+        org = make_organization(name="Alfa", slug="alfa")
+        director = make_director(organization=org)
+        response = self._login(director.email, "alfa.tochna.uz")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(response.data["redirect_to"])
+
 
 class SubdomainRequestScopingTests(APITestCase):
     def setUp(self):

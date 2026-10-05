@@ -91,8 +91,25 @@ class OrganizationTokenObtainPairView(TokenObtainPairView):
                 "type": membership.organization.type,
             },
             "role": membership.role,
+            # When the login happened on the main/apex host (no tenant implied by
+            # the subdomain), tell the client to continue on the organization's
+            # own entrance `<slug>.<base>`. On a tenant subdomain the host already
+            # pins the org, so there is nothing to move and this stays null.
+            "redirect_to": self._tenant_host(tenant, membership.organization),
         }
         return Response(data, status=200)
+
+    @staticmethod
+    def _tenant_host(tenant, organization) -> str | None:
+        if tenant is not None:
+            return None
+        from django.conf import settings
+
+        base = (getattr(settings, "TENANT_BASE_DOMAIN", "") or "").strip().rstrip(".")
+        slug = (organization.slug or "").strip()
+        if not base or not slug:
+            return None
+        return f"{slug}.{base}"
 
 
 class OrganizationTokenRefreshView(TokenViewBase):

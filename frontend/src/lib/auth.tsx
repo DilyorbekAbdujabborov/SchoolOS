@@ -9,7 +9,9 @@ interface AuthContextValue {
   isLoading: boolean;
   isAuthenticated: boolean;
   schoolLockMessage: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  /** Resolves to true when the session is being moved to the tenant's own
+   *  host (the page is navigating away); the caller should not route further. */
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -33,9 +35,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   async function login(email: string, password: string) {
-    await apiLogin(email, password);
+    const { redirecting } = await apiLogin(email, password);
+    // The session is being handed to the tenant subdomain; the page is about to
+    // unload, so don't fetch `me` or flip state on this (soon-dead) host.
+    if (redirecting) return true;
     setHasToken(true);
     await queryClient.invalidateQueries({ queryKey: ["me"] });
+    return false;
   }
 
   function logout() {
