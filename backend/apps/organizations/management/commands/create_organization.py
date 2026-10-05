@@ -28,7 +28,7 @@ from django.db import transaction
 from django.utils.text import slugify
 
 from apps.organizations.models import Organization, OrganizationMembership
-from apps.users.models import User
+from apps.users.models import StudentProfile, TeacherProfile, User
 
 
 def _generate_temp_password(length: int = 10) -> str:
@@ -62,7 +62,12 @@ class Command(BaseCommand):
         parser.add_argument(
             "--reset-password",
             action="store_true",
-            help="If the director already exists, generate a new temporary password.",
+            help="If an account already exists, generate a new temporary password.",
+        )
+        parser.add_argument(
+            "--with-sample-accounts",
+            action="store_true",
+            help="Also create one teacher, a class and one student so every role has a login.",
         )
 
     @transaction.atomic
@@ -89,40 +94,45 @@ class Command(BaseCommand):
             org.name = options["name"]
             org.save(update_fields=["name"])
 
-        director, dir_created = User.objects.get_or_create(
-            email=email,
-            defaults={
-                "username": email,
-                "role": User.Role.DIRECTOR,
-                "first_name": options["director_first"],
-                "last_name": options["director_last"],
-                "must_change_password": True,
-                "is_active": True,
-            },
+        reset = options["reset_password"]
+
+        # (label, user, temporary_password_or_None) for the printed summary.
+        results = []
+
+        director, dir_pw = self._provision_user(
+            org, email, User.Role.DIRECTOR, OrganizationMembership.Role.DIRECTOR,
+            options["director_first"], options["director_last"], reset,
         )
+        results.append(("Director", director, dir_pw))
 
-        temp_password = None
-        if dir_created or options["reset_password"]:
-            temp_password = _generate_temp_password()
-            director.set_password(temp_password)
-            director.must_change_password = True
+        if options["with_sample_accounts"]:
+            from apps.schools.models import SchoolClass
 
-        # Always pin the director to this org and keep identity fields current.
-        director.first_name = options["director_first"]
-        director.last_name = options["director_last"]
-        director.role = User.Role.DIRECTOR
-        director.is_active = True
-        director.active_organization = org
-        director.save()
+            teacher, teacher_pw = self._provision_user(
+                org, f"ustoz@{slug}.{base}" if base else f"ustoz@{slug}.local",
+                User.Role.TEACHER, OrganizationMembership.Role.TEACHER,
+                "O'qituvchi", "Namuna", reset,
+            )
+            teacher_profile, _ = TeacherProfile.objects.get_or_create(user=teacher)
+            results.append(("Teacher", teacher, teacher_pw))
 
-        OrganizationMembership.objects.update_or_create(
-            user=director,
-            organization=org,
-            defaults={
-                "role": OrganizationMembership.Role.DIRECTOR,
-                "status": OrganizationMembership.Status.ACTIVE,
-            },
-        )
+            school_class, _ = SchoolClass.objects.get_or_create(
+                name="1-A", organization=org,
+                defaults={"class_teacher": teacher_profile},
+            )
+            if school_class.class_teacher_id is None:
+                school_class.class_teacher = teacher_profile
+                school_class.save(update_fields=["class_teacher"])
+
+            student, student_pw = self._provision_user(
+                org, f"oquvchi@{slug}.{base}" if base else f"oquvchi@{slug}.local",
+                User.Role.STUDENT, OrganizationMembership.Role.STUDENT,
+                "O'quvchi", "Namuna", reset,
+            )
+            StudentProfile.objects.get_or_create(
+                user=student, defaults={"school_class": school_class}
+            )
+            results.append(("Student", student, student_pw))
 
         host = f"{slug}.{base}" if base else slug
         self.stdout.write(self.style.SUCCESS(
@@ -130,14 +140,49 @@ class Command(BaseCommand):
             f"'{org.name}' (slug={org.slug}, type={org.type})"
         ))
         self.stdout.write(f"  Entrance: https://{host}/")
-        self.stdout.write(f"  Director: {director.first_name} {director.last_name} <{email}>")
-        if temp_password is not None:
-            self.stdout.write(self.style.WARNING(
-                f"  Temporary password (shown ONCE): {temp_password}"
-            ))
-            self.stdout.write("  Director must change it on first login.")
-        else:
-            self.stdout.write(
-                "  Director already existed; password unchanged "
-                "(use --reset-password to regenerate)."
-            )
+        any_generated = False
+        for label, user, temp_password in results:
+            self.stdout.write(f"  {label}: {user.first_name} {user.last_name} <{user.email}>")
+            if temp_password is not None:
+                any_generated = True
+                self.stdout.write(self.style.WARNING(
+                    f"    Temporary password (shown ONCE): {temp_password}"
+                ))
+            else:
+                self.stdout.write("    already existed; password unchanged (--reset-password to regenerate).")
+        if any_generated:
+            self.stdout.write("  Each new account must change its password on first login.")
+
+    def _provision_user(self, org, email, user_role, membership_role, first, last, reset):
+        """Create-or-update one account pinned to ``org``; return (user, temp_password_or_None)."""
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                "username": email,
+                "role": user_role,
+                "first_name": first,
+                "last_name": last,
+                "must_change_password": True,
+                "is_active": True,
+            },
+        )
+
+        temp_password = None
+        if created or reset:
+            temp_password = _generate_temp_password()
+            user.set_password(temp_password)
+            user.must_change_password = True
+
+        user.first_name = first
+        user.last_name = last
+        user.role = user_role
+        user.is_active = True
+        user.active_organization = org
+        user.save()
+
+        OrganizationMembership.objects.update_or_create(
+            user=user, organization=org,
+            defaults={"role": membership_role,
+                      "status": OrganizationMembership.Status.ACTIVE},
+        )
+        return user, temp_password
