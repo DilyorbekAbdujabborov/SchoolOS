@@ -16,6 +16,8 @@ from .serializers import (
     GameSessionCreateSerializer,
     GameSessionSerializer,
     GameSubmitSerializer,
+    PoolImportSerializer,
+    PoolPromptSerializer,
     PoolRefillSerializer,
 )
 
@@ -140,3 +142,42 @@ class QuestionPoolViewSet(viewsets.ViewSet):
             organization=request.user.active_organization, **serializer.validated_data
         )
         return Response({"added": added})
+
+    @action(detail=False, methods=["post"])
+    def prompt(self, request):
+        """Return the exact generation prompt for a subject (+ optional class),
+        so a director can run it in an external chatbot (ChatGPT, Claude, …) and
+        paste the result back via `import_questions`. No AI call is made here."""
+        serializer = PoolPromptSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        kwargs = {"subject": data["subject"]}
+        if data.get("school_class") is not None:
+            kwargs["school_class"] = data["school_class"]
+        if data.get("count") is not None:
+            kwargs["batch_size"] = data["count"]
+        return Response({"prompt": services.build_refill_prompt(**kwargs)})
+
+    @action(detail=False, methods=["post"], url_path="import")
+    def import_questions(self, request):
+        """Store questions a director pasted back from an external chatbot. The
+        paste is parsed leniently (bare JSON, ```json fences, or prose) and only
+        well-formed questions are kept; returns how many were received vs added."""
+        serializer = PoolImportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        subject = data["subject"]
+        school_class = data.get("school_class")
+        raw_questions = services.parse_questions_payload(data["content"])
+        if not raw_questions:
+            raise ValidationError(
+                "Matndan savollar topilmadi. Chatbot bergan JSON'ni to'liq nusxalab joylang."
+            )
+        organization = request.user.active_organization
+        added = services.store_pool_questions(
+            subject=subject,
+            school_class=school_class,
+            organization_id=organization.pk if organization else None,
+            raw_questions=raw_questions,
+        )
+        return Response({"received": len(raw_questions), "added": added})

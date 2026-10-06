@@ -164,3 +164,23 @@ class PoolRefillSerializer(serializers.Serializer):
 
     subject = serializers.PrimaryKeyRelatedField(queryset=Subject.objects.all())
     school_class = serializers.PrimaryKeyRelatedField(queryset=SchoolClass.objects.all(), required=False)
+
+
+class PoolPromptSerializer(serializers.Serializer):
+    """Build the exact generation prompt for a subject (+ optional class) so a
+    director can run it in an external chatbot. `count` lets them ask for a
+    larger batch than the automatic refill's default."""
+
+    subject = serializers.PrimaryKeyRelatedField(queryset=Subject.objects.all())
+    school_class = serializers.PrimaryKeyRelatedField(queryset=SchoolClass.objects.all(), required=False)
+    count = serializers.IntegerField(required=False, min_value=1, max_value=200)
+
+
+class PoolImportSerializer(serializers.Serializer):
+    """Ingest the JSON a director pasted back from an external chatbot. `content`
+    is the raw paste — it may be bare JSON, fenced in ```json, or wrapped in
+    prose; the service extracts the questions array leniently."""
+
+    subject = serializers.PrimaryKeyRelatedField(queryset=Subject.objects.all())
+    school_class = serializers.PrimaryKeyRelatedField(queryset=SchoolClass.objects.all(), required=False)
+    content = serializers.CharField(trim_whitespace=False)

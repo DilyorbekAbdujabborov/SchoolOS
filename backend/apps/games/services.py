@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import secrets
 
 from django.db import transaction
@@ -337,19 +338,7 @@ def refill_pool(
         organization_id = school_class.organization_id
     else:
         raise ValueError("refill_pool requires an organization when no school_class is given.")
-    game_label = "mashq"
-    scope = f"{school_class.name} sinf darajasida" if school_class else "barcha sinf darajasida"
-    prompt = (
-        f'"{subject.name}" fanidan, {scope} {batch_size} ta '
-        f"ODDIY va QISQA ko'p variantli {game_label} savoli tuzib ber. Turli mavzu va qiyinlik darajasidan "
-        "bo'lsin.\n\n"
-        "Faqat quyidagi JSON formatida javob ber, boshqa hech narsa yozma:\n"
-        '{"questions": [{"text": "...", "options": ["...", "...", "...", "..."], "correct_index": 0, '
-        '"explanation": "..."}]}\n'
-        "Har savolda aniq 4 ta variant va faqat bitta to'g'ri javob bo'lsin (correct_index — 0 dan boshlab). "
-        "explanation — nega aynan shu javob to'g'riligini bitta qisqa gapda tushuntirsin. "
-        "Hammasi o'zbek tilida bo'lsin."
-    )
+    prompt = build_refill_prompt(subject=subject, school_class=school_class, batch_size=batch_size)
 
     content = call_gemini(prompt=prompt, json_mode=True)
     if content is None:
@@ -363,7 +352,43 @@ def refill_pool(
         logger.warning("Could not parse Gemini pool-refill JSON for %s / %s", subject, school_class)
         return 0
 
-    valid = [
+    return store_pool_questions(
+        subject=subject,
+        school_class=school_class,
+        organization_id=organization_id,
+        raw_questions=raw_questions,
+    )
+
+
+def build_refill_prompt(*, subject, school_class=None, batch_size: int = POOL_REFILL_BATCH) -> str:
+    """The exact prompt `refill_pool` sends to Gemini — also handed to a director
+    who would rather generate the batch in an external chatbot (ChatGPT, Claude,
+    …) and paste the JSON back via `store_pool_questions`. Kept as the single
+    source of truth so the copied prompt and the automatic one never drift."""
+    game_label = "mashq"
+    scope = f"{school_class.name} sinf darajasida" if school_class else "barcha sinf darajasida"
+    return (
+        f'"{subject.name}" fanidan, {scope} {batch_size} ta '
+        f"ODDIY va QISQA ko'p variantli {game_label} savoli tuzib ber. Turli mavzu va qiyinlik darajasidan "
+        "bo'lsin.\n\n"
+        "Faqat quyidagi JSON formatida javob ber, boshqa hech narsa yozma:\n"
+        '{"questions": [{"text": "...", "options": ["...", "...", "...", "..."], "correct_index": 0, '
+        '"explanation": "..."}]}\n'
+        "Har savolda aniq 4 ta variant va faqat bitta to'g'ri javob bo'lsin (correct_index — 0 dan boshlab). "
+        "explanation — nega aynan shu javob to'g'riligini bitta qisqa gapda tushuntirsin. "
+        "Hammasi o'zbek tilida bo'lsin."
+    )
+
+
+#: Hard cap on how many questions one import call will store, so a giant paste
+#: can't balloon a bank in a single request. Well above any realistic batch.
+POOL_IMPORT_MAX = 500
+
+
+def _valid_pool_questions(raw_questions: list) -> list:
+    """The well-formed subset of a raw question list — the one validation shared
+    by the Gemini refill and the external-chatbot import."""
+    return [
         q
         for q in raw_questions
         if isinstance(q, dict)
@@ -375,6 +400,11 @@ def refill_pool(
         and 0 <= q["correct_index"] < len(q["options"])
     ]
 
+
+def store_pool_questions(*, subject, school_class, organization_id, raw_questions: list) -> int:
+    """Validate raw question dicts (from Gemini or a pasted chatbot answer) and
+    add the well-formed ones to the bank. Returns how many were added."""
+    valid = _valid_pool_questions((raw_questions or [])[:POOL_IMPORT_MAX])
     created = PooledQuestion.objects.bulk_create(
         PooledQuestion(
             organization_id=organization_id,
@@ -388,6 +418,39 @@ def refill_pool(
         for q in valid
     )
     return len(created)
+
+
+def parse_questions_payload(payload) -> list:
+    """Best-effort extraction of the questions array from whatever a director
+    pasted back from an external chatbot. Accepts an already-parsed list, a
+    `{"questions": [...]}` object, or a raw string that may be wrapped in
+    ```json fences or surrounded by prose."""
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        questions = payload.get("questions")
+        return questions if isinstance(questions, list) else []
+    if not isinstance(payload, str):
+        return []
+
+    text = payload.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z0-9]*\n?", "", text)
+        text = re.sub(r"\n?```$", "", text).strip()
+
+    try:
+        return parse_questions_payload(json.loads(text))
+    except json.JSONDecodeError:
+        pass
+
+    # Fallback: pull the outermost JSON object/array out of surrounding prose.
+    match = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
+    if match:
+        try:
+            return parse_questions_payload(json.loads(match.group(1)))
+        except json.JSONDecodeError:
+            return []
+    return []
 
 
 def pool_status() -> list[dict]:

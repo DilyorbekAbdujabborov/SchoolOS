@@ -240,6 +240,75 @@ class PoolRefillTests(APITestCase):
         self.assertIn((other_class.id, 5), rows)
 
 
+class PoolPromptImportTests(APITestCase):
+    """The director copies the generation prompt, runs it in an outside chatbot,
+    and pastes the JSON back — no Gemini call on either endpoint."""
+
+    def setUp(self):
+        self.director = make_director()
+        self.subject = make_subject(name="Matematika")
+        self.school_class = make_school_class(name="7-A")
+        self.client.force_authenticate(self.director)
+
+    def test_prompt_endpoint_builds_the_prompt_with_subject_class_and_count(self):
+        response = self.client.post(
+            "/api/question-pools/prompt/",
+            {"subject": self.subject.id, "school_class": self.school_class.id, "count": 50},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        prompt = response.data["prompt"]
+        self.assertIn("Matematika", prompt)
+        self.assertIn("7-A", prompt)
+        self.assertIn("50 ta", prompt)
+
+    def test_prompt_without_class_is_subject_wide(self):
+        response = self.client.post(
+            "/api/question-pools/prompt/", {"subject": self.subject.id}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("barcha sinf darajasida", response.data["prompt"])
+
+    def test_import_stores_valid_questions_from_fenced_json(self):
+        pasted = (
+            "Mana savollar:\n```json\n"
+            + json.dumps(
+                {
+                    "questions": [
+                        {"text": "2+2=?", "options": ["3", "4", "5", "6"], "correct_index": 1,
+                         "explanation": "4 to'g'ri."},
+                        {"text": "Bo'sh", "options": ["a"], "correct_index": 0},  # malformed
+                    ]
+                }
+            )
+            + "\n```"
+        )
+        response = self.client.post(
+            "/api/question-pools/import/",
+            {"subject": self.subject.id, "school_class": self.school_class.id, "content": pasted},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, {"received": 2, "added": 1})
+        self.assertEqual(PooledQuestion.objects.filter(subject=self.subject).count(), 1)
+
+    def test_import_rejects_text_without_questions(self):
+        response = self.client.post(
+            "/api/question-pools/import/",
+            {"subject": self.subject.id, "content": "kechirasiz, savol yo'q"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(PooledQuestion.objects.count(), 0)
+
+    def test_prompt_and_import_are_director_only(self):
+        student_user, _ = make_student(school_class=self.school_class)
+        self.client.force_authenticate(student_user)
+        for path in ("/api/question-pools/prompt/", "/api/question-pools/import/"):
+            response = self.client.post(path, {"subject": self.subject.id, "content": "{}"}, format="json")
+            self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, msg=path)
+
+
 class RefillLowPoolsTaskTests(APITestCase):
     """Regression: `refill_low_pools` used to fetch each low pool's Subject
     and SchoolClass with two separate `.get()` calls per row (N+1) — this

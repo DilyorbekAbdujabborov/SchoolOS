@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Database, Sparkles } from "lucide-react";
+import { ClipboardCheck, Copy, Database, Download, Sparkles } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "../../components/Badge";
-import { Field, PrimaryButton, Select } from "../../components/form";
+import { Field, Input, PrimaryButton, SecondaryButton, Select, Textarea } from "../../components/form";
 import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
@@ -24,6 +24,13 @@ export function QuestionPoolsPage() {
   const [schoolClass, setSchoolClass] = useState("");
   const [lastResult, setLastResult] = useState<string | null>(null);
 
+  // External-chatbot flow: copy the prompt, generate elsewhere, paste the JSON back.
+  const [count, setCount] = useState("30");
+  const [promptText, setPromptText] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [pasteContent, setPasteContent] = useState("");
+  const [importResult, setImportResult] = useState<string | null>(null);
+
   const { data: subjects } = useQuery({
     queryKey: ["subjects"],
     queryFn: async () => (await api.get<Paginated<Subject>>("/subjects/")).data,
@@ -38,18 +45,59 @@ export function QuestionPoolsPage() {
     queryFn: async () => (await api.get<QuestionPoolStatus[]>("/question-pools/")).data,
   });
 
+  // The subject+class payload shared by refill / prompt / import. Class is
+  // optional for prompt & import (a subject-wide bank); refill requires it.
+  function poolPayload(extra: Record<string, unknown> = {}) {
+    const body: Record<string, unknown> = { subject: Number(subject), ...extra };
+    if (schoolClass) body.school_class = Number(schoolClass);
+    return body;
+  }
+
   const refill = useMutation({
     mutationFn: async () =>
-      (
-        await api.post<{ added: number }>("/question-pools/refill/", {
-          subject: Number(subject),
-          school_class: Number(schoolClass),
-        })
-      ).data,
+      (await api.post<{ added: number }>("/question-pools/refill/", poolPayload())).data,
     onSuccess: ({ added }) => {
       queryClient.invalidateQueries({ queryKey: ["question-pools"] });
-      setLastResult(added > 0 ? `${added} ta savol qo'shildi.` : "AI hozircha savol yarata olmadi — birozdan so'ng qayta urinib ko'ring.");
+      setLastResult(
+        added > 0
+          ? `${added} ta savol qo'shildi.`
+          : "AI hozircha savol yarata olmadi — birozdan so'ng qayta urinib ko'ring.",
+      );
     },
+  });
+
+  const copyPrompt = useMutation({
+    mutationFn: async () => {
+      const body = poolPayload({ count: Math.max(1, Math.min(200, Number(count) || 30)) });
+      return (await api.post<{ prompt: string }>("/question-pools/prompt/", body)).data;
+    },
+    onSuccess: async ({ prompt }) => {
+      setPromptText(prompt);
+      setCopied(false);
+      try {
+        await navigator.clipboard.writeText(prompt);
+        setCopied(true);
+      } catch {
+        // Clipboard blocked (permissions/insecure context) — the prompt is shown
+        // below for manual copy, so this is not an error worth surfacing.
+      }
+    },
+  });
+
+  const importQuestions = useMutation({
+    mutationFn: async () =>
+      (
+        await api.post<{ received: number; added: number }>(
+          "/question-pools/import/",
+          poolPayload({ content: pasteContent }),
+        )
+      ).data,
+    onSuccess: ({ received, added }) => {
+      queryClient.invalidateQueries({ queryKey: ["question-pools"] });
+      setImportResult(`${added} ta savol qo'shildi (${received} ta qabul qilindi).`);
+      if (added > 0) setPasteContent("");
+    },
+    onError: () => setImportResult("JSON o'qib bo'lmadi — chatbot bergan javobni to'liq nusxalab joylang."),
   });
 
   return (
@@ -95,6 +143,74 @@ export function QuestionPoolsPage() {
           {refill.isPending ? "Tayyorlanmoqda..." : "Pool'ni to'ldirish"}
         </PrimaryButton>
         {lastResult && <p className="w-full text-sm text-slate-500 dark:text-slate-400">{lastResult}</p>}
+      </div>
+
+      {/* External chatbot flow: copy the prompt, generate in ChatGPT/Claude, paste back. */}
+      <div className="card space-y-4 p-5">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+            AI'dan tashqarida tayyorlash (ChatGPT / Claude)
+          </h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Yuqoridan fan (va xohlasangiz sinf) tanlang. 1) Promptni nusxalang → 2) ChatGPT yoki Claude'ga
+            joylang → 3) chiqgan JSON javobni pastki maydonga joylab, import qiling.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="Savollar soni">
+            <Input
+              type="number"
+              min={1}
+              max={200}
+              value={count}
+              onChange={(e) => setCount(e.target.value)}
+              className="w-28"
+            />
+          </Field>
+          <SecondaryButton
+            onClick={() => copyPrompt.mutate()}
+            disabled={!subject || copyPrompt.isPending}
+            className="flex items-center gap-1.5"
+          >
+            {copied ? <ClipboardCheck size={15} /> : <Copy size={15} />}
+            {copyPrompt.isPending ? "Tayyorlanmoqda..." : copied ? "Nusxalandi" : "Promptni nusxalash"}
+          </SecondaryButton>
+        </div>
+
+        {promptText && (
+          <Textarea
+            readOnly
+            value={promptText}
+            rows={6}
+            onFocus={(e) => e.currentTarget.select()}
+            className="font-mono text-xs"
+          />
+        )}
+
+        <Field label="Chatbot javobini (JSON) shu yerga joylang">
+          <Textarea
+            value={pasteContent}
+            onChange={(e) => setPasteContent(e.target.value)}
+            rows={6}
+            placeholder='{"questions": [{"text": "...", "options": ["...","...","...","..."], "correct_index": 0, "explanation": "..."}]}'
+            className="font-mono text-xs"
+          />
+        </Field>
+        <div className="flex flex-wrap items-center gap-3">
+          <PrimaryButton
+            onClick={() => {
+              setImportResult(null);
+              importQuestions.mutate();
+            }}
+            disabled={!subject || !pasteContent.trim() || importQuestions.isPending}
+            className="flex items-center gap-1.5"
+          >
+            <Download size={15} />
+            {importQuestions.isPending ? "Import qilinmoqda..." : "Import qilish"}
+          </PrimaryButton>
+          {importResult && <p className="text-sm text-slate-500 dark:text-slate-400">{importResult}</p>}
+        </div>
       </div>
 
       {isLoading && <LoadingState />}
