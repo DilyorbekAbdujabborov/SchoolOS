@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardCheck, Copy, Database, Download, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "../../components/Badge";
-import { Field, Input, PrimaryButton, SecondaryButton, Select, Textarea } from "../../components/form";
+import { Field, Input, inputClass, PrimaryButton, SecondaryButton, Select, Textarea } from "../../components/form";
 import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
@@ -26,10 +26,10 @@ export function QuestionPoolsPage() {
 
   // External-chatbot flow: copy the prompt, generate elsewhere, paste the JSON back.
   const [count, setCount] = useState("30");
-  const [promptText, setPromptText] = useState("");
   const [copied, setCopied] = useState(false);
   const [pasteContent, setPasteContent] = useState("");
   const [importResult, setImportResult] = useState<string | null>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: subjects } = useQuery({
     queryKey: ["subjects"],
@@ -66,23 +66,46 @@ export function QuestionPoolsPage() {
     },
   });
 
-  const copyPrompt = useMutation({
-    mutationFn: async () => {
-      const body = poolPayload({ count: Math.max(1, Math.min(200, Number(count) || 30)) });
-      return (await api.post<{ prompt: string }>("/question-pools/prompt/", body)).data;
-    },
-    onSuccess: async ({ prompt }) => {
-      setPromptText(prompt);
-      setCopied(false);
-      try {
-        await navigator.clipboard.writeText(prompt);
-        setCopied(true);
-      } catch {
-        // Clipboard blocked (permissions/insecure context) — the prompt is shown
-        // below for manual copy, so this is not an error worth surfacing.
-      }
-    },
+  const safeCount = Math.max(1, Math.min(200, Number(count) || 30));
+
+  // Pre-fetch the prompt reactively so the copy button can write to the
+  // clipboard *synchronously* inside the click. Copying after an awaited
+  // network call fails: the user-gesture activation is gone by then and the
+  // browser rejects navigator.clipboard.writeText — that was the "didn't copy"
+  // bug. No AI call happens here; the endpoint just builds the prompt string.
+  const { data: promptData, isFetching: promptLoading } = useQuery({
+    queryKey: ["pool-prompt", subject, schoolClass, safeCount],
+    enabled: Boolean(subject),
+    queryFn: async () =>
+      (await api.post<{ prompt: string }>("/question-pools/prompt/", poolPayload({ count: safeCount }))).data,
   });
+  const promptText = promptData?.prompt ?? "";
+
+  // Reset the "copied" tick whenever the prompt text itself changes.
+  useEffect(() => setCopied(false), [promptText]);
+
+  function fallbackCopy() {
+    const ta = promptRef.current;
+    if (!ta) return;
+    ta.focus();
+    ta.select();
+    try {
+      if (document.execCommand("copy")) setCopied(true);
+    } catch {
+      /* leave the text selected so the user can press Ctrl+C */
+    }
+  }
+
+  function copyPrompt() {
+    if (!promptText) return;
+    // Called straight from the click (no await before this), so the gesture is
+    // still active and writeText is allowed; fall back to execCommand otherwise.
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(promptText).then(() => setCopied(true), fallbackCopy);
+    } else {
+      fallbackCopy();
+    }
+  }
 
   const importQuestions = useMutation({
     mutationFn: async () =>
@@ -169,22 +192,23 @@ export function QuestionPoolsPage() {
             />
           </Field>
           <SecondaryButton
-            onClick={() => copyPrompt.mutate()}
-            disabled={!subject || copyPrompt.isPending}
+            onClick={copyPrompt}
+            disabled={!subject || !promptText || promptLoading}
             className="flex items-center gap-1.5"
           >
             {copied ? <ClipboardCheck size={15} /> : <Copy size={15} />}
-            {copyPrompt.isPending ? "Tayyorlanmoqda..." : copied ? "Nusxalandi" : "Promptni nusxalash"}
+            {promptLoading ? "Tayyorlanmoqda..." : copied ? "Nusxalandi ✓" : "Promptni nusxalash"}
           </SecondaryButton>
         </div>
 
         {promptText && (
-          <Textarea
+          <textarea
+            ref={promptRef}
             readOnly
             value={promptText}
             rows={6}
             onFocus={(e) => e.currentTarget.select()}
-            className="font-mono text-xs"
+            className={`${inputClass} min-h-[92px] resize-y font-mono text-xs`}
           />
         )}
 
