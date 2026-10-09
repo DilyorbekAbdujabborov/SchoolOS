@@ -103,3 +103,93 @@ class Device(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.serial} — {self.location_label or self.vendor}"
+
+
+class AccessEvent(TimeStampedModel):
+    """One normalized recognition event from a terminal. Vendor-neutral: the
+    bridge translates whatever the device sent into these fields (and keeps the
+    original in `raw` for diagnostics)."""
+
+    class Direction(models.TextChoices):
+        IN = "IN", _("Entry")
+        OUT = "OUT", _("Exit")
+        UNKNOWN = "UNKNOWN", _("Unknown")
+
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="access_events",
+        on_delete=models.CASCADE,
+    )
+    device = models.ForeignKey(
+        Device,
+        verbose_name=_("device"),
+        related_name="access_events",
+        on_delete=models.CASCADE,
+    )
+    user = models.ForeignKey(
+        "users.User",
+        verbose_name=_("user"),
+        related_name="access_events",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
+    raw_osid = models.CharField(_("raw OSID"), max_length=64)
+    event_time = models.DateTimeField(_("event time"))
+    direction = models.CharField(
+        _("direction"), max_length=8, choices=Direction.choices, default=Direction.UNKNOWN
+    )
+    verify_mode = models.CharField(_("verify mode"), max_length=32, blank=True)
+    raw = models.JSONField(_("raw payload"), default=dict, blank=True)
+    dedup_key = models.CharField(_("dedup key"), max_length=255, unique=True)
+
+    class Meta:
+        verbose_name = _("access event")
+        verbose_name_plural = _("access events")
+        ordering: ClassVar[list[str]] = ["-event_time"]
+
+    def __str__(self) -> str:
+        return f"{self.raw_osid} @ {self.event_time:%Y-%m-%d %H:%M} ({self.direction})"
+
+
+class DailyAttendance(TimeStampedModel):
+    """A student's first entry / last exit for one day, derived from
+    `AccessEvent`s. Staff attendance reporting is a later phase."""
+
+    class Status(models.TextChoices):
+        PRESENT = "PRESENT", _("Present")
+        LATE = "LATE", _("Late")
+        ABSENT = "ABSENT", _("Absent")
+
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        verbose_name=_("organization"),
+        related_name="daily_attendance",
+        on_delete=models.CASCADE,
+    )
+    student = models.ForeignKey(
+        "users.StudentProfile",
+        verbose_name=_("student"),
+        related_name="daily_attendance",
+        on_delete=models.CASCADE,
+    )
+    date = models.DateField(_("date"))
+    first_in_at = models.DateTimeField(_("first entry"), null=True, blank=True)
+    last_out_at = models.DateTimeField(_("last exit"), null=True, blank=True)
+    status = models.CharField(
+        _("status"), max_length=10, choices=Status.choices, default=Status.ABSENT
+    )
+
+    class Meta:
+        verbose_name = _("daily attendance")
+        verbose_name_plural = _("daily attendance")
+        ordering: ClassVar[list[str]] = ["-date"]
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.UniqueConstraint(
+                fields=["student", "date"], name="unique_daily_attendance_per_student"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.student} — {self.date} — {self.status}"
