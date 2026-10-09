@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "apps.games",
     "apps.materials",
     "apps.leads",
+    "apps.devices",
 ]
 
 MIDDLEWARE = [
