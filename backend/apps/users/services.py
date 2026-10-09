@@ -24,6 +24,24 @@ User = get_user_model()
 STUDENT_EMAIL_DOMAIN = "student.schoolos.local"
 REQUIRED_COLUMNS = ("full_name", "class")
 
+#: OSID range: 10 digits, first digit non-zero — 1_000_000_000 .. 9_999_999_999.
+_OSID_BASE = 1_000_000_000
+_OSID_SPAN = 9_000_000_000
+
+
+def generate_osid() -> str:
+    """A 10-digit, globally unique OSID (SchoolOS id) for a `User`.
+
+    Deliberately global, not per-organization: the OSID is the stable key other
+    systems — face terminals, and later the national uzedu hierarchy — map a
+    person by, so it must not repeat across schools. Re-draws on the rare
+    collision; `User.save()` adds a second guard for the insert race.
+    """
+    while True:
+        candidate = str(_OSID_BASE + secrets.randbelow(_OSID_SPAN))
+        if not User.objects.filter(osid=candidate).exists():
+            return candidate
+
 
 @dataclass
 class ImportedStudent:

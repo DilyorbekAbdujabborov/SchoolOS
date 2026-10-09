@@ -60,6 +60,17 @@ class User(AbstractUser):
         default=False,
         help_text=_("Yoqilsa, handle orqali profil hamma uchun ochiq bo'ladi."),
     )
+    osid = models.CharField(
+        _("OSID"),
+        max_length=10,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text=_(
+            "10 xonali barqaror identifikator. Tashqi tizimlar (yuz terminali, "
+            "uzedu) odamni shu kalit orqali bog'laydi. Avtomatik beriladi."
+        ),
+    )
     active_organization = models.ForeignKey(
         "organizations.Organization",
         verbose_name=_("active organization"),
@@ -83,6 +94,25 @@ class User(AbstractUser):
         verbose_name = _("user")
         verbose_name_plural = _("users")
         ordering: ClassVar[list[str]] = ["-date_joined"]
+
+    def save(self, *args, **kwargs):
+        # Assign an OSID on first save. The generator already skips taken values;
+        # the atomic retry here closes the insert race between two concurrent
+        # creates drawing the same candidate.
+        if not self.osid:
+            from django.db import IntegrityError, transaction
+
+            from .services import generate_osid
+
+            for _attempt in range(5):
+                self.osid = generate_osid()
+                try:
+                    with transaction.atomic():
+                        return super().save(*args, **kwargs)
+                except IntegrityError:
+                    self.osid = None
+            # Exhausted retries: let a final attempt raise the real error.
+        return super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"{self.get_full_name() or self.username} <{self.email}>"
