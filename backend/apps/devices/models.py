@@ -36,6 +36,12 @@ class Bridge(TimeStampedModel):
         verbose_name = _("device bridge")
         verbose_name_plural = _("device bridges")
 
+    # A Bridge is the authenticated principal on bridge-token requests
+    # (`BridgeTokenAuthentication` returns it as `request.user`), so DRF —
+    # throttling especially — can treat it like any authenticated identity.
+    is_authenticated = True
+    is_anonymous = False
+
     def issue_token(self) -> str:
         """Generate a fresh bearer token, store only its hash, and return the
         plaintext once. The caller must hand it to the bridge now — it is never

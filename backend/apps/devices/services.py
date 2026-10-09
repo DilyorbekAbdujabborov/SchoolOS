@@ -89,14 +89,15 @@ def ingest_events(bridge, items: list[dict]) -> dict:
             organization=organization, serial=item["device_serial"]
         ).first()
         osid = str(item["osid"])
-        event_time = parse_datetime(item["event_time"])
+        raw_time = item["event_time"]
+        event_time = raw_time if isinstance(raw_time, datetime) else parse_datetime(raw_time)
         direction = item.get("direction") or AccessEvent.Direction.UNKNOWN
 
         if device is None:
             unmatched.append(f"no-device:{item['device_serial']}:{osid}")
             continue
 
-        dedup_key = f"{device.id}:{item['event_time']}:{osid}"
+        dedup_key = f"{device.id}:{event_time.isoformat()}:{osid}"
         if AccessEvent.objects.filter(dedup_key=dedup_key).exists():
             duplicate.append(dedup_key)
             continue
