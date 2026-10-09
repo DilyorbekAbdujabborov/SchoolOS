@@ -123,3 +123,25 @@ class CapabilityGateApiTests(APITestCase):
     def test_anonymous_still_401(self):
         self._deny(self.org_a, "materials.read")
         self.assertEqual(self.client.get("/api/materials/").status_code, 401)
+
+
+class MeCapabilitiesTests(APITestCase):
+    def setUp(self):
+        self.org = default_organization()
+        self.director = make_director()
+        token = str(RefreshToken.for_user(self.director).access_token)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+    def test_me_lists_denied_for_acting_org(self):
+        ClientConfig.objects.create(
+            organization=self.org, denied=["students.create", "materials.read"]
+        )
+        response = self.client.get("/api/auth/me/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["capabilities"], {"denied": ["materials.read", "students.create"]}
+        )
+
+    def test_me_empty_when_no_config(self):
+        response = self.client.get("/api/auth/me/")
+        self.assertEqual(response.data["capabilities"], {"denied": []})
