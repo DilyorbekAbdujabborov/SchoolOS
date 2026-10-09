@@ -109,3 +109,16 @@ class BridgeLimitsTests(APITestCase):
         user_key = UserRateThrottle().get_cache_key(request, None)
         self.assertNotEqual(bridge_key, user_key)
         self.assertIn(f"bridge_{self.bridge.pk}", bridge_key)
+
+
+class HeartbeatScopeTests(APITestCase):
+    def test_heartbeat_only_touches_own_bridge_devices(self):
+        org = default_organization()
+        b1 = Bridge.objects.create(organization=org, name="b1")
+        b2 = Bridge.objects.create(organization=org, name="b2")
+        token1 = b1.issue_token()
+        foreign = Device.objects.create(bridge=b2, serial="DEV-9", last_known_ip="10.0.0.9")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token1}")
+        self.client.post(HEARTBEAT_URL, {"device_serials": ["DEV-9"]}, format="json")
+        foreign.refresh_from_db()
+        self.assertEqual(foreign.last_known_ip, "10.0.0.9")

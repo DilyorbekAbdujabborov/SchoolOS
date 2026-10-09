@@ -115,3 +115,58 @@ class SecondShiftTests(TestCase):
 
     def test_first_shift_late_still_late(self):
         self.assertEqual(self._ingest(8, 30), DailyAttendance.Status.LATE)
+
+
+class IngestRobustnessTests(TestCase):
+    def setUp(self):
+        self.org = default_organization()
+        self.bridge = Bridge.objects.create(organization=self.org, name="b")
+        self.device = Device.objects.create(bridge=self.bridge, serial="DEV-1")
+        self.user, self.student = make_student()
+
+    def _item(self, event_time, direction="IN"):
+        return {"device_serial": "DEV-1", "osid": self.user.osid,
+                "event_time": event_time, "direction": direction}
+
+    def test_same_instant_different_offsets_dedup(self):
+        ingest_events(self.bridge, [self._item("2026-10-09T03:03:00+00:00")])
+        result = ingest_events(self.bridge, [self._item("2026-10-09T08:03:00+05:00")])
+        self.assertEqual(AccessEvent.objects.count(), 1)
+        self.assertEqual(len(result["duplicate"]), 1)
+
+    def test_naive_time_treated_as_local(self):
+        ingest_events(self.bridge, [self._item("2026-10-09T08:03:00")])
+        event = AccessEvent.objects.get()
+        self.assertTrue(timezone.is_aware(event.event_time))
+        self.assertEqual(timezone.localtime(event.event_time).hour, 8)
+
+    def test_concurrent_duplicate_insert_reported_not_raised(self):
+        # Simulates a racing request that inserted the same event between our
+        # exists() check and create(): the unique dedup_key must not 500.
+        from unittest import mock
+
+        item = self._item(_aware(8, 3).isoformat())
+        ingest_events(self.bridge, [item])
+        with mock.patch("apps.devices.services._is_duplicate", return_value=False):
+            result = ingest_events(self.bridge, [item])
+        self.assertEqual(len(result["duplicate"]), 1)
+        self.assertEqual(AccessEvent.objects.count(), 1)
+
+    def test_notify_failure_rolls_back_item_so_retry_reprocesses(self):
+        from unittest import mock
+
+        item = self._item(_aware(8, 3).isoformat())
+        with mock.patch("apps.devices.services.notify", side_effect=RuntimeError("db blip")):
+            result = ingest_events(self.bridge, [item])
+        self.assertEqual(len(result["failed"]), 1)
+        self.assertEqual(AccessEvent.objects.count(), 0)
+
+        before = Notification.objects.filter(recipient=self.user).count()
+        result = ingest_events(self.bridge, [item])
+        self.assertEqual(len(result["accepted"]), 1)
+        self.assertEqual(Notification.objects.filter(recipient=self.user).count(), before + 1)
+
+    def test_lone_out_marks_present(self):
+        ingest_events(self.bridge, [self._item(_aware(13, 0).isoformat(), direction="OUT")])
+        da = DailyAttendance.objects.get(student=self.student)
+        self.assertEqual(da.status, DailyAttendance.Status.PRESENT)

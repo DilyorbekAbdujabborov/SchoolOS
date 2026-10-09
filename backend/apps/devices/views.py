@@ -48,8 +48,6 @@ class HeartbeatView(_BridgeView):
         ip = request.META.get("REMOTE_ADDR")
         serials = serializer.validated_data["device_serials"]
         if ip and serials:
-            Device.objects.filter(
-                organization=bridge.organization, serial__in=serials
-            ).update(last_known_ip=ip)
+            Device.objects.filter(bridge=bridge, serial__in=serials).update(last_known_ip=ip)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
