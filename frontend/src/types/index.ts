@@ -13,6 +13,8 @@ export interface CurrentUser {
   teacher_profile_id: number | null;
   handle: string | null;
   is_profile_public: boolean;
+  /** Client-config: capability keys this organization is denied (`resource.action`). */
+  capabilities?: { denied: string[] };
 }
 
 /** What `/auth/public-profile/` reads and writes — the user's own settings. */
