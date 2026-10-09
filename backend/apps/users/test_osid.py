@@ -55,3 +55,22 @@ class UserOsidTests(TestCase):
     def test_all_users_have_osid_after_backfill(self):
         # Every factory user already goes through save(); none should be null.
         self.assertFalse(User.objects.filter(osid__isnull=True).exists())
+
+
+class OsidRetryExhaustionTests(TestCase):
+    def test_save_raises_instead_of_saving_without_osid(self):
+        from django.db import IntegrityError
+
+        import apps.users.services as services
+
+        taken = make_student()[0].osid
+        original = services.generate_osid
+        services.generate_osid = lambda: taken  # every draw collides (insert race)
+        try:
+            with self.assertRaises(IntegrityError):
+                User.objects.create_user(
+                    username="racer", email="racer@example.com", password="x"
+                )
+        finally:
+            services.generate_osid = original
+        self.assertFalse(User.objects.filter(email="racer@example.com").exists())

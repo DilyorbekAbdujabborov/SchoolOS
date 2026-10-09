@@ -75,3 +75,37 @@ class HeartbeatEndpointTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.bridge.refresh_from_db()
         self.assertIsNotNone(self.bridge.last_seen_at)
+
+
+class BridgeLimitsTests(APITestCase):
+    def setUp(self):
+        self.bridge = Bridge.objects.create(organization=default_organization(), name="b")
+        self.token = self.bridge.issue_token()
+        Device.objects.create(bridge=self.bridge, serial="DEV-1")
+
+    def test_oversized_batch_rejected_400(self):
+        from .views import MAX_EVENTS_PER_BATCH
+
+        item = {"device_serial": "DEV-1", "osid": "1234567890",
+                "event_time": _iso(8, 0), "direction": "IN"}
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token}")
+        response = self.client.post(
+            EVENTS_URL, [item] * (MAX_EVENTS_PER_BATCH + 1), format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(AccessEvent.objects.count(), 0)
+
+    def test_bridge_throttle_bucket_not_shared_with_user_pk(self):
+        from rest_framework.test import APIRequestFactory
+        from rest_framework.throttling import UserRateThrottle
+
+        from .throttling import BridgeRateThrottle
+        from .views import EventsView
+
+        self.assertIn(BridgeRateThrottle, EventsView.throttle_classes)
+        request = APIRequestFactory().post(EVENTS_URL)
+        request.user = self.bridge
+        bridge_key = BridgeRateThrottle().get_cache_key(request, None)
+        user_key = UserRateThrottle().get_cache_key(request, None)
+        self.assertNotEqual(bridge_key, user_key)
+        self.assertIn(f"bridge_{self.bridge.pk}", bridge_key)

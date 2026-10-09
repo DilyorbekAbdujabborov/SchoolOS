@@ -45,7 +45,18 @@ def _status_for(organization, first_in_at) -> str:
     if settings is None:
         return DailyAttendance.Status.PRESENT
     local = timezone.localtime(first_in_at)
-    threshold = (datetime.combine(local.date(), settings.start_time) + GRACE).time()
+    start = settings.start_time
+    second = settings.second_start_time
+    if second is not None and second > start:
+        # Classes don't record their shift, so pick it from the arrival time:
+        # anything past the midpoint between the two starts belongs to shift 2.
+        day = local.date()
+        midpoint = datetime.combine(day, start) + (
+            datetime.combine(day, second) - datetime.combine(day, start)
+        ) / 2
+        if local.replace(tzinfo=None) >= midpoint:
+            start = settings.shift_start(2)
+    threshold = (datetime.combine(local.date(), start) + GRACE).time()
     if local.time() <= threshold:
         return DailyAttendance.Status.PRESENT
     return DailyAttendance.Status.LATE

@@ -87,3 +87,31 @@ class IngestEventsTests(TestCase):
         ingest_events(self.bridge, [self._item(h=8, m=3)])
         after = Notification.objects.filter(recipient=self.user).count()
         self.assertEqual(after, before + 1)
+
+
+class SecondShiftTests(TestCase):
+    def setUp(self):
+        self.org = default_organization()
+        self.bridge = Bridge.objects.create(organization=self.org, name="b")
+        Device.objects.create(bridge=self.bridge, serial="DEV-1")
+        self.user, self.student = make_student()
+        SchoolTimeSettings.objects.create(
+            organization=self.org, start_time=time(8, 0), second_start_time=time(13, 0)
+        )
+
+    def _ingest(self, h, m):
+        ingest_events(
+            self.bridge,
+            [{"device_serial": "DEV-1", "osid": self.user.osid,
+              "event_time": _aware(h, m).isoformat(), "direction": "IN"}],
+        )
+        return DailyAttendance.objects.get(student=self.student).status
+
+    def test_second_shift_arrival_before_its_start_is_present(self):
+        self.assertEqual(self._ingest(12, 55), DailyAttendance.Status.PRESENT)
+
+    def test_second_shift_arrival_after_grace_is_late(self):
+        self.assertEqual(self._ingest(13, 30), DailyAttendance.Status.LATE)
+
+    def test_first_shift_late_still_late(self):
+        self.assertEqual(self._ingest(8, 30), DailyAttendance.Status.LATE)

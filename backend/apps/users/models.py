@@ -104,14 +104,18 @@ class User(AbstractUser):
 
             from .services import generate_osid
 
+            last_error = None
             for _attempt in range(5):
                 self.osid = generate_osid()
                 try:
                     with transaction.atomic():
                         return super().save(*args, **kwargs)
-                except IntegrityError:
+                except IntegrityError as exc:
                     self.osid = None
-            # Exhausted retries: let a final attempt raise the real error.
+                    last_error = exc
+            # Never fall through to saving without an OSID — a user the terminals
+            # can't match is worse than a failed create.
+            raise last_error
         return super().save(*args, **kwargs)
 
     def __str__(self) -> str:

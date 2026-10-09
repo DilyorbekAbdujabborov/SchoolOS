@@ -162,6 +162,7 @@ REST_FRAMEWORK = {
         "anon": "100/hour",
         "user": "1000/hour",
         "demo_request": "10/hour",
+        "bridge": "6000/hour",
     },
 }
 
