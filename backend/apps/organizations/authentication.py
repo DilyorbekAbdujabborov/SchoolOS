@@ -19,6 +19,7 @@ from rest_framework import exceptions
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from apps.organizations import services
+from apps.organizations.capabilities import capability_for, get_denied, is_allowed
 
 #: The JWT claim naming the active organization.
 ORG_CLAIM = "org_id"
@@ -101,7 +102,38 @@ class OrganizationHeaderAuthentication(OrganizationJWTAuthentication):
         if tenant is not None:
             _apply_membership(request, user, services.resolve_membership(user, tenant.id))
 
+        enforce_capabilities(request)
         return result
+
+
+class CapabilityDenied(exceptions.APIException):
+    # Not AppError: apps.common.exceptions imports rest_framework.views, which
+    # loads this module via DEFAULT_AUTHENTICATION_CLASSES — a circular import.
+    # The envelope reads `default_code` either way.
+    status_code = 403
+    default_detail = _("Bu bo'lim tashkilotingiz uchun yoqilmagan.")
+    default_code = "capability_denied"
+
+    def __init__(self, capability: str):
+        # The key travels in the envelope's `errors.capability`, so the frontend
+        # can tell which capability was refused.
+        super().__init__(detail={"detail": self.default_detail, "capability": [capability]})
+        self.capability = capability
+
+
+def enforce_capabilities(request) -> None:
+    """Refuse the request when the acting organization's client-config denies the
+    capability its path and method need. Runs where the organization is final
+    (end of `OrganizationHeaderAuthentication.authenticate`), so it never has to
+    resolve the organization a second way."""
+    organization = getattr(request, "organization", None)
+    if organization is None:
+        return
+    key = capability_for(request.path, request.method)
+    if key is None:
+        return
+    if not is_allowed(get_denied(organization), key):
+        raise CapabilityDenied(key)
 
 
 def organization_for_request(request):
@@ -120,6 +152,8 @@ def organization_required(request):
 
 __all__ = [
     "ORG_CLAIM",
+    "CapabilityDenied",
+    "enforce_capabilities",
     "OrganizationHeaderAuthentication",
     "OrganizationJWTAuthentication",
     "organization_for_request",

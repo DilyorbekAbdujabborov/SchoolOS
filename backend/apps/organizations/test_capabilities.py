@@ -66,3 +66,60 @@ class ClientConfigTests(TestCase):
 
     def test_all_keys_cover_resources_times_actions(self):
         self.assertEqual(len(all_keys()), len(RESOURCES) * 4)
+
+
+from rest_framework.test import APITestCase  # noqa: E402
+from rest_framework_simplejwt.tokens import RefreshToken  # noqa: E402
+
+from apps.common.testing import add_membership, make_director  # noqa: E402
+
+
+class CapabilityGateApiTests(APITestCase):
+    def setUp(self):
+        self.org_a = default_organization()
+        self.org_b = make_organization("School B")
+        self.director = make_director()  # active in org_a
+
+    def _auth(self, user, **headers):
+        token = str(RefreshToken.for_user(user).access_token)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}", **headers)
+
+    def _deny(self, org, *keys):
+        ClientConfig.objects.update_or_create(organization=org, defaults={"denied": list(keys)})
+
+    def test_denied_read_blocks_get_and_post_with_envelope(self):
+        self._deny(self.org_a, "materials.read")
+        self._auth(self.director)
+        for method in ("get", "post"):
+            response = getattr(self.client, method)("/api/materials/", {}, format="json")
+            self.assertEqual(response.status_code, 403, method)
+            self.assertEqual(response.data["error_code"], "capability_denied")
+            self.assertEqual(response.data["errors"]["capability"], [f"materials.{'read' if method == 'get' else 'create'}"])
+
+    def test_write_denial_keeps_read(self):
+        self._deny(self.org_a, "students.create")
+        self._auth(self.director)
+        self.assertEqual(self.client.get("/api/students/").status_code, 200)
+        response = self.client.post("/api/students/", {}, format="json")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.data["error_code"], "capability_denied")
+
+    def test_other_org_config_does_not_apply(self):
+        self._deny(self.org_b, "students.read")
+        self._auth(self.director)
+        self.assertEqual(self.client.get("/api/students/").status_code, 200)
+
+    def test_header_switch_applies_target_org_config(self):
+        add_membership(self.director, self.org_b, role="DIRECTOR")
+        self._deny(self.org_b, "students.read")
+        self._auth(self.director, HTTP_X_ORGANIZATION_ID=str(self.org_b.id))
+        self.assertEqual(self.client.get("/api/students/").status_code, 403)
+
+    def test_unregistered_route_never_gated(self):
+        self._deny(self.org_a, *[f"{r}.read" for r in RESOURCES])
+        self._auth(self.director)
+        self.assertEqual(self.client.get("/api/auth/me/").status_code, 200)
+
+    def test_anonymous_still_401(self):
+        self._deny(self.org_a, "materials.read")
+        self.assertEqual(self.client.get("/api/materials/").status_code, 401)
