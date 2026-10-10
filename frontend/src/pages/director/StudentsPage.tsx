@@ -13,6 +13,8 @@ import { Pagination } from "../../components/Pagination";
 import { EmptyState, ErrorState, LoadingState } from "../../components/states";
 import { Table, Tbody, Td, Th, Thead, Tr } from "../../components/table";
 import { api } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
+import { can } from "../../lib/capabilities";
 import type { Gender, Paginated, SchoolClass, Student } from "../../types";
 
 interface StudentFormState {
@@ -71,6 +73,9 @@ function formatBirthDate(value: string | null): string | null {
 }
 
 export function StudentsPage() {
+  const { user } = useAuth();
+  const canCreate = can(user, "students.create");
+  const canUpdate = can(user, "students.update");
   const queryClient = useQueryClient();
   const [isModalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<StudentFormState>(EMPTY_FORM);
@@ -163,7 +168,11 @@ export function StudentsPage() {
       <PageHeader
         title="O'quvchilar"
         subtitle={total > 0 ? `Jami ${total} ta o'quvchi` : undefined}
-        action={<PrimaryButton onClick={() => setModalOpen(true)}>+ O'quvchi qo'shish</PrimaryButton>}
+        action={
+          canCreate ? (
+            <PrimaryButton onClick={() => setModalOpen(true)}>+ O'quvchi qo'shish</PrimaryButton>
+          ) : undefined
+        }
       />
 
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -256,12 +265,14 @@ export function StudentsPage() {
                       </Badge>
                     </Td>
                     <Td className="text-right">
-                      <button
-                        onClick={() => setConfirmTarget(student)}
-                        className="text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
-                      >
-                        {student.is_active ? "Faolsizlantirish" : "Faollashtirish"}
-                      </button>
+                      {canUpdate && (
+                        <button
+                          onClick={() => setConfirmTarget(student)}
+                          className="text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+                        >
+                          {student.is_active ? "Faolsizlantirish" : "Faollashtirish"}
+                        </button>
+                      )}
                     </Td>
                   </Tr>
                 ))}
@@ -296,12 +307,14 @@ export function StudentsPage() {
                       {student.total_xp.toLocaleString("uz-UZ")} XP
                     </span>
                   </span>
-                  <button
-                    onClick={() => setConfirmTarget(student)}
-                    className="shrink-0 font-medium text-brand-600 hover:underline dark:text-brand-400"
-                  >
-                    {student.is_active ? "Faolsizlantirish" : "Faollashtirish"}
-                  </button>
+                  {canUpdate && (
+                    <button
+                      onClick={() => setConfirmTarget(student)}
+                      className="shrink-0 font-medium text-brand-600 hover:underline dark:text-brand-400"
+                    >
+                      {student.is_active ? "Faolsizlantirish" : "Faollashtirish"}
+                    </button>
+                  )}
                 </div>
               </li>
             ))}

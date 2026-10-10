@@ -59,6 +59,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 class MeSerializer(serializers.ModelSerializer):
     total_xp = serializers.SerializerMethodField()
+    capabilities = serializers.SerializerMethodField()
     avatar_url = serializers.SerializerMethodField()
     teacher_profile_id = serializers.SerializerMethodField()
 
@@ -77,8 +78,20 @@ class MeSerializer(serializers.ModelSerializer):
             "teacher_profile_id",
             "handle",
             "is_profile_public",
+            "capabilities",
         )
         read_only_fields = fields
+
+    def get_capabilities(self, obj) -> dict:
+        """The acting organization's client-config denials, so the frontend can
+        hide sidebar entries, routes and buttons the API would refuse anyway."""
+        from apps.organizations.capabilities import get_denied
+
+        request = self.context.get("request")
+        organization = getattr(request, "organization", None) or obj.active_organization
+        if organization is None:
+            return {"denied": []}
+        return {"denied": sorted(get_denied(organization))}
 
     def get_total_xp(self, obj) -> int | None:
         profile = getattr(obj, "student_profile", None)

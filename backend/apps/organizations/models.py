@@ -115,3 +115,46 @@ class OrganizationMembership(TimeStampedModel):
     @property
     def is_active_member(self) -> bool:
         return self.status == self.Status.ACTIVE
+
+
+class ClientConfig(TimeStampedModel):
+    """What the platform owner allows this organization to do.
+
+    Stores only *denied* capability keys (`<resource>.<action>`, see
+    `apps.organizations.capabilities`). No row, or an empty list, means
+    everything is allowed. Only superusers edit it (Django admin).
+    """
+
+    organization = models.OneToOneField(
+        Organization,
+        verbose_name=_("organization"),
+        related_name="client_config",
+        on_delete=models.CASCADE,
+    )
+    denied = models.JSONField(
+        _("denied capabilities"),
+        default=list,
+        blank=True,
+        help_text=_("Taqiqlangan imkoniyatlar, masalan: materials.read, students.create"),
+    )
+
+    class Meta:
+        verbose_name = _("client config")
+        verbose_name_plural = _("client configs")
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        from .capabilities import all_keys
+
+        if not isinstance(self.denied, list):
+            raise ValidationError({"denied": _("Ro'yxat bo'lishi kerak.")})
+        unknown = sorted(set(self.denied) - set(all_keys()))
+        if unknown:
+            raise ValidationError(
+                {"denied": _("Noma'lum imkoniyat: %(keys)s") % {"keys": ", ".join(unknown)}}
+            )
+        self.denied = sorted(set(self.denied))
+
+    def __str__(self) -> str:
+        return f"{self.organization} config"

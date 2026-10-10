@@ -7,7 +7,9 @@ import logoMark from "../assets/logo-mark.png";
 import { Avatar } from "../components/Avatar";
 import { PushPrompt } from "../components/PushPrompt";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { FeatureDisabled } from "../components/FeatureDisabled";
 import { useAuth } from "../lib/auth";
+import { canOpen } from "../lib/capabilities";
 import { useStudentTopStats } from "../lib/useStudentTopStats";
 
 interface NavItem {
@@ -235,6 +237,13 @@ export function DashboardLayout({
     }
   });
   const location = useLocation();
+  const { user } = useAuth();
+  // Client-config: drop sections the organization may not open, and any group
+  // left empty by that.
+  const visibleGroups = navGroups
+    .map((group) => ({ ...group, items: group.items.filter((item) => canOpen(user, item.to)) }))
+    .filter((group) => group.items.length > 0);
+  const pageAllowed = canOpen(user, location.pathname);
 
   // Close the drawer whenever the route changes (covers back/forward nav too,
   // not just clicking a link — NavLink's own onClick wouldn't catch that).
@@ -281,7 +290,7 @@ export function DashboardLayout({
               </button>
             </div>
             <BrandHeader brand={brand} collapsed={false} />
-            <SidebarNav groups={navGroups} collapsed={false} onNavigate={() => setMobileOpen(false)} />
+            <SidebarNav groups={visibleGroups} collapsed={false} onNavigate={() => setMobileOpen(false)} />
             <SidebarFooter collapsed={false} />
           </aside>
         </div>
@@ -294,7 +303,7 @@ export function DashboardLayout({
         }`}
       >
         <BrandHeader brand={brand} collapsed={collapsed} />
-        <SidebarNav groups={navGroups} collapsed={collapsed} />
+        <SidebarNav groups={visibleGroups} collapsed={collapsed} />
         <SidebarFooter collapsed={collapsed} />
         <button
           onClick={toggleCollapsed}
@@ -309,7 +318,7 @@ export function DashboardLayout({
       <div className="flex flex-1 flex-col md:h-screen md:min-h-0">
         <TopBar onMenuClick={() => setMobileOpen(true)} />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 [scrollbar-gutter:stable]">
-          <Outlet />
+          {pageAllowed ? <Outlet /> : <FeatureDisabled />}
         </main>
       </div>
 
